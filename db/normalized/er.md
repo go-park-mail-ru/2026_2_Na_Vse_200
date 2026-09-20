@@ -6,48 +6,48 @@
 erDiagram
     ACCOUNT {
         id id PK
-        string email UK
-        string password_hash
-        string display_name
+        text email UK
+        text password_hash
+        text display_name
         id avatar_file_id FK
-        timestamp created_at
-        timestamp updated_at
+        timestampz created_at
+        timestampz updated_at
     }
     MEDIA_FILE {
         id id PK
-        string bucket
-        string object_key UK
-        string mime_type
-        int byte_size
+        text bucket
+        text object_key UK
+        text mime_type
+        bigint byte_size
         int duration_ms
-        timestamp created_at
-        timestamp updated_at
+        timestampz created_at
+        timestampz updated_at
     }
     ARTIST {
         id id PK
-        string name
-        string biography
+        text name
+        text biography
         id image_file_id FK
-        timestamp created_at
-        timestamp updated_at
+        timestampz created_at
+        timestampz updated_at
     }
     ALBUM {
         id id PK
-        string title
+        text title
         date release_date
         id cover_file_id FK
-        timestamp created_at
-        timestamp updated_at
+        timestampz created_at
+        timestampz updated_at
     }
     TRACK {
         id id PK
         id uploader_id FK
-        string title
+        text title
         id audio_file_id FK
         id cover_file_id FK
-        string status
-        timestamp created_at
-        timestamp updated_at
+        text status
+        timestampz created_at
+        timestampz updated_at
     }
 
     ACCOUNT ||--o{ TRACK : "uploads"
@@ -102,13 +102,13 @@ erDiagram
     PLAYLIST {
         id id PK
         id owner_id FK
-        string title
-        string description
+        text title
+        text description
         id cover_file_id FK
         boolean is_public
         int revision
-        timestamp created_at
-        timestamp updated_at
+        timestampz created_at
+        timestampz updated_at
     }
     PLAYLIST_ITEM {
         id id PK
@@ -122,12 +122,12 @@ erDiagram
     }
     CHART {
         id id PK
-        string name
+        text name
         date period_start
         date period_end
         id cover_file_id FK
-        timestamp created_at
-        timestamp updated_at
+        timestampz created_at
+        timestampz updated_at
     }
     CHART_ITEM {
         id chart_id PK
@@ -139,7 +139,7 @@ erDiagram
         id id PK
         id account_id FK
         id track_id FK
-        timestamp started_at
+        timestampz started_at
     }
 
     ACCOUNT ||--o{ PLAYLIST : "owns"
@@ -163,34 +163,34 @@ erDiagram
     }
     MEDIA_FILE {
         id id PK
-        string bucket FK
-        string object_key FK
+        text bucket FK
+        text object_key FK
     }
     SESSION {
-        string session_id PK
+        text session_id PK
         id account_id FK
-        timestamp expires_at
+        timestampz expires_at
     }
     PLAYBACK_STATE {
         id account_id PK
-        string active_device_id
+        text active_device_id
         id current_item_id
-        string playback_id
+        text playback_id
         int position_ms
         boolean is_playing
         int volume
         int revision
-        timestamp updated_at
+        timestampz updated_at
     }
     PLAYBACK_QUEUE_ITEM {
         id account_id PK
-        string item_id PK
+        text item_id PK
         id track_id FK
         int position
     }
     S3_OBJECT {
-        string bucket PK
-        string object_key PK
+        text bucket PK
+        text object_key PK
         binary binary_content
     }
 
