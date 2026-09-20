@@ -15,7 +15,7 @@ erDiagram
     }
     MEDIA_FILE {
         id id PK
-        text bucket
+        text bucket UK
         text object_key UK
         text mime_type
         bigint byte_size
@@ -51,12 +51,14 @@ erDiagram
     }
 
     ACCOUNT ||--o{ TRACK : "uploads"
-    ACCOUNT ||--o| MEDIA_FILE : "avatar"
-    ARTIST ||--o| MEDIA_FILE : "image"
-    ALBUM ||--o| MEDIA_FILE : "cover"
-    TRACK ||--o| MEDIA_FILE : "audio"
-    TRACK ||--o| MEDIA_FILE : "cover"
+    MEDIA_FILE |o..o{ ACCOUNT : "avatar_file_id"
+    MEDIA_FILE |o..o{ ARTIST : "image_file_id"
+    MEDIA_FILE |o..o{ ALBUM : "cover_file_id"
+    MEDIA_FILE |o..o{ TRACK : "audio_file_id"
+    MEDIA_FILE |o..o{ TRACK : "cover_file_id"
 ```
+
+## 2. Исполнители и состав альбомов (PostgreSQL)
 
 ```mermaid
 erDiagram
@@ -91,12 +93,17 @@ erDiagram
     TRACK ||--o{ ALBUM_TRACK : "included_in"
 ```
 
+## 3. Плейлисты, чарты и история (PostgreSQL)
+
 ```mermaid
 erDiagram
     ACCOUNT {
         id id PK
     }
     TRACK {
+        id id PK
+    }
+    MEDIA_FILE {
         id id PK
     }
     PLAYLIST {
@@ -143,6 +150,8 @@ erDiagram
     }
 
     ACCOUNT ||--o{ PLAYLIST : "owns"
+    MEDIA_FILE |o..o{ PLAYLIST : "cover_file_id"
+    MEDIA_FILE |o..o{ CHART : "cover_file_id"
     PLAYLIST ||--o{ PLAYLIST_ITEM : "contains"
     TRACK ||--o{ PLAYLIST_ITEM : "added_to"
     ACCOUNT ||--o{ FAVORITE_TRACK : "likes"
@@ -152,6 +161,8 @@ erDiagram
     ACCOUNT ||--o{ LISTENING_EVENT : "listens"
     TRACK ||--o{ LISTENING_EVENT : "listened_in"
 ```
+
+## 4. Redis и S3: логические связи с PostgreSQL
 
 ```mermaid
 erDiagram
@@ -163,8 +174,8 @@ erDiagram
     }
     MEDIA_FILE {
         id id PK
-        text bucket FK
-        text object_key FK
+        text bucket UK
+        text object_key UK
     }
     SESSION {
         text session_id PK
@@ -198,5 +209,5 @@ erDiagram
     ACCOUNT ||--o| PLAYBACK_STATE : "syncs_to"
     ACCOUNT ||--o{ PLAYBACK_QUEUE_ITEM : "queues"
     TRACK ||--o{ PLAYBACK_QUEUE_ITEM : "queued_in"
-    MEDIA_FILE ||--|| S3_OBJECT : "points_to"
+    MEDIA_FILE |o..|| S3_OBJECT : "bucket_and_object_key"
 ```
