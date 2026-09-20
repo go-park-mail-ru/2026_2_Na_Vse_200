@@ -1,51 +1,53 @@
+# ER Диаграммы модели данных
+
 ## 1. Основные сущности (PostgreSQL)
 
 ```mermaid
 erDiagram
     ACCOUNT {
-        id PK
-        email UK
-        password_hash
-        display_name
-        avatar_file_id FK
-        created_at
-        updated_at
+        id id PK
+        string email UK
+        string password_hash
+        string display_name
+        id avatar_file_id FK
+        timestamp created_at
+        timestamp updated_at
     }
     MEDIA_FILE {
-        id PK
-        bucket
-        object_key UK
-        mime_type
-        byte_size
-        duration_ms
-        created_at
-        updated_at
+        id id PK
+        string bucket
+        string object_key UK
+        string mime_type
+        int byte_size
+        int duration_ms
+        timestamp created_at
+        timestamp updated_at
     }
     ARTIST {
-        id PK
-        name
-        biography
-        image_file_id FK
-        created_at
-        updated_at
+        id id PK
+        string name
+        string biography
+        id image_file_id FK
+        timestamp created_at
+        timestamp updated_at
     }
     ALBUM {
-        id PK
-        title
-        release_date
-        cover_file_id FK
-        created_at
-        updated_at
+        id id PK
+        string title
+        date release_date
+        id cover_file_id FK
+        timestamp created_at
+        timestamp updated_at
     }
     TRACK {
-        id PK
-        uploader_id FK
-        title
-        audio_file_id FK
-        cover_file_id FK
-        status
-        created_at
-        updated_at
+        id id PK
+        id uploader_id FK
+        string title
+        id audio_file_id FK
+        id cover_file_id FK
+        string status
+        timestamp created_at
+        timestamp updated_at
     }
 
     ACCOUNT ||--o{ TRACK : "uploads"
@@ -54,30 +56,31 @@ erDiagram
     ALBUM ||--o| MEDIA_FILE : "cover"
     TRACK ||--o| MEDIA_FILE : "audio"
     TRACK ||--o| MEDIA_FILE : "cover"
+```
 
-
-    erDiagram
+```mermaid
+erDiagram
     TRACK {
-        id PK
+        id id PK
     }
     ARTIST {
-        id PK
+        id id PK
     }
     ALBUM {
-        id PK
+        id id PK
     }
     TRACK_ARTIST {
-        track_id PK,FK
-        artist_id PK,FK
+        id track_id PK
+        id artist_id PK
     }
     ALBUM_ARTIST {
-        album_id PK,FK
-        artist_id PK,FK
+        id album_id PK
+        id artist_id PK
     }
     ALBUM_TRACK {
-        album_id PK,FK
-        track_id PK,FK
-        track_number
+        id album_id PK
+        id track_id PK
+        int track_number
     }
 
     TRACK ||--o{ TRACK_ARTIST : "has"
@@ -86,55 +89,57 @@ erDiagram
     ARTIST ||--o{ ALBUM_ARTIST : "performs"
     ALBUM ||--o{ ALBUM_TRACK : "contains"
     TRACK ||--o{ ALBUM_TRACK : "included_in"
+```
 
-    erDiagram
+```mermaid
+erDiagram
     ACCOUNT {
-        id PK
+        id id PK
     }
     TRACK {
-        id PK
+        id id PK
     }
     PLAYLIST {
-        id PK
-        owner_id FK
-        title
-        description
-        cover_file_id FK
-        is_public
-        revision
-        created_at
-        updated_at
+        id id PK
+        id owner_id FK
+        string title
+        string description
+        id cover_file_id FK
+        boolean is_public
+        int revision
+        timestamp created_at
+        timestamp updated_at
     }
     PLAYLIST_ITEM {
-        id PK
-        playlist_id FK
-        track_id FK
-        position
+        id id PK
+        id playlist_id FK
+        id track_id FK
+        int position
     }
     FAVORITE_TRACK {
-        account_id PK,FK
-        track_id PK,FK
+        id account_id PK
+        id track_id PK
     }
     CHART {
-        id PK
-        name
-        period_start
-        period_end
-        cover_file_id FK
-        created_at
-        updated_at
+        id id PK
+        string name
+        date period_start
+        date period_end
+        id cover_file_id FK
+        timestamp created_at
+        timestamp updated_at
     }
     CHART_ITEM {
-        chart_id PK,FK
-        track_id PK,FK
-        position
-        streams_count
+        id chart_id PK
+        id track_id PK
+        int position
+        int streams_count
     }
     LISTENING_EVENT {
-        id PK
-        account_id FK
-        track_id FK
-        started_at
+        id id PK
+        id account_id FK
+        id track_id FK
+        timestamp started_at
     }
 
     ACCOUNT ||--o{ PLAYLIST : "owns"
@@ -146,45 +151,47 @@ erDiagram
     TRACK ||--o{ CHART_ITEM : "ranked_in"
     ACCOUNT ||--o{ LISTENING_EVENT : "listens"
     TRACK ||--o{ LISTENING_EVENT : "listened_in"
+```
 
-    erDiagram
+```mermaid
+erDiagram
     ACCOUNT {
-        id PK
+        id id PK
     }
     TRACK {
-        id PK
+        id id PK
     }
     MEDIA_FILE {
-        id PK
-        bucket FK
-        object_key FK
+        id id PK
+        string bucket FK
+        string object_key FK
     }
     SESSION {
-        session_id PK
-        account_id FK
-        expires_at
+        string session_id PK
+        id account_id FK
+        timestamp expires_at
     }
     PLAYBACK_STATE {
-        account_id PK
-        active_device_id
-        current_item_id
-        playback_id
-        position_ms
-        is_playing
-        volume
-        revision
-        updated_at
+        id account_id PK
+        string active_device_id
+        id current_item_id
+        string playback_id
+        int position_ms
+        boolean is_playing
+        int volume
+        int revision
+        timestamp updated_at
     }
     PLAYBACK_QUEUE_ITEM {
-        account_id PK
-        item_id PK
-        track_id FK
-        position
+        id account_id PK
+        string item_id PK
+        id track_id FK
+        int position
     }
     S3_OBJECT {
-        bucket PK
-        object_key PK
-        binary_content
+        string bucket PK
+        string object_key PK
+        binary binary_content
     }
 
     ACCOUNT ||--o{ SESSION : "has_active"
@@ -192,3 +199,4 @@ erDiagram
     ACCOUNT ||--o{ PLAYBACK_QUEUE_ITEM : "queues"
     TRACK ||--o{ PLAYBACK_QUEUE_ITEM : "queued_in"
     MEDIA_FILE ||--|| S3_OBJECT : "points_to"
+```
