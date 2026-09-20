@@ -3,211 +3,223 @@
 ## 1. Основные сущности (PostgreSQL)
 
 ```mermaid
-erDiagram
-    ACCOUNT {
-        id id PK
-        text email UK
-        text password_hash
-        text display_name
-        id avatar_file_id FK
-        timestampz created_at
-        timestampz updated_at
+classDiagram
+direction LR
+    class ACCOUNT {
+        id [PK]
+        email [UK1]
+        password_hash
+        display_name
+        avatar_file_id [FK]
+        created_at
+        updated_at
     }
-    MEDIA_FILE {
-        id id PK
-        text bucket UK
-        text object_key UK
-        text mime_type
-        bigint byte_size
-        int duration_ms
-        timestampz created_at
-        timestampz updated_at
+    class MEDIA_FILE {
+        id [PK]
+        bucket [UK1]
+        object_key [UK1]
+        mime_type
+        byte_size
+        duration_ms
+        created_at
+        updated_at
     }
-    ARTIST {
-        id id PK
-        text name
-        text biography
-        id image_file_id FK
-        timestampz created_at
-        timestampz updated_at
+    class ARTIST {
+        id [PK]
+        name
+        biography
+        image_file_id [FK]
+        created_at
+        updated_at
     }
-    ALBUM {
-        id id PK
-        text title
-        date release_date
-        id cover_file_id FK
-        timestampz created_at
-        timestampz updated_at
+    class ALBUM {
+        id [PK]
+        title
+        release_date
+        cover_file_id [FK]
+        created_at
+        updated_at
     }
-    TRACK {
-        id id PK
-        id uploader_id FK
-        text title
-        id audio_file_id FK
-        id cover_file_id FK
-        text status
-        timestampz created_at
-        timestampz updated_at
+    class TRACK {
+        id [PK]
+        uploader_id [FK]
+        title
+        audio_file_id [FK]
+        cover_file_id [FK]
+        status
+        created_at
+        updated_at
     }
-
-    ACCOUNT ||--o{ TRACK : "uploads"
-    MEDIA_FILE |o..o{ ACCOUNT : "avatar_file_id"
-    MEDIA_FILE |o..o{ ARTIST : "image_file_id"
-    MEDIA_FILE |o..o{ ALBUM : "cover_file_id"
-    MEDIA_FILE |o..o{ TRACK : "audio_file_id"
-    MEDIA_FILE |o..o{ TRACK : "cover_file_id"
+    ACCOUNT "1" -- "0..*" TRACK : uploads
+    MEDIA_FILE "0..1" -- "0..*" ACCOUNT : avatar_file_id
+    MEDIA_FILE "0..1" -- "0..*" ARTIST : image_file_id
+    MEDIA_FILE "0..1" -- "0..*" ALBUM : cover_file_id
+    MEDIA_FILE "0..1" -- "0..*" TRACK : audio_file_id
+    MEDIA_FILE "0..1" -- "0..*" TRACK : cover_file_id
 ```
 
 ## 2. Исполнители и состав альбомов (PostgreSQL)
 
 ```mermaid
-erDiagram
-    TRACK {
-        id id PK
+classDiagram
+direction LR
+    class TRACK {
+        id [PK]
     }
-    ARTIST {
-        id id PK
+    class ARTIST {
+        id [PK]
     }
-    ALBUM {
-        id id PK
+    class ALBUM {
+        id [PK]
     }
-    TRACK_ARTIST {
-        id track_id PK
-        id artist_id PK
+    class TRACK_ARTIST {
+        track_id [PK, FK]
+        artist_id [PK, FK]
     }
-    ALBUM_ARTIST {
-        id album_id PK
-        id artist_id PK
+    class ALBUM_ARTIST {
+        album_id [PK, FK]
+        artist_id [PK, FK]
     }
-    ALBUM_TRACK {
-        id album_id PK
-        id track_id PK
-        int track_number
+    class ALBUM_TRACK {
+        album_id [PK, FK, UK1]
+        track_id [PK, FK]
+        track_number [UK1]
     }
-
-    TRACK ||--o{ TRACK_ARTIST : "has"
-    ARTIST ||--o{ TRACK_ARTIST : "performs"
-    ALBUM ||--o{ ALBUM_ARTIST : "has"
-    ARTIST ||--o{ ALBUM_ARTIST : "performs"
-    ALBUM ||--o{ ALBUM_TRACK : "contains"
-    TRACK ||--o{ ALBUM_TRACK : "included_in"
+    TRACK "1" -- "0..*" TRACK_ARTIST : has
+    ARTIST "1" -- "0..*" TRACK_ARTIST : performs
+    ALBUM "1" -- "0..*" ALBUM_ARTIST : has
+    ARTIST "1" -- "0..*" ALBUM_ARTIST : performs
+    ALBUM "1" -- "0..*" ALBUM_TRACK : contains
+    TRACK "1" -- "0..*" ALBUM_TRACK : included_in
 ```
 
 ## 3. Плейлисты, чарты и история (PostgreSQL)
 
 ```mermaid
-erDiagram
-    ACCOUNT {
-        id id PK
+classDiagram
+direction LR
+    class ACCOUNT {
+        id [PK]
     }
-    TRACK {
-        id id PK
+    class TRACK {
+        id [PK]
     }
-    MEDIA_FILE {
-        id id PK
+    class MEDIA_FILE {
+        id [PK]
     }
-    PLAYLIST {
-        id id PK
-        id owner_id FK
-        text title
-        text description
-        id cover_file_id FK
-        boolean is_public
-        int revision
-        timestampz created_at
-        timestampz updated_at
+    class PLAYLIST {
+        id [PK]
+        owner_id [FK]
+        title
+        description
+        cover_file_id [FK]
+        is_public
+        revision
+        created_at
+        updated_at
     }
-    PLAYLIST_ITEM {
-        id id PK
-        id playlist_id FK
-        id track_id FK
-        int position
+    class PLAYLIST_ITEM {
+        id [PK]
+        playlist_id [FK, UK1]
+        track_id [FK]
+        position [UK1]
     }
-    FAVORITE_TRACK {
-        id account_id PK
-        id track_id PK
+    class FAVORITE_TRACK {
+        account_id [PK, FK]
+        track_id [PK, FK]
     }
-    CHART {
-        id id PK
-        text name
-        date period_start
-        date period_end
-        id cover_file_id FK
-        timestampz created_at
-        timestampz updated_at
+    class CHART {
+        id [PK]
+        name
+        period_start
+        period_end
+        cover_file_id [FK]
+        created_at
+        updated_at
     }
-    CHART_ITEM {
-        id chart_id PK
-        id track_id PK
-        int position
-        int streams_count
+    class CHART_ITEM {
+        chart_id [PK, FK, UK1]
+        track_id [PK, FK]
+        position [UK1]
+        streams_count
     }
-    LISTENING_EVENT {
-        id id PK
-        id account_id FK
-        id track_id FK
-        timestampz started_at
+    class LISTENING_EVENT {
+        id [PK]
+        account_id [FK]
+        track_id [FK]
+        started_at
     }
-
-    ACCOUNT ||--o{ PLAYLIST : "owns"
-    MEDIA_FILE |o..o{ PLAYLIST : "cover_file_id"
-    MEDIA_FILE |o..o{ CHART : "cover_file_id"
-    PLAYLIST ||--o{ PLAYLIST_ITEM : "contains"
-    TRACK ||--o{ PLAYLIST_ITEM : "added_to"
-    ACCOUNT ||--o{ FAVORITE_TRACK : "likes"
-    TRACK ||--o{ FAVORITE_TRACK : "liked_by"
-    CHART ||--o{ CHART_ITEM : "ranks"
-    TRACK ||--o{ CHART_ITEM : "ranked_in"
-    ACCOUNT ||--o{ LISTENING_EVENT : "listens"
-    TRACK ||--o{ LISTENING_EVENT : "listened_in"
+    ACCOUNT "1" -- "0..*" PLAYLIST : owns
+    MEDIA_FILE "0..1" -- "0..*" PLAYLIST : cover_file_id
+    MEDIA_FILE "0..1" -- "0..*" CHART : cover_file_id
+    PLAYLIST "1" -- "0..*" PLAYLIST_ITEM : contains
+    TRACK "1" -- "0..*" PLAYLIST_ITEM : added_to
+    ACCOUNT "1" -- "0..*" FAVORITE_TRACK : likes
+    TRACK "1" -- "0..*" FAVORITE_TRACK : liked_by
+    CHART "1" -- "0..*" CHART_ITEM : ranks
+    TRACK "1" -- "0..*" CHART_ITEM : ranked_in
+    ACCOUNT "1" -- "0..*" LISTENING_EVENT : listens
+    TRACK "1" -- "0..*" LISTENING_EVENT : listened_in
 ```
 
-## 4. Redis и S3: логические связи с PostgreSQL
+## 4. Redis, S3 и подключения плеера: логические связи с PostgreSQL
 
 ```mermaid
-erDiagram
-    ACCOUNT {
-        id id PK
+classDiagram
+direction LR
+    class ACCOUNT {
+        id [PK]
     }
-    TRACK {
-        id id PK
+    class TRACK {
+        id [PK]
     }
-    MEDIA_FILE {
-        id id PK
-        text bucket UK
-        text object_key UK
+    class MEDIA_FILE {
+        id [PK]
+        bucket [UK1]
+        object_key [UK1]
     }
-    SESSION {
-        text session_id PK
-        id account_id FK
-        timestampz expires_at
+    class SESSION {
+        session_id [PK]
+        account_id
+        expires_at
     }
-    PLAYBACK_STATE {
-        id account_id PK
-        text active_device_id
-        id current_item_id
-        text playback_id
-        int position_ms
-        boolean is_playing
-        int volume
-        int revision
-        timestampz updated_at
+    class PLAYBACK_STATE {
+        account_id [PK]
+        active_device_id
+        current_item_id
+        playback_id
+        position_ms
+        is_playing
+        volume
+        revision
+        updated_at
     }
-    PLAYBACK_QUEUE_ITEM {
-        id account_id PK
-        text item_id PK
-        id track_id FK
-        int position
+    class PLAYBACK_QUEUE_ITEM {
+        account_id [PK, UK1]
+        item_id [PK]
+        track_id
+        position [UK1]
     }
-    S3_OBJECT {
-        text bucket PK
-        text object_key PK
-        binary binary_content
+    class PLAYER_CONNECTION {
+        device_id [PK]
+        session_id
+        connection
     }
-
-    ACCOUNT ||--o{ SESSION : "has_active"
-    ACCOUNT ||--o| PLAYBACK_STATE : "syncs_to"
-    ACCOUNT ||--o{ PLAYBACK_QUEUE_ITEM : "queues"
-    TRACK ||--o{ PLAYBACK_QUEUE_ITEM : "queued_in"
-    MEDIA_FILE |o..|| S3_OBJECT : "bucket_and_object_key"
+    class S3_OBJECT {
+        bucket [PK]
+        object_key [PK]
+        binary_content
+    }
+    class LISTENING_EVENT {
+        id [PK]
+    }
+    ACCOUNT "1" .. "0..*" SESSION : has_active
+    ACCOUNT "1" .. "0..1" PLAYBACK_STATE : syncs_to
+    ACCOUNT "1" .. "0..*" PLAYBACK_QUEUE_ITEM : queues
+    TRACK "1" .. "0..*" PLAYBACK_QUEUE_ITEM : queued_in
+    PLAYBACK_QUEUE_ITEM "0..1" .. "0..1" PLAYBACK_STATE : account_id_current_item_id
+    SESSION "1" .. "0..*" PLAYER_CONNECTION : session_id
+    PLAYER_CONNECTION "0..1" .. "0..1" PLAYBACK_STATE : active_device_id
+    LISTENING_EVENT "0..1" .. "0..1" PLAYBACK_STATE : playback_id
+    MEDIA_FILE "0..1" .. "1" S3_OBJECT : bucket_object_key
 ```
