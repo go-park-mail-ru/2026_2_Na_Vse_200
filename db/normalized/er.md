@@ -44,7 +44,7 @@ direction LR
         id [PK]
         uploader_id [FK]
         title
-        audio_file_id [FK]
+        audio_file_id [FK, NOT NULL]
         cover_file_id [FK]
         status
         created_at
@@ -54,7 +54,7 @@ direction LR
     MEDIA_FILE "0..1" -- "0..*" ACCOUNT : avatar_file_id
     MEDIA_FILE "0..1" -- "0..*" ARTIST : image_file_id
     MEDIA_FILE "0..1" -- "0..*" ALBUM : cover_file_id
-    MEDIA_FILE "0..1" -- "0..*" TRACK : audio_file_id
+    MEDIA_FILE "1" -- "0..*" TRACK : audio_file_id
     MEDIA_FILE "0..1" -- "0..*" TRACK : cover_file_id
 ```
 
