@@ -44,7 +44,7 @@ direction LR
         id [PK]
         uploader_id [FK]
         title
-        audio_file_id [FK, NOT NULL]
+        audio_file_id [FK]
         cover_file_id [FK]
         status
         created_at
