@@ -233,6 +233,6 @@ CREATE INDEX playlist_item_track_idx ON playlist_item (track_id);
 CREATE INDEX favorite_track_track_idx ON favorite_track (track_id);
 CREATE INDEX chart_item_track_idx ON chart_item (track_id);
 CREATE INDEX listening_event_account_started_idx ON listening_event (account_id, started_at DESC, id);
-CREATE INDEX listening_event_track_started_idxON listening_event (track_id, started_at);
+CREATE INDEX listening_event_track_started_idx ON listening_event (track_id, started_at);
 
 COMMIT;
