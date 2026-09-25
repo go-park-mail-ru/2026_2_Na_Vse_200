@@ -9,7 +9,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/pkg/apimessage"
+	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/apimessage"
 	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/pkg/response"
 )
 

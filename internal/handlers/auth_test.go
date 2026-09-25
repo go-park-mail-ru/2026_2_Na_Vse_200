@@ -12,19 +12,19 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/apimessage"
 	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/auth"
 	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/config"
 	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/middleware"
 	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/models"
-	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/storage"
-	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/storage/memory"
-	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/pkg/apimessage"
+	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/repository"
+	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/repository/memory"
 )
 
 // newSignupHandler собирает обработчики с настоящим хранилищем в памяти.
 func newSignupHandler() http.Handler {
 	api := New(config.Config{}, Deps{
-		Users:  memory.NewUserStorage(),
+		Users:  memory.NewUserRepo(),
 		Hasher: auth.NewBcryptHasherWithCost(auth.MinCost),
 	})
 	return middleware.Chain(api.Routes(), middleware.WithJSONErrors)
@@ -189,14 +189,14 @@ func TestSignupEmailCaseInsensitive(t *testing.T) {
 	}
 }
 
-// failingUserStorage изображает недоступное хранилище.
-type failingUserStorage struct {
-	storage.UserStorageInterface
+// failingUserRepo изображает недоступное хранилище.
+type failingUserRepo struct {
+	repository.UserRepositoryInterface
 }
 
 var errStorageDown = errors.New("хранилище недоступно: connection refused to 10.0.0.5:5432")
 
-func (failingUserStorage) Create(ctx context.Context, user models.User) (models.User, error) {
+func (failingUserRepo) Create(ctx context.Context, user models.User) (models.User, error) {
 	return models.User{}, errStorageDown
 }
 
@@ -205,7 +205,7 @@ func TestSignupStorageFailure(t *testing.T) {
 	defer log.SetOutput(os.Stderr)
 
 	api := New(config.Config{}, Deps{
-		Users:  failingUserStorage{},
+		Users:  failingUserRepo{},
 		Hasher: auth.NewBcryptHasherWithCost(auth.MinCost),
 	})
 	handler := middleware.Chain(api.Routes(), middleware.WithJSONErrors)

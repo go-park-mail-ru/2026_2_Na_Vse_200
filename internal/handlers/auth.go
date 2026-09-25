@@ -6,9 +6,9 @@ import (
 	"net/http"
 	"strconv"
 
+	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/apimessage"
 	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/models"
-	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/storage"
-	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/pkg/apimessage"
+	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/repository"
 	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/pkg/response"
 	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/pkg/validation"
 )
@@ -21,9 +21,8 @@ type signupRequest struct {
 	DisplayName string `json:"display_name"`
 }
 
-// userResponse — представление аккаунта для клиента. Поля с хешем пароля здесь
-// нет намеренно: отдать наружу то, чего нет в структуре, невозможно.
-// ID отдаётся строкой, как требует контракт.
+// userResponse — представление аккаунта для клиента: без хеша пароля,
+// с идентификатором в виде строки.
 type userResponse struct {
 	ID          string  `json:"id"`
 	Email       string  `json:"email"`
@@ -39,8 +38,8 @@ func newUserResponse(user models.User) userResponse {
 	}
 	// В контракте avatar_url — строка или null.
 	if user.AvatarURL != "" {
-		url := user.AvatarURL
-		resp.AvatarURL = &url
+		avatar := user.AvatarURL
+		resp.AvatarURL = &avatar
 	}
 	return resp
 }
@@ -56,33 +55,34 @@ func (a *API) Signup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	checked := validation.Signup(validation.SignupInput{
+	form := validation.Signup(validation.SignupInput{
 		Email:       req.Email,
 		Password:    req.Password,
 		DisplayName: req.DisplayName,
 	})
-	if !checked.Valid() {
-		response.WriteValidationError(w, checked.Fields)
+	if !form.Valid() {
+		response.WriteFieldsError(w, http.StatusBadRequest,
+			apimessage.CodeValidationFailed, apimessage.MsgValidationFailed, form.Fields)
 		return
 	}
 
-	hash, err := a.deps.Hasher.Hash(checked.Password)
+	hash, err := a.deps.Hasher.Hash(form.Password)
 	if err != nil {
-		response.WriteInternalError(w, "хеширование пароля", err)
+		writeInternalError(w, "хеширование пароля", err)
 		return
 	}
 
 	user, err := a.deps.Users.Create(r.Context(), models.User{
-		Email:        checked.Email,
+		Email:        form.Email,
 		PasswordHash: hash,
-		DisplayName:  checked.DisplayName,
+		DisplayName:  form.DisplayName,
 	})
 	switch {
-	case errors.Is(err, storage.ErrEmailTaken):
+	case errors.Is(err, repository.ErrEmailTaken):
 		response.WriteError(w, http.StatusConflict, apimessage.CodeEmailTaken, apimessage.MsgEmailTaken)
 		return
 	case err != nil:
-		response.WriteInternalError(w, "создание пользователя", err)
+		writeInternalError(w, "создание пользователя", err)
 		return
 	}
 

@@ -7,7 +7,6 @@ import (
 	"net/http"
 )
 
-// Middleware — обёртка вокруг обработчика.
 type Middleware func(http.Handler) http.Handler
 
 // Chain навешивает обёртки на handler. Первая в списке становится самой внешней.

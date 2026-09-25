@@ -1,4 +1,4 @@
-// Package memory реализует хранилища в памяти процесса.
+// Package memory реализует репозитории в памяти процесса.
 // Используется до готовности слоя на PostgreSQL: данные живут до перезапуска.
 package memory
 
@@ -8,12 +8,12 @@ import (
 	"time"
 
 	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/models"
-	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/storage"
+	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/repository"
 )
 
-// UserStorage хранит аккаунты в мапе под мьютексом: запросы обрабатываются
+// UserRepo хранит аккаунты в мапе под мьютексом: запросы обрабатываются
 // в разных горутинах.
-type UserStorage struct {
+type UserRepo struct {
 	mu sync.RWMutex
 
 	users  map[models.ID]models.User
@@ -21,9 +21,9 @@ type UserStorage struct {
 	lastID models.ID
 }
 
-// NewUserStorage создаёт пустое хранилище.
-func NewUserStorage() *UserStorage {
-	return &UserStorage{
+// NewUserRepo создаёт пустое хранилище.
+func NewUserRepo() *UserRepo {
+	return &UserRepo{
 		users:  make(map[models.ID]models.User),
 		byMail: make(map[string]models.ID),
 	}
@@ -32,7 +32,7 @@ func NewUserStorage() *UserStorage {
 // Create сохраняет пользователя, проставляя ID и CreatedAt.
 // Проверка занятости email и вставка идут под одной блокировкой: иначе два
 // одновременных запроса прошли бы проверку оба и создали два аккаунта.
-func (s *UserStorage) Create(ctx context.Context, user models.User) (models.User, error) {
+func (s *UserRepo) Create(ctx context.Context, user models.User) (models.User, error) {
 	if err := ctx.Err(); err != nil {
 		return models.User{}, err
 	}
@@ -41,7 +41,7 @@ func (s *UserStorage) Create(ctx context.Context, user models.User) (models.User
 	defer s.mu.Unlock()
 
 	if _, exists := s.byMail[user.Email]; exists {
-		return models.User{}, storage.ErrEmailTaken
+		return models.User{}, repository.ErrEmailTaken
 	}
 
 	s.lastID++
@@ -55,7 +55,7 @@ func (s *UserStorage) Create(ctx context.Context, user models.User) (models.User
 }
 
 // GetByID возвращает пользователя по идентификатору.
-func (s *UserStorage) GetByID(ctx context.Context, id models.ID) (models.User, error) {
+func (s *UserRepo) GetByID(ctx context.Context, id models.ID) (models.User, error) {
 	if err := ctx.Err(); err != nil {
 		return models.User{}, err
 	}
@@ -65,14 +65,14 @@ func (s *UserStorage) GetByID(ctx context.Context, id models.ID) (models.User, e
 
 	user, ok := s.users[id]
 	if !ok {
-		return models.User{}, storage.ErrUserNotFound
+		return models.User{}, repository.ErrUserNotFound
 	}
 	return user, nil
 }
 
 // GetByEmail возвращает пользователя вместе с хешем пароля.
 // Email ожидается нормализованным.
-func (s *UserStorage) GetByEmail(ctx context.Context, email string) (models.User, error) {
+func (s *UserRepo) GetByEmail(ctx context.Context, email string) (models.User, error) {
 	if err := ctx.Err(); err != nil {
 		return models.User{}, err
 	}
@@ -82,7 +82,7 @@ func (s *UserStorage) GetByEmail(ctx context.Context, email string) (models.User
 
 	id, ok := s.byMail[email]
 	if !ok {
-		return models.User{}, storage.ErrUserNotFound
+		return models.User{}, repository.ErrUserNotFound
 	}
 	return s.users[id], nil
 }

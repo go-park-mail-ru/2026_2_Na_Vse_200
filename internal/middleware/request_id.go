@@ -6,11 +6,9 @@ import (
 	"uuid"
 )
 
-// HeaderRequestID — заголовок с идентификатором запроса.
+// HeaderRequestID — имя заголовка, в котором идентификатор приходит и уходит.
 const HeaderRequestID = "X-Request-ID"
 
-// ctxKey — неэкспортируемый тип ключа: строковый ключ мог бы совпасть
-// с ключом другого пакета.
 type ctxKey int
 
 const requestIDKey ctxKey = iota
@@ -31,8 +29,13 @@ func WithRequestID(next http.Handler) http.Handler {
 	})
 }
 
-// RequestIDFromContext возвращает идентификатор запроса или пустую строку.
+// RequestIDFromContext возвращает идентификатор запроса из ctx.
+// Пустая строка означает, что обёртка WithRequestID не отработала
+// или в контексте оказалось значение неожиданного типа.
 func RequestIDFromContext(ctx context.Context) string {
-	id, _ := ctx.Value(requestIDKey).(string)
+	id, ok := ctx.Value(requestIDKey).(string)
+	if !ok {
+		return ""
+	}
 	return id
 }

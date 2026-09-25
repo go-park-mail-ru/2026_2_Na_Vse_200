@@ -6,11 +6,8 @@ import (
 )
 
 // WithCORS разрешает браузерные запросы с адреса фронтенда.
-// Адрес ровно один: ответ не зависит от заголовка Origin и не открывает дорогу
-// к отравлению кэша на прокси. Пустое значение отключает обёртку.
-//
-// В Allow-Origin идёт конкретный адрес: звёздочка несовместима
-// с Allow-Credentials, и cookie ходить не будут.
+// Пустое значение отключает обёртку. Звёздочка в Allow-Origin несовместима
+// с Allow-Credentials, поэтому адрес указывается точный.
 func WithCORS(allowedOrigin string) Middleware {
 	return func(next http.Handler) http.Handler {
 		if allowedOrigin == "" {

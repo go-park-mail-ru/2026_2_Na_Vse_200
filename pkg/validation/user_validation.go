@@ -1,8 +1,8 @@
 // Package validation проверяет данные, пришедшие от клиента.
-// Правила описаны в docs/api.md, раздел 5, и повторяются на фронтенде.
 package validation
 
 import (
+	"fmt"
 	"strings"
 	"unicode"
 	"unicode/utf8"
@@ -12,23 +12,23 @@ const (
 	emailMinLen = 3
 	emailMaxLen = 254
 
-	// Верхняя граница пароля равна пределу bcrypt: всё после 72 байт он игнорирует.
-	passwordMinLen = 8
-	passwordMaxLen = 72
+	// Минимум считается в символах, максимум — в байтах: столько принимает bcrypt.
+	passwordMinRunes = 8
+	passwordMaxBytes = 72
 
 	displayNameMinLen = 2
 	displayNameMaxLen = 50
 )
 
-// SignupInput — данные формы регистрации до проверки.
+// SignupInput — данные формы регистрации от клиента.
 type SignupInput struct {
 	Email       string
 	Password    string
 	DisplayName string
 }
 
-// SignupResult — результат проверки. Email и DisplayName нормализованы,
-// Fields содержит все найденные ошибки разом.
+// SignupResult — результат проверки: нормализованные поля и ошибки по каждому
+// непрошедшему полю. Пустой Fields означает, что данные в порядке.
 type SignupResult struct {
 	Email       string
 	DisplayName string
@@ -41,7 +41,8 @@ func (r SignupResult) Valid() bool {
 	return len(r.Fields) == 0
 }
 
-// Signup проверяет и нормализует данные регистрации.
+// Signup проверяет и нормализует данные регистрации in.
+// Проверяются все поля сразу, а не до первой ошибки.
 func Signup(in SignupInput) SignupResult {
 	result := SignupResult{
 		Email:       NormalizeEmail(in.Email),
@@ -63,14 +64,14 @@ func Signup(in SignupInput) SignupResult {
 	return result
 }
 
-// NormalizeEmail обрезает пробелы и приводит адрес к нижнему регистру,
-// чтобы Andrey@mail.ru и andrey@mail.ru считались одним аккаунтом.
+// NormalizeEmail приводит адрес к виду, в котором он хранится и ищется:
+// без пробелов по краям и в нижнем регистре.
 func NormalizeEmail(email string) string {
 	return strings.ToLower(strings.TrimSpace(email))
 }
 
-// checkEmail отсекает явный мусор. Полная проверка по RFC 5322 бессмысленна:
-// адрес всё равно подтверждается письмом.
+// checkEmail возвращает текст ошибки или пустую строку, если адрес годится.
+// Проверка по RFC 5322 не делается: адрес подтверждается письмом.
 func checkEmail(email string) string {
 	const msg = "Некорректный email"
 
@@ -101,15 +102,20 @@ func checkEmail(email string) string {
 	return ""
 }
 
+// checkPassword возвращает текст ошибки или пустую строку, если пароль годится.
 func checkPassword(password string) string {
-	const msg = "Пароль должен быть не короче 8 символов и содержать букву и цифру"
-
 	if password == "" {
 		return "Укажите пароль"
 	}
-	// Длина в байтах: предел bcrypt тоже в байтах.
-	if len(password) < passwordMinLen || len(password) > passwordMaxLen {
-		return msg
+	// Символы, а не байты: иначе пароль из шести кириллических букв
+	// прошёл бы как достаточно длинный.
+	if utf8.RuneCountInString(password) < passwordMinRunes {
+		return fmt.Sprintf("Пароль должен быть не короче %d символов", passwordMinRunes)
+	}
+	// Предел bcrypt задан в байтах, поэтому в символах он разный:
+	// называть число пользователю было бы враньём.
+	if len(password) > passwordMaxBytes {
+		return "Пароль слишком длинный"
 	}
 
 	var hasLetter, hasDigit bool
@@ -122,12 +128,13 @@ func checkPassword(password string) string {
 		}
 	}
 	if !hasLetter || !hasDigit {
-		return msg
+		return "Пароль должен содержать хотя бы одну букву и одну цифру"
 	}
 
 	return ""
 }
 
+// checkDisplayName возвращает текст ошибки или пустую строку, если имя годится.
 func checkDisplayName(name string) string {
 	const msg = "Имя должно содержать от 2 до 50 символов"
 

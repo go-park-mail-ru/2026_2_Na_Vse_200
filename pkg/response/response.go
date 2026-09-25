@@ -1,12 +1,13 @@
-// Package response пишет HTTP-ответы в формате контракта API.
+// Package response пишет HTTP-ответы в формате JSON.
+//
+// Пакет не знает ни про коды ошибок сервиса, ни про его предметную область:
+// коды и тексты передаются вызывающим.
 package response
 
 import (
 	"encoding/json"
 	"log"
 	"net/http"
-
-	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/pkg/apimessage"
 )
 
 // ErrorResponse — внешняя обёртка ошибки: {"error": {...}}.
@@ -21,9 +22,10 @@ type ErrorBody struct {
 	Fields  map[string]string `json:"fields,omitempty"`
 }
 
-// WriteJSON отправляет data как JSON с указанным статусом.
+// WriteJSON сериализует data в JSON и отправляет с кодом состояния code.
 // Тело собирается до отправки заголовков: иначе при ошибке сериализации
 // клиент получил бы половину ответа после уже отправленного статуса.
+// Ошибки записи попадают в лог: клиенту сообщить о них уже нечем.
 func WriteJSON(w http.ResponseWriter, code int, data any) {
 	body, err := json.Marshal(data)
 	if err != nil {
@@ -40,29 +42,19 @@ func WriteJSON(w http.ResponseWriter, code int, data any) {
 	}
 }
 
-// WriteError отправляет ошибку в формате контракта.
+// WriteError отправляет ошибку с кодом состояния code. Аргумент errCode —
+// машинный код для клиента, message — текст, который можно показать
+// пользователю.
 func WriteError(w http.ResponseWriter, code int, errCode, message string) {
 	WriteJSON(w, code, ErrorResponse{
-		Error: ErrorBody{
-			Code:    errCode,
-			Message: message,
-		},
+		Error: ErrorBody{Code: errCode, Message: message},
 	})
 }
 
-// WriteValidationError отправляет 400 с разбором по полям запроса.
-func WriteValidationError(w http.ResponseWriter, fields map[string]string) {
-	WriteJSON(w, http.StatusBadRequest, ErrorResponse{
-		Error: ErrorBody{
-			Code:    apimessage.CodeValidationFailed,
-			Message: apimessage.MsgValidationFailed,
-			Fields:  fields,
-		},
+// WriteFieldsError отправляет ошибку так же, как WriteError, и добавляет
+// разбор по полям: ключ в fields — имя поля запроса, значение — текст ошибки.
+func WriteFieldsError(w http.ResponseWriter, code int, errCode, message string, fields map[string]string) {
+	WriteJSON(w, code, ErrorResponse{
+		Error: ErrorBody{Code: errCode, Message: message, Fields: fields},
 	})
-}
-
-// WriteInternalError логирует причину и отдаёт клиенту общий текст без деталей.
-func WriteInternalError(w http.ResponseWriter, context string, err error) {
-	log.Printf("%s: %v", context, err)
-	WriteError(w, http.StatusInternalServerError, apimessage.CodeInternal, apimessage.MsgInternal)
 }

@@ -7,14 +7,14 @@ import (
 	"testing"
 
 	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/models"
-	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/storage"
+	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/repository"
 )
 
 func TestCreateAndGet(t *testing.T) {
 	ctx := context.Background()
-	store := NewUserStorage()
+	repo := NewUserRepo()
 
-	created, err := store.Create(ctx, models.User{
+	created, err := repo.Create(ctx, models.User{
 		Email:        "andrey@example.com",
 		PasswordHash: "sha256$c29sdA$aGFzaA",
 		DisplayName:  "Андрей",
@@ -30,7 +30,7 @@ func TestCreateAndGet(t *testing.T) {
 		t.Error("Create не проставил CreatedAt")
 	}
 
-	byID, err := store.GetByID(ctx, created.ID)
+	byID, err := repo.GetByID(ctx, created.ID)
 	if err != nil {
 		t.Fatalf("GetByID: неожиданная ошибка: %v", err)
 	}
@@ -38,7 +38,7 @@ func TestCreateAndGet(t *testing.T) {
 		t.Errorf("GetByID вернул email %q, ожидался %q", byID.Email, created.Email)
 	}
 
-	byEmail, err := store.GetByEmail(ctx, "andrey@example.com")
+	byEmail, err := repo.GetByEmail(ctx, "andrey@example.com")
 	if err != nil {
 		t.Fatalf("GetByEmail: неожиданная ошибка: %v", err)
 	}
@@ -49,26 +49,26 @@ func TestCreateAndGet(t *testing.T) {
 
 func TestGetNotFound(t *testing.T) {
 	ctx := context.Background()
-	store := NewUserStorage()
+	repo := NewUserRepo()
 
-	if _, err := store.GetByID(ctx, 42); !errors.Is(err, storage.ErrUserNotFound) {
+	if _, err := repo.GetByID(ctx, 42); !errors.Is(err, repository.ErrUserNotFound) {
 		t.Errorf("GetByID: ошибка = %v, ожидалась ErrUserNotFound", err)
 	}
-	if _, err := store.GetByEmail(ctx, "нет@такого.com"); !errors.Is(err, storage.ErrUserNotFound) {
+	if _, err := repo.GetByEmail(ctx, "нет@такого.com"); !errors.Is(err, repository.ErrUserNotFound) {
 		t.Errorf("GetByEmail: ошибка = %v, ожидалась ErrUserNotFound", err)
 	}
 }
 
 func TestCreateDuplicateEmail(t *testing.T) {
 	ctx := context.Background()
-	store := NewUserStorage()
+	repo := NewUserRepo()
 
 	user := models.User{Email: "andrey@example.com", DisplayName: "Андрей"}
-	if _, err := store.Create(ctx, user); err != nil {
+	if _, err := repo.Create(ctx, user); err != nil {
 		t.Fatalf("первое создание: неожиданная ошибка: %v", err)
 	}
 
-	if _, err := store.Create(ctx, user); !errors.Is(err, storage.ErrEmailTaken) {
+	if _, err := repo.Create(ctx, user); !errors.Is(err, repository.ErrEmailTaken) {
 		t.Errorf("повторное создание: ошибка = %v, ожидалась ErrEmailTaken", err)
 	}
 }
@@ -76,7 +76,7 @@ func TestCreateDuplicateEmail(t *testing.T) {
 // Одновременные запросы с одним email не должны создать два аккаунта.
 func TestCreateConcurrentSameEmail(t *testing.T) {
 	ctx := context.Background()
-	store := NewUserStorage()
+	repo := NewUserRepo()
 
 	const attempts = 50
 
@@ -91,7 +91,7 @@ func TestCreateConcurrentSameEmail(t *testing.T) {
 		go func() {
 			defer wg.Done()
 
-			_, err := store.Create(ctx, models.User{
+			_, err := repo.Create(ctx, models.User{
 				Email:       "andrey@example.com",
 				DisplayName: "Андрей",
 			})
@@ -113,8 +113,8 @@ func TestCreateCancelledContext(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	store := NewUserStorage()
-	if _, err := store.Create(ctx, models.User{Email: "andrey@example.com"}); err == nil {
+	repo := NewUserRepo()
+	if _, err := repo.Create(ctx, models.User{Email: "andrey@example.com"}); err == nil {
 		t.Error("Create с отменённым контекстом должен возвращать ошибку")
 	}
 }

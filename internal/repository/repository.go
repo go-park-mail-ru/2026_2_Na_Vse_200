@@ -1,5 +1,5 @@
-// Package storage объявляет интерфейсы доступа к данным и ошибки хранилища.
-package storage
+// Package repository объявляет интерфейсы доступа к данным и ошибки хранилища.
+package repository
 
 import (
 	"context"
@@ -17,8 +17,8 @@ var (
 	ErrSessionExpired  = errors.New("session expired")
 )
 
-// UserStorageInterface хранит аккаунты.
-type UserStorageInterface interface {
+// UserRepositoryInterface хранит аккаунты.
+type UserRepositoryInterface interface {
 	// Create сохраняет пользователя с уже посчитанным PasswordHash
 	// и возвращает его с проставленными ID и CreatedAt.
 	// Занятый email — ErrEmailTaken.
@@ -32,8 +32,8 @@ type UserStorageInterface interface {
 	GetByEmail(ctx context.Context, email string) (models.User, error)
 }
 
-// SessionStorageInterface хранит сессии.
-type SessionStorageInterface interface {
+// SessionRepositoryInterface хранит сессии.
+type SessionRepositoryInterface interface {
 	Create(ctx context.Context, session models.Session) error
 
 	// GetByID возвращает сессию, ErrSessionNotFound или ErrSessionExpired.
@@ -43,9 +43,9 @@ type SessionStorageInterface interface {
 	Delete(ctx context.Context, id string) error
 }
 
-// CatalogStorageInterface читает каталог для главной страницы.
+// CatalogRepositoryInterface читает каталог для главной страницы.
 // Методы возвращают готовые карточки: длительность и исполнители уже собраны.
-type CatalogStorageInterface interface {
+type CatalogRepositoryInterface interface {
 	// HomeTracks возвращает не более limit опубликованных треков, новые первыми.
 	// Пустой каталог — пустой срез, а не ошибка.
 	HomeTracks(ctx context.Context, limit int) ([]models.Track, error)

@@ -16,7 +16,7 @@ import (
 	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/config"
 	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/handlers"
 	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/middleware"
-	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/storage/memory"
+	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/repository/memory"
 )
 
 // component попадает в лог полем handled_by.
@@ -34,7 +34,7 @@ func main() {
 
 	// До готовности слоя на PostgreSQL аккаунты живут в памяти процесса
 	// и пропадают при перезапуске.
-	users := memory.NewUserStorage()
+	users := memory.NewUserRepo()
 
 	api := handlers.New(cfg, handlers.Deps{
 		Users:  users,

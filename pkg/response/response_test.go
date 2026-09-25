@@ -5,8 +5,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-
-	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/pkg/apimessage"
 )
 
 func TestWriteJSON(t *testing.T) {
@@ -37,15 +35,15 @@ func TestWriteJSON(t *testing.T) {
 func TestWriteError(t *testing.T) {
 	w := httptest.NewRecorder()
 
-	WriteError(w, http.StatusConflict, apimessage.CodeEmailTaken, "Пользователь с таким email уже существует")
+	WriteError(w, http.StatusConflict, "email_taken", "Пользователь с таким email уже существует")
 
 	if w.Code != http.StatusConflict {
 		t.Errorf("WriteError: статус = %d, ожидался %d", w.Code, http.StatusConflict)
 	}
 
 	got := decode(t, w)
-	if got.Error.Code != apimessage.CodeEmailTaken {
-		t.Errorf("WriteError: code = %q, ожидался %q", got.Error.Code, apimessage.CodeEmailTaken)
+	if got.Error.Code != "email_taken" {
+		t.Errorf("WriteError: code = %q, ожидался %q", got.Error.Code, "email_taken")
 	}
 	if got.Error.Message == "" {
 		t.Error("WriteError: message пустой, клиенту нечего показать пользователю")
@@ -55,28 +53,27 @@ func TestWriteError(t *testing.T) {
 	}
 }
 
-func TestWriteValidationError(t *testing.T) {
+func TestWriteFieldsError(t *testing.T) {
 	w := httptest.NewRecorder()
 
-	WriteValidationError(w, map[string]string{
+	WriteFieldsError(w, http.StatusBadRequest, "validation_failed", "Проверьте поля", map[string]string{
 		"email":    "Некорректный email",
 		"password": "Пароль должен быть не короче 8 символов",
 	})
 
 	if w.Code != http.StatusBadRequest {
-		t.Errorf("WriteValidationError: статус = %d, ожидался %d", w.Code, http.StatusBadRequest)
+		t.Errorf("WriteFieldsError: статус = %d, ожидался %d", w.Code, http.StatusBadRequest)
 	}
 
 	got := decode(t, w)
-	if got.Error.Code != apimessage.CodeValidationFailed {
-		t.Errorf("WriteValidationError: code = %q, ожидался %q", got.Error.Code, apimessage.CodeValidationFailed)
+	if got.Error.Code != "validation_failed" {
+		t.Errorf("WriteFieldsError: code = %q, ожидался %q", got.Error.Code, "validation_failed")
 	}
-	// Все невалидные поля должны приходить сразу, чтобы форма подсветилась за один раз.
 	if len(got.Error.Fields) != 2 {
-		t.Errorf("WriteValidationError: полей = %d, ожидалось 2, получено: %v", len(got.Error.Fields), got.Error.Fields)
+		t.Errorf("WriteFieldsError: полей = %d, ожидалось 2: %v", len(got.Error.Fields), got.Error.Fields)
 	}
 	if got.Error.Fields["email"] == "" {
-		t.Error("WriteValidationError: для поля email нет текста ошибки")
+		t.Error("WriteFieldsError: для поля email нет текста ошибки")
 	}
 }
 
