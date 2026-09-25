@@ -32,10 +32,14 @@ curl http://localhost:8080/health      # {"status":"ok"}
 | `APP_SHUTDOWN_TIMEOUT` | `10s` | сколько ждём завершения запросов при остановке |
 | `POSTGRES_DSN` | пусто | строка подключения к PostgreSQL |
 
+Заданный `APP_ALLOWED_ORIGIN` требует `APP_COOKIE_SECURE=true`, иначе сервер не запустится:
+при разных адресах сессионная cookie уходит с `SameSite=None`, а такую браузер без `Secure`
+молча выбрасывает. На localhost `Secure` работает и поверх http.
+
 Пример запуска с фронтендом на соседнем порту:
 
 ```
-APP_ALLOWED_ORIGIN=http://localhost:3000 go run ./cmd/server
+APP_ALLOWED_ORIGIN=http://localhost:3000 APP_COOKIE_SECURE=true go run ./cmd/server
 ```
 
 ### Секреты

@@ -94,3 +94,12 @@ func TestLoadInvalidValues(t *testing.T) {
 		})
 	}
 }
+
+func TestLoadCrossOriginRequiresSecure(t *testing.T) {
+	t.Setenv("APP_ALLOWED_ORIGIN", "http://localhost:3000")
+	t.Setenv("APP_COOKIE_SECURE", "false")
+
+	if _, err := Load(); err == nil {
+		t.Error("ошибки нет, а сессионная cookie при таких настройках до фронтенда не доедет")
+	}
+}

@@ -46,6 +46,7 @@ func (a *API) Routes() http.Handler {
 
 	mux.HandleFunc("GET /health", a.Health)
 	mux.HandleFunc("POST /api/v1/auth/signup", a.Signup)
+	mux.HandleFunc("POST /api/v1/auth/login", a.Login)
 
 	return mux
 }

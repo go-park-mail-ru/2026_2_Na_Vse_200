@@ -161,3 +161,32 @@ func TestSignupReportsAllErrorsAtOnce(t *testing.T) {
 		}
 	}
 }
+
+func TestLoginValid(t *testing.T) {
+	got := Login(LoginInput{Email: "  Andrey@Example.com ", Password: "muzyka2026"})
+
+	if !got.Valid() {
+		t.Fatalf("данные не прошли проверку: %v", got.Fields)
+	}
+	if got.Email != "andrey@example.com" {
+		t.Errorf("email = %q, ожидался %q", got.Email, "andrey@example.com")
+	}
+}
+
+func TestLoginEmptyFields(t *testing.T) {
+	got := Login(LoginInput{Email: "   ", Password: ""})
+
+	for _, field := range []string{"email", "password"} {
+		if got.Fields[field] == "" {
+			t.Errorf("нет ошибки по полю %q, получено: %v", field, got.Fields)
+		}
+	}
+}
+
+// На входе пароль проверяется только на заполненность: правила могли
+// ужесточить уже после того, как аккаунт завели.
+func TestLoginIgnoresPasswordRules(t *testing.T) {
+	if got := Login(LoginInput{Email: "andrey@example.com", Password: "123"}); !got.Valid() {
+		t.Errorf("короткий пароль отклонён на входе: %v", got.Fields)
+	}
+}

@@ -33,12 +33,15 @@ func main() {
 	}))
 
 	// До готовности слоя на PostgreSQL аккаунты живут в памяти процесса
-	// и пропадают при перезапуске.
+	// и пропадают при перезапуске. Сессии там же — но и после переезда
+	// аккаунтов в базу останутся в памяти: в схеме БД их нет.
 	users := memory.NewUserRepo()
+	sessions := memory.NewSessionRepo()
 
 	api := handlers.New(cfg, handlers.Deps{
-		Users:  users,
-		Hasher: auth.NewBcryptHasher(),
+		Users:    users,
+		Sessions: sessions,
+		Hasher:   auth.NewBcryptHasher(),
 	})
 
 	// Идентификатор запроса нужен логу и записи о панике, поэтому идёт первым;

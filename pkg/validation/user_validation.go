@@ -64,6 +64,44 @@ func Signup(in SignupInput) SignupResult {
 	return result
 }
 
+// LoginInput — данные формы входа от клиента.
+type LoginInput struct {
+	Email    string
+	Password string
+}
+
+// LoginResult — результат проверки: нормализованный email и ошибки по полям.
+type LoginResult struct {
+	Email    string
+	Password string
+	Fields   map[string]string
+}
+
+// Valid сообщает, прошли ли данные проверку.
+func (r LoginResult) Valid() bool {
+	return len(r.Fields) == 0
+}
+
+// Login проверяет, что поля входа заполнены, и нормализует email.
+// Правила длины и состава пароля здесь не применяются: аккаунт мог быть заведён
+// до их ужесточения, да и отказ по ним подсказывал бы требования к паролю.
+func Login(in LoginInput) LoginResult {
+	result := LoginResult{
+		Email:    NormalizeEmail(in.Email),
+		Password: in.Password,
+		Fields:   make(map[string]string),
+	}
+
+	if result.Email == "" {
+		result.Fields["email"] = "Укажите email"
+	}
+	if result.Password == "" {
+		result.Fields["password"] = "Укажите пароль"
+	}
+
+	return result
+}
+
 // NormalizeEmail приводит адрес к виду, в котором он хранится и ищется:
 // без пробелов по краям и в нижнем регистре.
 func NormalizeEmail(email string) string {
