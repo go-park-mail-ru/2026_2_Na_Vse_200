@@ -60,7 +60,6 @@ func TestSignupSuccess(t *testing.T) {
 	if got.ID == "" {
 		t.Error("в ответе нет id")
 	}
-	// Email приходит нормализованным.
 	if got.Email != "andrey@example.com" {
 		t.Errorf("email = %q, ожидался %q", got.Email, "andrey@example.com")
 	}
@@ -71,13 +70,12 @@ func TestSignupSuccess(t *testing.T) {
 		t.Errorf("avatar_url = %v, ожидался null", *got.AvatarURL)
 	}
 
-	// Автоматического входа нет: cookie при регистрации не выставляется.
 	if len(w.Result().Cookies()) != 0 {
 		t.Error("при регистрации выставлена cookie, хотя автовхода быть не должно")
 	}
 }
 
-// Самая важная проверка задачи: ни пароль, ни его хеш не должны уехать клиенту.
+// Ни пароль, ни его хеш не должны уехать клиенту.
 func TestSignupResponseHasNoPassword(t *testing.T) {
 	handler := newSignupHandler()
 
@@ -94,11 +92,10 @@ func TestSignupResponseHasNoPassword(t *testing.T) {
 
 func TestSignupErrors(t *testing.T) {
 	tests := []struct {
-		name     string
-		body     string
-		wantCode int
-		wantErr  string
-		// поля, которые обязаны быть в error.fields
+		name       string
+		body       string
+		wantCode   int
+		wantErr    string
 		wantFields []string
 	}{
 		{
@@ -224,7 +221,6 @@ func TestSignupStorageFailure(t *testing.T) {
 	if got.Error.Code != apimessage.CodeInternal {
 		t.Errorf("code = %q, ожидался %q", got.Error.Code, apimessage.CodeInternal)
 	}
-	// Подробности сбоя остаются в логе: адрес базы клиенту знать незачем.
 	if strings.Contains(w.Body.String(), "5432") {
 		t.Errorf("детали ошибки хранилища ушли клиенту: %s", w.Body.String())
 	}

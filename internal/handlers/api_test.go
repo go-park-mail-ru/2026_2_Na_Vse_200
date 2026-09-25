@@ -12,8 +12,7 @@ import (
 	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/pkg/response"
 )
 
-// newTestHandler собирает то же, что main: маршруты плюс подмену текстовых
-// ответов ServeMux на JSON. Сервер при этом не поднимается.
+// newTestHandler собирает маршруты с подменой текстовых ошибок на JSON.
 func newTestHandler() http.Handler {
 	api := New(config.Config{}, Deps{})
 	return middleware.Chain(api.Routes(), middleware.WithJSONErrors)
@@ -82,8 +81,7 @@ func TestRoutesErrors(t *testing.T) {
 				t.Errorf("%s %s: статус = %d, ожидался %d", tt.method, tt.path, w.Code, tt.wantCode)
 			}
 
-			// Главное в этой проверке: ответ должен быть JSON нашего формата,
-			// а не текст "404 page not found" от ServeMux.
+			// Ответ должен быть JSON, а не текстом ServeMux.
 			gotType := w.Header().Get("Content-Type")
 			wantType := "application/json; charset=utf-8"
 			if gotType != wantType {
@@ -101,8 +99,7 @@ func TestRoutesErrors(t *testing.T) {
 	}
 }
 
-// Заголовок Allow ставит сам ServeMux до нашей подмены тела — проверяем,
-// что подмена его не потеряла.
+// ServeMux ставит Allow до подмены тела — проверяем, что он не потерялся.
 func TestMethodNotAllowedKeepsAllowHeader(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/health", nil)
 	w := httptest.NewRecorder()

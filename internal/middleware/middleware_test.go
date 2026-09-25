@@ -13,7 +13,7 @@ import (
 	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/pkg/response"
 )
 
-// testLogger собирает лог в буфер, чтобы тест мог разобрать записанные поля.
+// testLogger пишет лог в буфер.
 func testLogger() (*slog.Logger, *bytes.Buffer) {
 	var buf bytes.Buffer
 	return slog.New(slog.NewJSONHandler(&buf, nil)), &buf
@@ -108,7 +108,6 @@ func TestWithLogging(t *testing.T) {
 
 	fields := decodeLog(t, buf)
 
-	// Все поля из требований к логу должны присутствовать.
 	for _, key := range []string{
 		"request_id", "method", "url", "host", "remote_addr", "real_ip",
 		"user_agent", "content_length", "status", "start_time",
@@ -122,11 +121,10 @@ func TestWithLogging(t *testing.T) {
 	if fields["method"] != http.MethodPost {
 		t.Errorf("method = %v, ожидался %v", fields["method"], http.MethodPost)
 	}
-	// Статус сам http.ResponseWriter не отдаёт — его запоминает statusWriter.
 	if fields["status"] != float64(http.StatusCreated) {
 		t.Errorf("status = %v, ожидался %d", fields["status"], http.StatusCreated)
 	}
-	// В url попадает и строка запроса, иначе не видно, с какими параметрами звали.
+	// В url должна попасть и строка запроса.
 	if url, _ := fields["url"].(string); !strings.Contains(url, "utm=test") {
 		t.Errorf("url = %v, ожидалась строка запроса целиком", fields["url"])
 	}
@@ -182,8 +180,7 @@ func TestRealIP(t *testing.T) {
 	}
 }
 
-// Паника в обработчике не должна ронять процесс: клиент получает 500
-// в нашем формате, подробности остаются в логе.
+// Паника не должна ронять процесс: клиент получает 500, подробности — в лог.
 func TestWithRecover(t *testing.T) {
 	logger, buf := testLogger()
 
@@ -203,7 +200,6 @@ func TestWithRecover(t *testing.T) {
 		t.Errorf("code = %q, ожидался %q", got.Error.Code, apimessage.CodeInternal)
 	}
 
-	// Наружу не должно утечь ни содержимое паники, ни стек.
 	if body := w.Body.String(); strings.Contains(body, "что-то пошло не так") {
 		t.Errorf("текст паники ушёл клиенту: %s", body)
 	}
@@ -273,8 +269,7 @@ func TestWithCORS(t *testing.T) {
 	})
 }
 
-// Маршрутизатор отвечает на неизвестный путь текстом "404 page not found".
-// Обёртка обязана подменить его на JSON нашего формата.
+// ServeMux отвечает текстом "404 page not found" — обёртка подменяет его на JSON.
 func TestWithJSONErrors(t *testing.T) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
@@ -344,8 +339,7 @@ func TestWithJSONErrorsPassesSuccess(t *testing.T) {
 	}
 }
 
-// Первая обёртка в списке должна оказаться самой внешней: именно поэтому
-// WithRecover ставят снаружи остальных.
+// Первая обёртка в списке должна оказаться самой внешней.
 func TestChainOrder(t *testing.T) {
 	var order []string
 

@@ -42,7 +42,6 @@ func TestCreateAndGet(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetByEmail: неожиданная ошибка: %v", err)
 	}
-	// Хеш нужен при входе, поэтому хранилище обязано его возвращать.
 	if byEmail.PasswordHash != created.PasswordHash {
 		t.Error("GetByEmail не вернул хеш пароля, он нужен для проверки при входе")
 	}
@@ -52,8 +51,6 @@ func TestGetNotFound(t *testing.T) {
 	ctx := context.Background()
 	store := NewUserStorage()
 
-	// Ошибку проверяем через errors.Is, а не сравнением значений:
-	// реализация может обернуть её контекстом.
 	if _, err := store.GetByID(ctx, 42); !errors.Is(err, storage.ErrUserNotFound) {
 		t.Errorf("GetByID: ошибка = %v, ожидалась ErrUserNotFound", err)
 	}
@@ -76,8 +73,7 @@ func TestCreateDuplicateEmail(t *testing.T) {
 	}
 }
 
-// Ключевая проверка: одновременные запросы с одним email не должны создать
-// два аккаунта. Проверка занятости и вставка обязаны идти под одной блокировкой.
+// Одновременные запросы с одним email не должны создать два аккаунта.
 func TestCreateConcurrentSameEmail(t *testing.T) {
 	ctx := context.Background()
 	store := NewUserStorage()
@@ -113,7 +109,6 @@ func TestCreateConcurrentSameEmail(t *testing.T) {
 	}
 }
 
-// Контекст уже отменён — клиент ушёл, работать незачем.
 func TestCreateCancelledContext(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()

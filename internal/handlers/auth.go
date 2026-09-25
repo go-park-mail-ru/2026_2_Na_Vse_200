@@ -13,27 +13,17 @@ import (
 	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/pkg/validation"
 )
 
-// maxBodySize ограничивает размер тела запроса. Без ограничения клиент может
-// прислать гигабайтный JSON и занять память сервера.
 const maxBodySize = 1 << 20 // 1 МБ
 
-// signupRequest — тело запроса регистрации.
-//
-// Отдельный тип, а не models.User: так в модель не попадут лишние поля
-// из запроса, а клиент не сможет подсунуть, например, чужой ID.
 type signupRequest struct {
 	Email       string `json:"email"`
 	Password    string `json:"password"`
 	DisplayName string `json:"display_name"`
 }
 
-// userResponse — безопасное представление аккаунта для клиента.
-//
-// Отдельный тип нужен прежде всего ради того, чего здесь НЕТ: поля с хешем
-// пароля. Физически невозможно отдать наружу то, чего нет в структуре.
-//
-// ID — строка: тип ключа в БД ещё не зафиксирован, а в JavaScript целые
-// числа больше 2^53 теряют точность.
+// userResponse — представление аккаунта для клиента. Поля с хешем пароля здесь
+// нет намеренно: отдать наружу то, чего нет в структуре, невозможно.
+// ID отдаётся строкой, как требует контракт.
 type userResponse struct {
 	ID          string  `json:"id"`
 	Email       string  `json:"email"`
@@ -41,14 +31,13 @@ type userResponse struct {
 	AvatarURL   *string `json:"avatar_url"`
 }
 
-// newUserResponse переводит доменную модель в ответ API.
 func newUserResponse(user models.User) userResponse {
 	resp := userResponse{
 		ID:          strconv.FormatInt(int64(user.ID), 10),
 		Email:       user.Email,
 		DisplayName: user.DisplayName,
 	}
-	// В контракте avatar_url — строка или null, а не пустая строка.
+	// В контракте avatar_url — строка или null.
 	if user.AvatarURL != "" {
 		url := user.AvatarURL
 		resp.AvatarURL = &url
@@ -56,18 +45,13 @@ func newUserResponse(user models.User) userResponse {
 	return resp
 }
 
-// Signup создаёт аккаунт.
-//
-// POST /api/v1/auth/signup, см. docs/api.md, раздел 6.1.
-// Автоматического входа нет: после успеха фронтенд ведёт пользователя
-// на форму входа, cookie здесь не выставляется.
+// Signup создаёт аккаунт: POST /api/v1/auth/signup.
+// Cookie не выставляется — автоматического входа после регистрации нет.
 func (a *API) Signup(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxBodySize)
 
 	var req signupRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		// Ошибку разбора проверяем обязательно: без этого поля молча
-		// остались бы пустыми, и мы бы завели аккаунт из мусора.
 		response.WriteError(w, http.StatusBadRequest, apimessage.CodeInvalidJSON, apimessage.MsgInvalidJSON)
 		return
 	}
@@ -84,8 +68,6 @@ func (a *API) Signup(w http.ResponseWriter, r *http.Request) {
 
 	hash, err := a.deps.Hasher.Hash(checked.Password)
 	if err != nil {
-		// В лог уходит причина, клиенту — общий текст. Сам пароль
-		// не логируется ни при каких обстоятельствах.
 		response.WriteInternalError(w, "хеширование пароля", err)
 		return
 	}
@@ -97,9 +79,6 @@ func (a *API) Signup(w http.ResponseWriter, r *http.Request) {
 	})
 	switch {
 	case errors.Is(err, storage.ErrEmailTaken):
-		// Занятый email определяет само хранилище при вставке, а не отдельная
-		// проверка «есть ли такой»: между проверкой и вставкой успел бы
-		// вклиниться второй такой же запрос.
 		response.WriteError(w, http.StatusConflict, apimessage.CodeEmailTaken, apimessage.MsgEmailTaken)
 		return
 	case err != nil:

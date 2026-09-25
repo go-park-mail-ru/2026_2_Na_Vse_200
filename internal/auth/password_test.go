@@ -5,8 +5,7 @@ import (
 	"testing"
 )
 
-// Во всех тестах берём минимальную цену: проверяем поведение, а не скорость
-// вычислений, а с ценой по умолчанию каждый хеш считался бы десятки миллисекунд.
+// Минимальная цена: тесты проверяют поведение, а не скорость вычислений.
 func testHasher() BcryptHasher {
 	return NewBcryptHasherWithCost(MinCost)
 }
@@ -43,8 +42,7 @@ func TestHashDoesNotContainPassword(t *testing.T) {
 	}
 }
 
-// bcrypt генерирует соль сам, поэтому один и тот же пароль даёт разные хеши.
-// Иначе по совпадающим хешам было бы видно, у кого одинаковые пароли.
+// Соль генерируется на каждый вызов, поэтому хеши одного пароля различаются.
 func TestHashIsSaltedDifferently(t *testing.T) {
 	hasher := testHasher()
 	const password = "muzyka2026"
@@ -66,8 +64,7 @@ func TestHashIsSaltedDifferently(t *testing.T) {
 	}
 }
 
-// Формат bcrypt: $2a$<цена>$<соль и хеш>, всего 60 символов.
-// Соль лежит внутри строки, отдельная колонка в БД под неё не нужна.
+// Формат bcrypt: $2a$<цена>$<соль и хеш>, 60 символов.
 func TestHashFormat(t *testing.T) {
 	hash, err := testHasher().Hash("muzyka2026")
 	if err != nil {
@@ -82,9 +79,7 @@ func TestHashFormat(t *testing.T) {
 	}
 }
 
-// Цена записана внутри хеша, поэтому пароль, захешированный с другой ценой,
-// проверяется без дополнительных настроек. Это важно: в сидах БД лежат
-// хеши с ценой 12, а сервис считает новые с ценой по умолчанию.
+// Цена записана в самом хеше, поэтому сиды с ценой 12 проверяются тем же кодом.
 func TestVerifyAcceptsOtherCost(t *testing.T) {
 	const password = "muzyka2026"
 
@@ -98,15 +93,14 @@ func TestVerifyAcceptsOtherCost(t *testing.T) {
 	}
 }
 
-// Пароль длиннее 72 байт bcrypt не принимает — ровно поэтому в правилах
-// валидации стоит такая же верхняя граница.
+// Пароли длиннее 72 байт bcrypt не принимает.
 func TestHashTooLongPassword(t *testing.T) {
 	if _, err := testHasher().Hash(strings.Repeat("a", 73)); err == nil {
 		t.Error("Hash принял пароль длиннее 72 байт, ожидалась ошибка")
 	}
 }
 
-// Испорченный хеш из базы не должен ронять сервер: это просто «пароль не подошёл».
+// Испорченный хеш означает «пароль не подошёл», а не панику.
 func TestVerifyBrokenHash(t *testing.T) {
 	hasher := testHasher()
 

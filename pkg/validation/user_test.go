@@ -16,14 +16,12 @@ func TestSignupValid(t *testing.T) {
 		t.Fatalf("данные должны быть валидны, получены ошибки: %v", result.Fields)
 	}
 
-	// Email нормализуется, иначе Andrey@... и andrey@... станут разными аккаунтами.
 	if result.Email != "andrey@example.com" {
 		t.Errorf("Email = %q, ожидался %q", result.Email, "andrey@example.com")
 	}
 	if result.DisplayName != "Андрей" {
 		t.Errorf("DisplayName = %q, ожидался %q", result.DisplayName, "Андрей")
 	}
-	// Пароль не трогаем: пробелы могут быть его частью.
 	if result.Password != "muzyka2026" {
 		t.Errorf("Password = %q, пароль не должен меняться", result.Password)
 	}
@@ -112,7 +110,6 @@ func TestSignupDisplayName(t *testing.T) {
 	}{
 		{name: "кириллица", displayName: "Андрей", valid: true},
 		{name: "латиница", displayName: "Andrey", valid: true},
-		// Два кириллических символа занимают четыре байта: считать надо символы.
 		{name: "два символа кириллицей", displayName: "Ян", valid: true},
 		{name: "ровно 50 символов", displayName: strings.Repeat("я", 50), valid: true},
 		{name: "пустое", displayName: "", valid: false},
@@ -140,8 +137,7 @@ func TestSignupDisplayName(t *testing.T) {
 	}
 }
 
-// Все ошибки должны приходить разом, чтобы форма подсветилась за один проход,
-// а не заставляла пользователя исправлять поля по очереди.
+// Все ошибки приходят разом, а не по одной.
 func TestSignupReportsAllErrorsAtOnce(t *testing.T) {
 	result := Signup(SignupInput{
 		Email:       "нет-собаки",

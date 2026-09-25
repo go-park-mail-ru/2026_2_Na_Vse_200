@@ -1,8 +1,5 @@
 // Package config читает настройки сервиса из переменных окружения.
-//
-// Значения по умолчанию рассчитаны на локальный запуск: достаточно `go run ./cmd/server`,
-// ничего настраивать не нужно. На стенде переменные задаются снаружи.
-// Секреты в репозиторий не попадают: .env в .gitignore.
+// Значений по умолчанию достаточно для локального запуска.
 package config
 
 import (
@@ -13,47 +10,36 @@ import (
 	"time"
 )
 
-// Config — настройки, собранные при старте. Дальше по коду передаётся значением:
-// после Load она не меняется.
+// Config — настройки, собранные при старте.
 type Config struct {
 	// Addr — адрес прослушивания, например ":8080".
 	Addr string
 
-	// AllowedOrigin — точный адрес фронтенда для CORS. Пустая строка означает,
-	// что фронтенд и API на одном origin и CORS не нужен.
-	//
-	// Адрес ровно один, а не список: у сервиса один сайт, а ответ, зависящий
-	// от заголовка Origin, открывает дорогу к отравлению кэша на прокси.
+	// AllowedOrigin — адрес фронтенда для CORS.
+	// Пустая строка означает общий с фронтендом origin: CORS не нужен.
 	AllowedOrigin string
 
-	// CookieSecure — флаг Secure у сессионной cookie. Локально false: по http://
-	// браузер cookie с Secure не примет.
+	// CookieSecure — флаг Secure у сессионной cookie. По http:// должен быть false.
 	CookieSecure bool
 
 	// SessionTTL — срок жизни сессии и cookie.
 	SessionTTL time.Duration
 
-	// ShutdownTimeout — сколько ждём завершения текущих запросов при остановке.
+	// ShutdownTimeout — сколько ждём завершения запросов при остановке.
 	ShutdownTimeout time.Duration
 
-	// PostgreSQLDSN — строка подключения к PostgreSQL. Читается уже сейчас;
-	// заработает, когда появится слой хранения поверх базы вместо хранилища
-	// в памяти.
+	// PostgreSQLDSN — строка подключения к PostgreSQL.
 	PostgreSQLDSN string
 }
 
-// Load собирает конфигурацию из окружения.
-//
-// Ошибка возвращается, если значение задано, но разобрать его не удалось:
-// молча подставить дефолт вместо опечатки в APP_SESSION_TTL — значит получить
-// сюрприз на стенде вместо понятной ошибки при старте.
+// Load собирает конфигурацию из окружения. Заданное, но неразбираемое значение —
+// ошибка, а не повод взять значение по умолчанию.
 func Load() (Config, error) {
 	cfg := Config{
 		Addr:          getEnv("APP_ADDR", ":8080"),
+		AllowedOrigin: getEnv("APP_ALLOWED_ORIGIN", ""),
 		PostgreSQLDSN: getEnv("POSTGRES_DSN", ""),
 	}
-
-	cfg.AllowedOrigin = getEnv("APP_ALLOWED_ORIGIN", "")
 
 	secure, err := getBool("APP_COOKIE_SECURE", false)
 	if err != nil {
@@ -76,7 +62,6 @@ func Load() (Config, error) {
 	return cfg, nil
 }
 
-// getEnv возвращает значение переменной или запасное, если она не задана или пуста.
 func getEnv(key, fallback string) string {
 	value := strings.TrimSpace(os.Getenv(key))
 	if value == "" {
@@ -85,7 +70,6 @@ func getEnv(key, fallback string) string {
 	return value
 }
 
-// getBool разбирает значение вида true/false/1/0.
 func getBool(key string, fallback bool) (bool, error) {
 	raw := getEnv(key, "")
 	if raw == "" {
@@ -99,7 +83,7 @@ func getBool(key string, fallback bool) (bool, error) {
 	return value, nil
 }
 
-// getDuration разбирает значение вида 24h, 30m, 10s.
+// getDuration разбирает значения вида 24h, 30m, 10s.
 func getDuration(key string, fallback time.Duration) (time.Duration, error) {
 	raw := getEnv(key, "")
 	if raw == "" {

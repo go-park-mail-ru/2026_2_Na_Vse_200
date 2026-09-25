@@ -8,14 +8,8 @@ import (
 	"time"
 )
 
-// WithLogging пишет по строке на каждый обработанный запрос.
-//
-// Лог структурированный (log/slog): не текст, а набор пар «ключ-значение».
-// Такую строку можно фильтровать и агрегировать — например, найти все запросы
-// с status 500 за час или посчитать среднее duration_ms по ручке.
-//
-// component отвечает на вопрос «кто обработал»: сейчас это монолит, а когда
-// появятся отдельные сервисы, в поле попадёт имя конкретного.
+// WithLogging пишет структурированную запись на каждый обработанный запрос.
+// component попадает в поле handled_by и отвечает, кто обработал запрос.
 func WithLogging(logger *slog.Logger, component string) Middleware {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -26,7 +20,6 @@ func WithLogging(logger *slog.Logger, component string) Middleware {
 
 			duration := time.Since(start)
 			if sw.status == 0 {
-				// Обработчик не вызвал WriteHeader — значит ушёл 200.
 				sw.status = http.StatusOK
 			}
 
@@ -49,30 +42,21 @@ func WithLogging(logger *slog.Logger, component string) Middleware {
 	}
 }
 
-// RealIP пытается определить адрес настоящего клиента.
-//
-// Когда сервис стоит за прокси или балансировщиком, в RemoteAddr оказывается
-// адрес прокси, а исходный клиент указывается в заголовках.
-//
-// Важно: эти заголовки клиент может выставить сам, поэтому доверять им можно
-// только тогда, когда сервис действительно спрятан за доверенным прокси,
-// который их перезаписывает. Для логов этого достаточно, для проверок
-// безопасности — нет.
+// RealIP определяет адрес клиента с учётом заголовков прокси.
+// Заголовки подделываются клиентом, поэтому годятся только для логов.
 func RealIP(r *http.Request) string {
 	if ip := strings.TrimSpace(r.Header.Get("X-Real-IP")); ip != "" {
 		return ip
 	}
 
 	if forwarded := r.Header.Get("X-Forwarded-For"); forwarded != "" {
-		// Заголовок накапливает цепочку адресов: клиент, потом прокси.
-		// Исходный клиент — первый.
+		// В цепочке адресов исходный клиент идёт первым.
 		client, _, _ := strings.Cut(forwarded, ",")
 		if client = strings.TrimSpace(client); client != "" {
 			return client
 		}
 	}
 
-	// RemoteAddr приходит в виде "адрес:порт" — порт в логе не нужен.
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err != nil {
 		return r.RemoteAddr

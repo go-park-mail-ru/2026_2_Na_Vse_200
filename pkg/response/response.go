@@ -1,10 +1,4 @@
-// Package response пишет HTTP-ответы в формате, зафиксированном контрактом API
-// (docs/api.md, раздел 1).
-//
-// Пакет лежит в pkg, а не в internal: он не знает ни про пользователей, ни про
-// каталог — только про то, как выглядит успешный ответ и ошибка. Им одинаково
-// пользуются обработчики и обвязка (middleware), поэтому он не может жить
-// внутри ни одного из них: иначе зависимость пошла бы в обратную сторону.
+// Package response пишет HTTP-ответы в формате контракта API.
 package response
 
 import (
@@ -20,8 +14,7 @@ type ErrorResponse struct {
 	Error ErrorBody `json:"error"`
 }
 
-// ErrorBody — тело ошибки. Fields заполняется только при ошибках валидации,
-// поэтому помечено omitempty: в остальных ответах ключа просто не будет.
+// ErrorBody — тело ошибки. Fields заполняется только при ошибках валидации.
 type ErrorBody struct {
 	Code    string            `json:"code"`
 	Message string            `json:"message"`
@@ -29,11 +22,8 @@ type ErrorBody struct {
 }
 
 // WriteJSON отправляет data как JSON с указанным статусом.
-//
-// Порядок важен: сначала заголовки, потом WriteHeader, потом тело. После первой
-// записи статус поменять уже нельзя, а без WriteHeader ушёл бы 200.
-// Поэтому JSON сначала собирается целиком: если Marshal упадёт, мы ещё успеем
-// отдать 500, а не половину ответа после отправленного статуса.
+// Тело собирается до отправки заголовков: иначе при ошибке сериализации
+// клиент получил бы половину ответа после уже отправленного статуса.
 func WriteJSON(w http.ResponseWriter, code int, data any) {
 	body, err := json.Marshal(data)
 	if err != nil {
@@ -46,13 +36,11 @@ func WriteJSON(w http.ResponseWriter, code int, data any) {
 	w.WriteHeader(code)
 
 	if _, err := w.Write(body); err != nil {
-		// Клиент разорвал соединение: сказать ему уже нечего, пишем себе в лог.
 		log.Printf("отправка ответа: %v", err)
 	}
 }
 
-// WriteError отправляет ошибку в едином формате API.
-// message — текст на русском, его можно показать пользователю.
+// WriteError отправляет ошибку в формате контракта.
 func WriteError(w http.ResponseWriter, code int, errCode, message string) {
 	WriteJSON(w, code, ErrorResponse{
 		Error: ErrorBody{
@@ -62,8 +50,7 @@ func WriteError(w http.ResponseWriter, code int, errCode, message string) {
 	})
 }
 
-// WriteValidationError отправляет 400 с разбором по полям: ключ — имя поля
-// из запроса, значение — что с ним не так. Фронтенд подсвечивает все поля сразу.
+// WriteValidationError отправляет 400 с разбором по полям запроса.
 func WriteValidationError(w http.ResponseWriter, fields map[string]string) {
 	WriteJSON(w, http.StatusBadRequest, ErrorResponse{
 		Error: ErrorBody{
@@ -74,8 +61,7 @@ func WriteValidationError(w http.ResponseWriter, fields map[string]string) {
 	})
 }
 
-// WriteInternalError логирует настоящую причину у себя и отдаёт клиенту общий
-// текст. Детали (SQL, пути, стектрейсы) наружу не уходят никогда.
+// WriteInternalError логирует причину и отдаёт клиенту общий текст без деталей.
 func WriteInternalError(w http.ResponseWriter, context string, err error) {
 	log.Printf("%s: %v", context, err)
 	WriteError(w, http.StatusInternalServerError, apimessage.CodeInternal, apimessage.MsgInternal)

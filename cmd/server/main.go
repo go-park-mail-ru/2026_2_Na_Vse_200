@@ -19,9 +19,7 @@ import (
 	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/storage/memory"
 )
 
-// component попадает в каждую строку лога полем handled_by и отвечает
-// на вопрос «кто обработал запрос». Пока сервис один; когда появятся
-// отдельные сервисы, у каждого будет своё имя.
+// component попадает в лог полем handled_by.
 const component = "monolith/middleware"
 
 func main() {
@@ -30,16 +28,12 @@ func main() {
 		log.Fatalf("конфигурация: %v", err)
 	}
 
-	// Логи структурированные: не строка текста, а набор полей. Такие записи
-	// фильтруются и считаются — например, все запросы со status 500 за час.
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
 		Level: slog.LevelInfo,
 	}))
 
-	// Пока аккаунты живут в памяти процесса: это позволяет фронтенду работать
-	// до готовности слоя на PostgreSQL. При переходе на него меняется только
-	// эта строка — обработчики зависят от интерфейсов, а не от реализации.
-	// Плата: после перезапуска сервера аккаунты пропадают.
+	// До готовности слоя на PostgreSQL аккаунты живут в памяти процесса
+	// и пропадают при перезапуске.
 	users := memory.NewUserStorage()
 
 	api := handlers.New(cfg, handlers.Deps{
@@ -47,9 +41,8 @@ func main() {
 		Hasher: auth.NewBcryptHasher(),
 	})
 
-	// Порядок обёрток: сначала идентификатор запроса (он нужен и логу,
-	// и записи о панике), затем recover снаружи остальных, дальше лог,
-	// CORS и подмена текстовых 404/405 на JSON, внутри — таблица маршрутов.
+	// Идентификатор запроса нужен логу и записи о панике, поэтому идёт первым;
+	// recover — снаружи остальных обёрток.
 	handler := middleware.Chain(
 		api.Routes(),
 		middleware.WithRequestID,
@@ -59,40 +52,25 @@ func main() {
 		middleware.WithJSONErrors,
 	)
 
-	// Свой http.Server, а не http.ListenAndServe(addr, nil): нужен контроль
-	// над таймаутами и своя таблица маршрутов вместо глобального DefaultServeMux.
-	// Без таймаутов медленный клиент может держать соединение сколько угодно,
-	// занимая память и файловый дескриптор.
-	//
-	// Значения подобраны под JSON-API: ответы весят сотни байт, самая долгая
-	// операция — проверка пароля, порядка 60 мс. Запас пятикратный с лихвой,
-	// а чем быстрее отпускаем зависших клиентов, тем больше живых обслужим.
-	// Появится отдача аудиофайлов — для таких ручек таймаут задаётся отдельно.
+	// Таймауты рассчитаны на JSON-API: самая долгая операция — проверка пароля,
+	// около 60 мс. IdleTimeout больше остальных: это keep-alive между запросами.
 	server := &http.Server{
-		Addr:    cfg.Addr,
-		Handler: handler,
-		// Заголовки приходят первыми и почти мгновенно: если их нет за три
-		// секунды, клиент явно неисправен.
+		Addr:              cfg.Addr,
+		Handler:           handler,
 		ReadHeaderTimeout: 3 * time.Second,
 		ReadTimeout:       5 * time.Second,
 		WriteTimeout:      5 * time.Second,
-		// Простаивающее соединение держим дольше: это keep-alive, по нему
-		// придёт следующий запрос того же клиента без новых рукопожатий.
-		IdleTimeout: 60 * time.Second,
+		IdleTimeout:       60 * time.Second,
 	}
 
-	// NotifyContext отменяет контекст по Ctrl+C или SIGTERM от системы
-	// (его шлёт стенд при передеплое).
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	// ListenAndServe блокирует, поэтому уводим его в отдельную горутину,
-	// а в главной ждём сигнала остановки.
+	// ListenAndServe блокирует, поэтому ждём сигнал остановки в главной горутине.
 	serverErrors := make(chan error, 1)
 	go func() {
 		logger.Info("сервер запущен", slog.String("addr", cfg.Addr), slog.String("component", component))
-		// После Shutdown ListenAndServe возвращает ErrServerClosed — это штатное
-		// завершение, а не сбой.
+		// После Shutdown возвращается ErrServerClosed — это штатное завершение.
 		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			serverErrors <- err
 			return
@@ -108,8 +86,6 @@ func main() {
 	case <-ctx.Done():
 		logger.Info("получен сигнал остановки, завершаем текущие запросы")
 
-		// Shutdown перестаёт принимать новые соединения и ждёт текущие запросы,
-		// но не дольше отведённого времени.
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), cfg.ShutdownTimeout)
 		defer cancel()
 
