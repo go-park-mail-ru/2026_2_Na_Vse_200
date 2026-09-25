@@ -7,13 +7,16 @@ import (
 	"testing"
 
 	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/config"
+	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/middleware"
+	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/pkg/apimessage"
+	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/pkg/response"
 )
 
 // newTestHandler собирает то же, что main: маршруты плюс подмену текстовых
 // ответов ServeMux на JSON. Сервер при этом не поднимается.
 func newTestHandler() http.Handler {
 	api := New(config.Config{}, Deps{})
-	return Wrap(api.Routes(), WithJSONErrors)
+	return middleware.Chain(api.Routes(), middleware.WithJSONErrors)
 }
 
 func TestHealth(t *testing.T) {
@@ -48,21 +51,21 @@ func TestRoutesErrors(t *testing.T) {
 			method:   http.MethodGet,
 			path:     "/api/v1/nope",
 			wantCode: http.StatusNotFound,
-			wantErr:  CodeNotFound,
+			wantErr:  apimessage.CodeNotFound,
 		},
 		{
 			name:     "корень сайта больше не обрабатывается",
 			method:   http.MethodGet,
 			path:     "/",
 			wantCode: http.StatusNotFound,
-			wantErr:  CodeNotFound,
+			wantErr:  apimessage.CodeNotFound,
 		},
 		{
 			name:     "чужой метод на существующем адресе",
 			method:   http.MethodPost,
 			path:     "/health",
 			wantCode: http.StatusMethodNotAllowed,
-			wantErr:  CodeMethodNotAllowed,
+			wantErr:  apimessage.CodeMethodNotAllowed,
 		},
 	}
 
@@ -109,4 +112,15 @@ func TestMethodNotAllowedKeepsAllowHeader(t *testing.T) {
 	if allow := w.Header().Get("Allow"); allow == "" {
 		t.Error("POST /health: заголовок Allow пуст, клиент не узнает разрешённые методы")
 	}
+}
+
+// decodeError разбирает тело ответа как ошибку единого формата API.
+func decodeError(t *testing.T, w *httptest.ResponseRecorder) response.ErrorResponse {
+	t.Helper()
+
+	var got response.ErrorResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil {
+		t.Fatalf("тело не разобралось как ошибка API: %v, тело: %s", err, w.Body.String())
+	}
+	return got
 }

@@ -19,9 +19,12 @@ type Config struct {
 	// Addr — адрес прослушивания, например ":8080".
 	Addr string
 
-	// AllowedOrigins — точные адреса фронтенда для CORS. Пустой список означает,
-	// что фронт и API на одном origin и CORS не нужен.
-	AllowedOrigins []string
+	// AllowedOrigin — точный адрес фронтенда для CORS. Пустая строка означает,
+	// что фронтенд и API на одном origin и CORS не нужен.
+	//
+	// Адрес ровно один, а не список: у сервиса один сайт, а ответ, зависящий
+	// от заголовка Origin, открывает дорогу к отравлению кэша на прокси.
+	AllowedOrigin string
 
 	// CookieSecure — флаг Secure у сессионной cookie. Локально false: по http://
 	// браузер cookie с Secure не примет.
@@ -33,9 +36,10 @@ type Config struct {
 	// ShutdownTimeout — сколько ждём завершения текущих запросов при остановке.
 	ShutdownTimeout time.Duration
 
-	// DSN — строка подключения к PostgreSQL. Читается уже сейчас, используется
-	// с BE-03, когда появится хранение аккаунтов.
-	DSN string
+	// PostgreSQLDSN — строка подключения к PostgreSQL. Читается уже сейчас;
+	// заработает, когда появится слой хранения поверх базы вместо хранилища
+	// в памяти.
+	PostgreSQLDSN string
 }
 
 // Load собирает конфигурацию из окружения.
@@ -45,11 +49,11 @@ type Config struct {
 // сюрприз на стенде вместо понятной ошибки при старте.
 func Load() (Config, error) {
 	cfg := Config{
-		Addr: getEnv("APP_ADDR", ":8080"),
-		DSN:  getEnv("DB_DSN", ""),
+		Addr:          getEnv("APP_ADDR", ":8080"),
+		PostgreSQLDSN: getEnv("POSTGRES_DSN", ""),
 	}
 
-	cfg.AllowedOrigins = splitOrigins(getEnv("APP_ALLOWED_ORIGINS", ""))
+	cfg.AllowedOrigin = getEnv("APP_ALLOWED_ORIGIN", "")
 
 	secure, err := getBool("APP_COOKIE_SECURE", false)
 	if err != nil {
@@ -110,24 +114,4 @@ func getDuration(key string, fallback time.Duration) (time.Duration, error) {
 		return 0, fmt.Errorf("разбор %s: длительность должна быть положительной, получено %q", key, raw)
 	}
 	return value, nil
-}
-
-// splitOrigins превращает список через запятую в срез, выбрасывая пустые элементы.
-func splitOrigins(raw string) []string {
-	if raw == "" {
-		return nil
-	}
-
-	parts := strings.Split(raw, ",")
-	origins := make([]string, 0, len(parts))
-	for _, part := range parts {
-		if origin := strings.TrimSpace(part); origin != "" {
-			origins = append(origins, origin)
-		}
-	}
-
-	if len(origins) == 0 {
-		return nil
-	}
-	return origins
 }

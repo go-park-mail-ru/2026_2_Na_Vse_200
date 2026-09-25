@@ -31,8 +31,8 @@ type Session struct {
 	ExpiresAt time.Time
 }
 
-// Expired сообщает, истекла ли сессия на момент now.
-func (s Session) Expired(now time.Time) bool {
+// IsExpired сообщает, истекла ли сессия на момент now.
+func (s Session) IsExpired(now time.Time) bool {
 	return !now.Before(s.ExpiresAt)
 }
 

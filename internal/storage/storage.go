@@ -42,8 +42,8 @@ var (
 	ErrSessionExpired = errors.New("session expired")
 )
 
-// UserStorage — работа с аккаунтами, таблица account.
-type UserStorage interface {
+// UserStorageInterface — работа с аккаунтами, таблица account.
+type UserStorageInterface interface {
 	// Create сохраняет пользователя и возвращает его с проставленными ID и CreatedAt.
 	// Поле PasswordHash приходит уже заполненным: хеширование — дело backend, не БД.
 	// Занятый email — ErrEmailTaken.
@@ -58,14 +58,14 @@ type UserStorage interface {
 	GetByEmail(ctx context.Context, email string) (models.User, error)
 }
 
-// SessionStorage — работа с сессиями.
+// SessionStorageInterface — работа с сессиями.
 //
 // Где именно они лежат, интерфейс не определяет. К РК1 реализация держит их
 // в памяти процесса (мапа под sync.RWMutex): сессия не бизнес-сущность, в схеме БД
 // её нет, отдельный сервис ради неё к 7 октября не поднимаем. В РК2 хранилище
 // переезжает в Redis вместе с состоянием плеера — меняется только реализация,
 // интерфейс и обработчики остаются прежними. См. docs/api.md, раздел 2.
-type SessionStorage interface {
+type SessionStorageInterface interface {
 	// Create сохраняет новую сессию. Идентификатор и срок жизни задаёт backend.
 	Create(ctx context.Context, session models.Session) error
 
@@ -78,12 +78,12 @@ type SessionStorage interface {
 	Delete(ctx context.Context, id string) error
 }
 
-// CatalogStorage — чтение каталога для главной страницы.
+// CatalogStorageInterface — чтение каталога для главной страницы.
 //
 // Методы отдают уже собранные карточки: длительность приходит из media_file,
 // исполнители — из связующих таблиц track_artist и album_artist. Разбирать эти
 // связи в обработчике не нужно.
-type CatalogStorage interface {
+type CatalogStorageInterface interface {
 	// HomeTracks возвращает не более limit опубликованных треков, новые первыми.
 	// Пустой каталог — пустой срез и nil, а не ошибка.
 	HomeTracks(ctx context.Context, limit int) ([]models.Track, error)

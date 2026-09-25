@@ -5,14 +5,22 @@ import (
 	"context"
 	"errors"
 	"log"
+	"log/slog"
 	"net/http"
+	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
 	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/config"
 	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/handlers"
+	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/middleware"
 )
+
+// component попадает в каждую строку лога полем handled_by и отвечает
+// на вопрос «кто обработал запрос». Пока сервис один; когда появятся
+// отдельные сервисы, у каждого будет своё имя.
+const component = "monolith/middleware"
 
 func main() {
 	cfg, err := config.Load()
@@ -20,29 +28,47 @@ func main() {
 		log.Fatalf("конфигурация: %v", err)
 	}
 
-	// Хранилища появятся в BE-03 (аккаунты) и BE-04 (сессии): /health их не использует.
+	// Логи структурированные: не строка текста, а набор полей. Такие записи
+	// фильтруются и считаются — например, все запросы со status 500 за час.
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
+		Level: slog.LevelInfo,
+	}))
+
+	// Хранилища подключатся вместе с регистрацией и входом: /health их не использует.
 	api := handlers.New(cfg, handlers.Deps{})
 
-	// Порядок обёрток: recover снаружи всех, дальше лог, CORS и подмена
-	// текстовых 404/405 на JSON, внутри — сама таблица маршрутов.
-	handler := handlers.Wrap(
+	// Порядок обёрток: сначала идентификатор запроса (он нужен и логу,
+	// и записи о панике), затем recover снаружи остальных, дальше лог,
+	// CORS и подмена текстовых 404/405 на JSON, внутри — таблица маршрутов.
+	handler := middleware.Chain(
 		api.Routes(),
-		handlers.WithRecover,
-		handlers.WithLogging,
-		handlers.WithCORS(cfg.AllowedOrigins),
-		handlers.WithJSONErrors,
+		middleware.WithRequestID,
+		middleware.WithRecover(logger),
+		middleware.WithLogging(logger, component),
+		middleware.WithCORS(cfg.AllowedOrigin),
+		middleware.WithJSONErrors,
 	)
 
 	// Свой http.Server, а не http.ListenAndServe(addr, nil): нужен контроль
 	// над таймаутами и своя таблица маршрутов вместо глобального DefaultServeMux.
-	// Без таймаутов медленный клиент может держать соединение сколько угодно.
+	// Без таймаутов медленный клиент может держать соединение сколько угодно,
+	// занимая память и файловый дескриптор.
+	//
+	// Значения подобраны под JSON-API: ответы весят сотни байт, самая долгая
+	// операция — проверка пароля, порядка 60 мс. Запас пятикратный с лихвой,
+	// а чем быстрее отпускаем зависших клиентов, тем больше живых обслужим.
+	// Появится отдача аудиофайлов — для таких ручек таймаут задаётся отдельно.
 	server := &http.Server{
-		Addr:              cfg.Addr,
-		Handler:           handler,
-		ReadHeaderTimeout: 5 * time.Second,
-		ReadTimeout:       10 * time.Second,
-		WriteTimeout:      10 * time.Second,
-		IdleTimeout:       60 * time.Second,
+		Addr:    cfg.Addr,
+		Handler: handler,
+		// Заголовки приходят первыми и почти мгновенно: если их нет за три
+		// секунды, клиент явно неисправен.
+		ReadHeaderTimeout: 3 * time.Second,
+		ReadTimeout:       5 * time.Second,
+		WriteTimeout:      5 * time.Second,
+		// Простаивающее соединение держим дольше: это keep-alive, по нему
+		// придёт следующий запрос того же клиента без новых рукопожатий.
+		IdleTimeout: 60 * time.Second,
 	}
 
 	// NotifyContext отменяет контекст по Ctrl+C или SIGTERM от системы
@@ -54,7 +80,7 @@ func main() {
 	// а в главной ждём сигнала остановки.
 	serverErrors := make(chan error, 1)
 	go func() {
-		log.Printf("сервер слушает %s", cfg.Addr)
+		logger.Info("сервер запущен", slog.String("addr", cfg.Addr), slog.String("component", component))
 		// После Shutdown ListenAndServe возвращает ErrServerClosed — это штатное
 		// завершение, а не сбой.
 		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
@@ -70,7 +96,7 @@ func main() {
 			log.Fatalf("сервер остановлен с ошибкой: %v", err)
 		}
 	case <-ctx.Done():
-		log.Println("получен сигнал остановки, завершаем запросы")
+		logger.Info("получен сигнал остановки, завершаем текущие запросы")
 
 		// Shutdown перестаёт принимать новые соединения и ждёт текущие запросы,
 		// но не дольше отведённого времени.
@@ -80,6 +106,6 @@ func main() {
 		if err := server.Shutdown(shutdownCtx); err != nil {
 			log.Fatalf("остановка сервера: %v", err)
 		}
-		log.Println("сервер остановлен")
+		logger.Info("сервер остановлен")
 	}
 }

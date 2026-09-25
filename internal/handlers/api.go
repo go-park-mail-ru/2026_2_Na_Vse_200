@@ -11,11 +11,11 @@ import (
 //
 // Поля объявлены интерфейсами из пакета storage, а не конкретными типами:
 // в main подставляется рабочая реализация, в тестах — подставная, и обработчики
-// разницы не видят. Реализации появляются в BE-03 (аккаунты) и BE-04 (сессии).
+// разницы не видят. Пока не заполняются: понадобятся регистрации, входу и главной.
 type Deps struct {
-	Users    storage.UserStorage
-	Sessions storage.SessionStorage
-	Catalog  storage.CatalogStorage
+	Users    storage.UserStorageInterface
+	Sessions storage.SessionStorageInterface
+	Catalog  storage.CatalogStorageInterface
 }
 
 // API — набор обработчиков со своими зависимостями.
@@ -37,8 +37,8 @@ func New(cfg config.Config, deps Deps) *API {
 // 405 на неподходящий метод, а не отдаёт запрос обработчику. Шаблон без метода
 // ловил бы все методы разом.
 //
-// Ручки регистрации, входа, me, выхода и главной добавляются сюда по одной строке
-// в BE-03, BE-04 и BE-07.
+// Оставшиеся ручки контракта — регистрация, вход, текущий пользователь, выход
+// и главная — добавляются сюда по одной строке каждая.
 func (a *API) Routes() http.Handler {
 	mux := http.NewServeMux()
 
