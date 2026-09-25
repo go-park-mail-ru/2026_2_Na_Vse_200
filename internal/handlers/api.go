@@ -3,19 +3,21 @@ package handlers
 import (
 	"net/http"
 
+	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/auth"
 	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/config"
 	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/storage"
 )
 
-// Deps — хранилища, которыми пользуются обработчики.
+// Deps — зависимости обработчиков: хранилища и хеширование паролей.
 //
-// Поля объявлены интерфейсами из пакета storage, а не конкретными типами:
-// в main подставляется рабочая реализация, в тестах — подставная, и обработчики
-// разницы не видят. Реализации появляются в BE-03 (аккаунты) и BE-04 (сессии).
+// Поля объявлены интерфейсами, а не конкретными типами: в main подставляется
+// рабочая реализация, в тестах — подставная, и обработчики разницы не видят.
+// Sessions и Catalog пока не заполняются: они понадобятся входу и главной странице.
 type Deps struct {
 	Users    storage.UserStorage
 	Sessions storage.SessionStorage
 	Catalog  storage.CatalogStorage
+	Hasher   auth.Hasher
 }
 
 // API — набор обработчиков со своими зависимостями.
@@ -37,12 +39,13 @@ func New(cfg config.Config, deps Deps) *API {
 // 405 на неподходящий метод, а не отдаёт запрос обработчику. Шаблон без метода
 // ловил бы все методы разом.
 //
-// Ручки регистрации, входа, me, выхода и главной добавляются сюда по одной строке
-// в BE-03, BE-04 и BE-07.
+// Оставшиеся ручки контракта — вход, текущий пользователь, выход и главная —
+// добавляются сюда по одной строке каждая.
 func (a *API) Routes() http.Handler {
 	mux := http.NewServeMux()
 
 	mux.HandleFunc("GET /health", a.Health)
+	mux.HandleFunc("POST /api/v1/auth/signup", a.Signup)
 
 	return mux
 }

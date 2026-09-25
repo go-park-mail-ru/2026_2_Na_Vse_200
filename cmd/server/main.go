@@ -10,8 +10,10 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/auth"
 	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/config"
 	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/handlers"
+	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/storage/memory"
 )
 
 func main() {
@@ -20,8 +22,16 @@ func main() {
 		log.Fatalf("конфигурация: %v", err)
 	}
 
-	// Хранилища появятся в BE-03 (аккаунты) и BE-04 (сессии): /health их не использует.
-	api := handlers.New(cfg, handlers.Deps{})
+	// Пока аккаунты живут в памяти процесса: это позволяет фронтенду работать
+	// до готовности слоя на PostgreSQL. При переходе на него меняется только
+	// эта строка — обработчики зависят от интерфейсов, а не от реализации.
+	// Плата: после перезапуска сервера аккаунты пропадают.
+	users := memory.NewUserStorage()
+
+	api := handlers.New(cfg, handlers.Deps{
+		Users:  users,
+		Hasher: auth.NewBcryptHasher(),
+	})
 
 	// Порядок обёрток: recover снаружи всех, дальше лог, CORS и подмена
 	// текстовых 404/405 на JSON, внутри — сама таблица маршрутов.
