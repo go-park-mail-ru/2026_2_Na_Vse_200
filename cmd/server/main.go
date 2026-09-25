@@ -12,9 +12,11 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/auth"
 	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/config"
 	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/handlers"
 	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/middleware"
+	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/storage/memory"
 )
 
 // component попадает в каждую строку лога полем handled_by и отвечает
@@ -34,8 +36,16 @@ func main() {
 		Level: slog.LevelInfo,
 	}))
 
-	// Хранилища подключатся вместе с регистрацией и входом: /health их не использует.
-	api := handlers.New(cfg, handlers.Deps{})
+	// Пока аккаунты живут в памяти процесса: это позволяет фронтенду работать
+	// до готовности слоя на PostgreSQL. При переходе на него меняется только
+	// эта строка — обработчики зависят от интерфейсов, а не от реализации.
+	// Плата: после перезапуска сервера аккаунты пропадают.
+	users := memory.NewUserStorage()
+
+	api := handlers.New(cfg, handlers.Deps{
+		Users:  users,
+		Hasher: auth.NewBcryptHasher(),
+	})
 
 	// Порядок обёрток: сначала идентификатор запроса (он нужен и логу,
 	// и записи о панике), затем recover снаружи остальных, дальше лог,
