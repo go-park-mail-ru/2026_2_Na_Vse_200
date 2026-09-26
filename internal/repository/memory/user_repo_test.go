@@ -5,6 +5,7 @@ import (
 	"errors"
 	"sync"
 	"testing"
+	"uuid"
 
 	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/models"
 	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/repository"
@@ -23,7 +24,7 @@ func TestCreateAndGet(t *testing.T) {
 		t.Fatalf("Create: неожиданная ошибка: %v", err)
 	}
 
-	if created.ID == 0 {
+	if created.ID == "" {
 		t.Error("Create не проставил ID")
 	}
 
@@ -54,7 +55,7 @@ func TestGetNotFound(t *testing.T) {
 	ctx := context.Background()
 	repo := NewUserRepo()
 
-	if _, err := repo.GetByID(ctx, 42); !errors.Is(err, repository.ErrUserNotFound) {
+	if _, err := repo.GetByID(ctx, models.ID(uuid.New().String())); !errors.Is(err, repository.ErrUserNotFound) {
 		t.Errorf("GetByID: ошибка = %v, ожидалась ErrUserNotFound", err)
 	}
 

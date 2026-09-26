@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/apimessage"
@@ -37,7 +36,7 @@ type userResponse struct {
 
 func newUserResponse(user models.User) userResponse {
 	resp := userResponse{
-		ID:          strconv.FormatInt(int64(user.ID), 10),
+		ID:          string(user.ID),
 		Email:       user.Email,
 		DisplayName: user.DisplayName,
 	}

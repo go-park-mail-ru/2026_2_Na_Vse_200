@@ -9,10 +9,10 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
-	"strconv"
 	"strings"
 	"testing"
 	"time"
+	"uuid"
 
 	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/apimessage"
 	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/auth"
@@ -467,7 +467,7 @@ func TestSignupCreatesUsableSession(t *testing.T) {
 		t.Fatalf("сессия из cookie не нашлась в хранилище: %v", err)
 	}
 
-	if owner := strconv.FormatInt(int64(session.UserID), 10); owner != user.ID {
+	if owner := string(session.UserID); owner != user.ID {
 		t.Errorf("сессия принадлежит пользователю %s, а зарегистрирован %s", owner, user.ID)
 	}
 
@@ -545,8 +545,8 @@ func TestMeUnauthorizedCases(t *testing.T) {
 	handler := middleware.Chain(api.Routes(), middleware.WithJSONErrors)
 
 	ctx := context.Background()
-	expired := models.Session{ID: auth.NewSessionID(), UserID: 1, ExpiresAt: time.Now().Add(-time.Minute)}
-	orphan := models.Session{ID: auth.NewSessionID(), UserID: 404, ExpiresAt: time.Now().Add(time.Hour)}
+	expired := models.Session{ID: auth.NewSessionID(), UserID: models.ID(uuid.New().String()), ExpiresAt: time.Now().Add(-time.Minute)}
+	orphan := models.Session{ID: auth.NewSessionID(), UserID: models.ID(uuid.New().String()), ExpiresAt: time.Now().Add(time.Hour)}
 
 	for _, session := range []models.Session{expired, orphan} {
 		if err := sessions.Create(ctx, session); err != nil {

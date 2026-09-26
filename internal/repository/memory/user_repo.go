@@ -6,6 +6,7 @@ import (
 	"context"
 	"sync"
 	"time"
+	"uuid"
 
 	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/models"
 	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/repository"
@@ -18,7 +19,6 @@ type UserRepo struct {
 
 	users  map[models.ID]models.User
 	byMail map[string]models.ID // индекс для поиска по email без перебора
-	lastID models.ID
 }
 
 // NewUserRepo создаёт пустое хранилище.
@@ -44,8 +44,8 @@ func (s *UserRepo) Create(ctx context.Context, user models.User) (models.User, e
 		return models.User{}, repository.ErrEmailTaken
 	}
 
-	s.lastID++
-	user.ID = s.lastID
+	// Ключ выдаёт хранилище, как это будет делать gen_random_uuid() в БД.
+	user.ID = models.ID(uuid.New().String())
 	user.CreatedAt = time.Now()
 
 	s.users[user.ID] = user

@@ -3,8 +3,8 @@ package models
 
 import "time"
 
-// ID — идентификатор сущности. В JSON отдаётся строкой.
-type ID int64
+// ID — идентификатор сущности: UUID строкой, как первичные ключи в схеме БД.
+type ID string
 
 // User — аккаунт пользователя.
 type User struct {

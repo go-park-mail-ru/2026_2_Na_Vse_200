@@ -5,6 +5,7 @@ import (
 	"errors"
 	"testing"
 	"time"
+	"uuid"
 
 	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/models"
 	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/repository"
@@ -16,7 +17,7 @@ func TestSessionCreateAndGet(t *testing.T) {
 
 	session := models.Session{
 		ID:        "kR3n8Qv1XpLmA7bYcZfTdWgHsJuNeOiP",
-		UserID:    7,
+		UserID:    models.ID(uuid.New().String()),
 		ExpiresAt: time.Now().Add(time.Hour),
 	}
 
@@ -30,7 +31,7 @@ func TestSessionCreateAndGet(t *testing.T) {
 	}
 
 	if got.UserID != session.UserID {
-		t.Errorf("GetByID вернул UserID %d, ожидался %d", got.UserID, session.UserID)
+		t.Errorf("GetByID вернул UserID %s, ожидался %s", got.UserID, session.UserID)
 	}
 }
 
@@ -49,7 +50,7 @@ func TestSessionExpired(t *testing.T) {
 
 	session := models.Session{
 		ID:        "kR3n8Qv1XpLmA7bYcZfTdWgHsJuNeOiP",
-		UserID:    7,
+		UserID:    models.ID(uuid.New().String()),
 		ExpiresAt: time.Now().Add(-time.Minute),
 	}
 
@@ -73,7 +74,7 @@ func TestSessionDelete(t *testing.T) {
 
 	session := models.Session{
 		ID:        "kR3n8Qv1XpLmA7bYcZfTdWgHsJuNeOiP",
-		UserID:    7,
+		UserID:    models.ID(uuid.New().String()),
 		ExpiresAt: time.Now().Add(time.Hour),
 	}
 

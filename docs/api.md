@@ -151,14 +151,15 @@ Access-Control-Allow-Headers: Content-Type
 
 ## 4. Модели ответа
 
-ID во всех ответах — **строка**. Тип ключа в схеме БД ещё не зафиксирован (число или UUID),
-а строка переживёт любой выбор; плюс в JavaScript целые числа больше 2^53 теряют точность.
+ID во всех ответах — **строка**: в схеме БД первичные ключи объявлены как `uuid`
+(`gen_random_uuid()`). Решение отдавать строкой было принято ещё до того, как тип ключа
+зафиксировали, — и оно же защищает от потери точности в JavaScript на числах больше 2^53.
 
 ### User
 
 ```json
 {
-  "id": "42",
+  "id": "9f2c1b7e-4d3a-4f81-9c2e-5a7b3d0e1f46",
   "email": "andrey@example.com",
   "display_name": "Андрей",
   "avatar_url": null
@@ -172,11 +173,11 @@ ID во всех ответах — **строка**. Тип ключа в сх�
 
 ```json
 {
-  "id": "1001",
+  "id": "3b8e5c90-77a1-4d2f-b6e4-12c9f0a5d738",
   "title": "Летний дождь",
   "duration_ms": 214000,
   "cover_url": "https://cdn.example.com/covers/1001.jpg",
-  "artists": [ { "id": "7", "name": "Кино" } ]
+  "artists": [ { "id": "c41d7f02-9b63-4a58-8e17-0d5b2a6c9e34", "name": "Кино" } ]
 }
 ```
 
@@ -188,9 +189,9 @@ ID во всех ответах — **строка**. Тип ключа в сх�
 
 ```json
 {
-  "id": "7",
+  "id": "c41d7f02-9b63-4a58-8e17-0d5b2a6c9e34",
   "name": "Кино",
-  "image_url": "https://cdn.example.com/artists/7.jpg"
+  "image_url": "https://cdn.example.com/artists/c41d7f02.jpg"
 }
 ```
 
@@ -198,11 +199,11 @@ ID во всех ответах — **строка**. Тип ключа в сх�
 
 ```json
 {
-  "id": "300",
+  "id": "5e0a94c6-2f18-4b7d-a390-6c81e7f2b405",
   "title": "Группа крови",
   "release_date": "1988-08-01",
   "cover_url": "https://cdn.example.com/albums/300.jpg",
-  "artists": [ { "id": "7", "name": "Кино" } ]
+  "artists": [ { "id": "c41d7f02-9b63-4a58-8e17-0d5b2a6c9e34", "name": "Кино" } ]
 }
 ```
 
@@ -342,23 +343,23 @@ Set-Cookie: session_id=; Path=/; HttpOnly; Max-Age=0
 {
   "tracks": [
     {
-      "id": "1001",
+      "id": "3b8e5c90-77a1-4d2f-b6e4-12c9f0a5d738",
       "title": "Летний дождь",
       "duration_ms": 214000,
       "cover_url": "https://cdn.example.com/covers/1001.jpg",
-      "artists": [ { "id": "7", "name": "Кино" } ]
+      "artists": [ { "id": "c41d7f02-9b63-4a58-8e17-0d5b2a6c9e34", "name": "Кино" } ]
     }
   ],
   "artists": [
-    { "id": "7", "name": "Кино", "image_url": "https://cdn.example.com/artists/7.jpg" }
+    { "id": "c41d7f02-9b63-4a58-8e17-0d5b2a6c9e34", "name": "Кино", "image_url": "https://cdn.example.com/artists/c41d7f02.jpg" }
   ],
   "albums": [
     {
-      "id": "300",
+      "id": "5e0a94c6-2f18-4b7d-a390-6c81e7f2b405",
       "title": "Группа крови",
       "release_date": "1988-08-01",
       "cover_url": "https://cdn.example.com/albums/300.jpg",
-      "artists": [ { "id": "7", "name": "Кино" } ]
+      "artists": [ { "id": "c41d7f02-9b63-4a58-8e17-0d5b2a6c9e34", "name": "Кино" } ]
     }
   ]
 }
