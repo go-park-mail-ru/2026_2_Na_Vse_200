@@ -9,10 +9,10 @@ Backend репозиторий команды На все 200 с проекто�
 
 ### Внешние ссылки - TODO
  - [Фронтенд проекта](https://github.com/frontend-park-mail-ru/2026_2_Na_Vse_200)
- - [Figma](https://google.com)
- - [Deploy](https://google.com)
- - [ER-диаграмма](https://github.com/go-park-mail-ru/2026_2_Na_Vse_200/db/normalized/er.md)
- - [Модель данных бд](https://github.com/go-park-mail-ru/2026_2_Na_Vse_200/db/normalized/relations.md)
+ - [Figma](https://google.com](https://www.figma.com/design/a6FEt86x6uF36jjA64WcW8/MUSIC?node-id=0-1&t=FeJObFFy0iJaqcT6-1))
+ - [Deploy](http://176.57.214.167/)
+ - [ER-диаграмма](./db/normalized/er.md)
+ - [Модель данных бд](./db/normalized/relations.md)
 
 ### Правила оформления Pull Requests
   1. Ветка создается с названием `MUSIC-###`, где ### - номер задачи.
