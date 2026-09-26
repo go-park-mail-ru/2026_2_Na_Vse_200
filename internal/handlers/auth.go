@@ -167,3 +167,57 @@ func writeInvalidCredentials(w http.ResponseWriter) {
 	response.WriteError(w, http.StatusUnauthorized,
 		apimessage.CodeInvalidCredentials, apimessage.MsgInvalidCredentials)
 }
+
+func writeUnauthorized(w http.ResponseWriter) {
+	response.WriteError(w, http.StatusUnauthorized,
+		apimessage.CodeUnauthorized, apimessage.MsgUnauthorized)
+}
+
+// currentUser читает сессию из cookie и находит аккаунт.
+func (a *API) currentUser(r *http.Request) (models.User, error) {
+	cookie, err := r.Cookie(sessionCookieName)
+	if err != nil || cookie.Value == "" {
+		return models.User{}, repository.ErrSessionNotFound
+	}
+
+	session, err := a.deps.Sessions.GetByID(r.Context(), cookie.Value)
+	if err != nil {
+		return models.User{}, err
+	}
+
+	user, err := a.deps.Users.GetByID(r.Context(), session.UserID)
+	if err != nil {
+		return models.User{}, err
+	}
+	return user, nil
+}
+
+// Me возвращает текущего пользователя: GET /api/v1/auth/me.
+// 401 — обычный ответ для гостя.
+func (a *API) Me(w http.ResponseWriter, r *http.Request) {
+	user, err := a.currentUser(r)
+	switch {
+	case errors.Is(err, repository.ErrSessionNotFound),
+		errors.Is(err, repository.ErrSessionExpired),
+		errors.Is(err, repository.ErrUserNotFound):
+		writeUnauthorized(w)
+	case err != nil:
+		writeInternalError(w, "ошибка чтения сессии", err)
+	default:
+		response.WriteJSON(w, http.StatusOK, newUserResponse(user))
+	}
+}
+
+// Logout завершает сессию: POST /api/v1/auth/logout.
+// Повторный выход и выход без cookie тоже отвечают 204.
+func (a *API) Logout(w http.ResponseWriter, r *http.Request) {
+	if cookie, err := r.Cookie(sessionCookieName); err == nil && cookie.Value != "" {
+		if err := a.deps.Sessions.Delete(r.Context(), cookie.Value); err != nil {
+			writeInternalError(w, "ошибка удаления сессии", err)
+			return
+		}
+	}
+
+	a.clearSessionCookie(w)
+	w.WriteHeader(http.StatusNoContent)
+}

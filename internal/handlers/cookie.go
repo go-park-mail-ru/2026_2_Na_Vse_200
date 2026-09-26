@@ -26,3 +26,16 @@ func (a *API) sessionSameSite() http.SameSite {
 	}
 	return http.SameSiteNoneMode
 }
+
+// clearSessionCookie гасит cookie. MaxAge < 0 уходит браузеру как Max-Age=0.
+func (a *API) clearSessionCookie(w http.ResponseWriter) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     sessionCookieName,
+		Value:    "",
+		Path:     "/",
+		MaxAge:   -1,
+		HttpOnly: true,
+		Secure:   a.cfg.CookieSecure,
+		SameSite: a.sessionSameSite(),
+	})
+}
