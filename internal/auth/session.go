@@ -1,20 +1,9 @@
 package auth
 
-import (
-	"crypto/rand"
-	"encoding/base64"
-	"fmt"
-)
+import "uuid"
 
-// sessionIDBytes — длина идентификатора до кодирования.
-const sessionIDBytes = 32
-
-// NewSessionID возвращает случайный идентификатор сессии.
-func NewSessionID() (string, error) {
-	buf := make([]byte, sessionIDBytes)
-	if _, err := rand.Read(buf); err != nil {
-		return "", fmt.Errorf("генерация идентификатора сессии: %w", err)
-	}
-
-	return base64.RawURLEncoding.EncodeToString(buf), nil
+// NewSessionID возвращает идентификатор сессии — UUID версии 4 по RFC 9562.
+// Пакет uuid берёт случайность из crypto/rand, поэтому значение не подобрать.
+func NewSessionID() string {
+	return uuid.New().String()
 }

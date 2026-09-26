@@ -51,21 +51,16 @@ func newUserResponse(user models.User) userResponse {
 
 // signIn заводит сессию для user и кладёт её идентификатор в cookie.
 func (a *API) signIn(ctx context.Context, w http.ResponseWriter, user models.User) error {
-	id, err := auth.NewSessionID()
-	if err != nil {
-		return err
-	}
-
 	session := models.Session{
-		ID:        id,
+		ID:        auth.NewSessionID(),
 		UserID:    user.ID,
 		ExpiresAt: time.Now().Add(a.cfg.SessionTTL),
 	}
 	if err := a.deps.Sessions.Create(ctx, session); err != nil {
-		return fmt.Errorf("сохранение сессии: %w", err)
+		return fmt.Errorf("ошибка сохранения сессии: %w", err)
 	}
 
-	a.setSessionCookie(w, id)
+	a.setSessionCookie(w, session.ID)
 	return nil
 }
 
@@ -111,7 +106,7 @@ func (a *API) Signup(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := a.signIn(r.Context(), w, user); err != nil {
-		log.Printf("автовход после регистрации: %v", err)
+		log.Printf("ошибка автовхода после регистрации: %v", err)
 	}
 
 	response.WriteJSON(w, http.StatusCreated, newUserResponse(user))
@@ -145,13 +140,13 @@ func (a *API) Login(w http.ResponseWriter, r *http.Request) {
 		writeInvalidCredentials(w)
 		return
 	case err != nil:
-		writeInternalError(w, "поиск пользователя", err)
+		writeInternalError(w, "ошибка поиска пользователя", err)
 		return
 	}
 
 	matched, err := a.deps.Hasher.Verify(form.Password, user.PasswordHash)
 	if err != nil {
-		writeInternalError(w, "проверка пароля", err)
+		writeInternalError(w, "ошибка проверки пароля", err)
 		return
 	}
 	if !matched {
@@ -160,7 +155,7 @@ func (a *API) Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := a.signIn(r.Context(), w, user); err != nil {
-		writeInternalError(w, "вход пользователя", err)
+		writeInternalError(w, "ошибка входа пользователя", err)
 		return
 	}
 

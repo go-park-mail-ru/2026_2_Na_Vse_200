@@ -19,6 +19,7 @@ func TestSessionCreateAndGet(t *testing.T) {
 		UserID:    7,
 		ExpiresAt: time.Now().Add(time.Hour),
 	}
+
 	if err := repo.Create(ctx, session); err != nil {
 		t.Fatalf("Create: неожиданная ошибка: %v", err)
 	}
@@ -27,6 +28,7 @@ func TestSessionCreateAndGet(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetByID: неожиданная ошибка: %v", err)
 	}
+
 	if got.UserID != session.UserID {
 		t.Errorf("GetByID вернул UserID %d, ожидался %d", got.UserID, session.UserID)
 	}
@@ -50,6 +52,7 @@ func TestSessionExpired(t *testing.T) {
 		UserID:    7,
 		ExpiresAt: time.Now().Add(-time.Minute),
 	}
+
 	if err := repo.Create(ctx, session); err != nil {
 		t.Fatalf("Create: неожиданная ошибка: %v", err)
 	}
@@ -73,6 +76,7 @@ func TestSessionDelete(t *testing.T) {
 		UserID:    7,
 		ExpiresAt: time.Now().Add(time.Hour),
 	}
+
 	if err := repo.Create(ctx, session); err != nil {
 		t.Fatalf("Create: неожиданная ошибка: %v", err)
 	}
@@ -80,6 +84,7 @@ func TestSessionDelete(t *testing.T) {
 	if err := repo.Delete(ctx, session.ID); err != nil {
 		t.Fatalf("Delete: неожиданная ошибка: %v", err)
 	}
+
 	if _, err := repo.GetByID(ctx, session.ID); !errors.Is(err, repository.ErrSessionNotFound) {
 		t.Errorf("после удаления ошибка = %v, ожидалась ErrSessionNotFound", err)
 	}
