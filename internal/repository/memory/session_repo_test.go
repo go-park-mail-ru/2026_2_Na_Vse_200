@@ -16,7 +16,7 @@ func TestSessionCreateAndGet(t *testing.T) {
 
 	session := models.Session{
 		ID:        "kR3n8Qv1XpLmA7bYcZfTdWgHsJuNeOiP",
-		UserID:    7,
+		UserID:    "10000000-0000-4000-8000-000000000007",
 		ExpiresAt: time.Now().Add(time.Hour),
 	}
 
@@ -30,7 +30,7 @@ func TestSessionCreateAndGet(t *testing.T) {
 	}
 
 	if got.UserID != session.UserID {
-		t.Errorf("GetByID вернул UserID %d, ожидался %d", got.UserID, session.UserID)
+		t.Errorf("GetByID вернул UserID %s, ожидался %s", got.UserID, session.UserID)
 	}
 }
 
@@ -49,7 +49,7 @@ func TestSessionExpired(t *testing.T) {
 
 	session := models.Session{
 		ID:        "kR3n8Qv1XpLmA7bYcZfTdWgHsJuNeOiP",
-		UserID:    7,
+		UserID:    "10000000-0000-4000-8000-000000000007",
 		ExpiresAt: time.Now().Add(-time.Minute),
 	}
 
@@ -73,7 +73,7 @@ func TestSessionDelete(t *testing.T) {
 
 	session := models.Session{
 		ID:        "kR3n8Qv1XpLmA7bYcZfTdWgHsJuNeOiP",
-		UserID:    7,
+		UserID:    "10000000-0000-4000-8000-000000000007",
 		ExpiresAt: time.Now().Add(time.Hour),
 	}
 

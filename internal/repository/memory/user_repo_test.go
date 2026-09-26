@@ -23,7 +23,7 @@ func TestCreateAndGet(t *testing.T) {
 		t.Fatalf("Create: неожиданная ошибка: %v", err)
 	}
 
-	if created.ID == 0 {
+	if created.ID == "" {
 		t.Error("Create не проставил ID")
 	}
 
@@ -54,7 +54,7 @@ func TestGetNotFound(t *testing.T) {
 	ctx := context.Background()
 	repo := NewUserRepo()
 
-	if _, err := repo.GetByID(ctx, 42); !errors.Is(err, repository.ErrUserNotFound) {
+	if _, err := repo.GetByID(ctx, "10000000-0000-4000-8000-000000000042"); !errors.Is(err, repository.ErrUserNotFound) {
 		t.Errorf("GetByID: ошибка = %v, ожидалась ErrUserNotFound", err)
 	}
 

@@ -4,6 +4,8 @@ package memory
 
 import (
 	"context"
+	"crypto/rand"
+	"fmt"
 	"sync"
 	"time"
 
@@ -18,7 +20,6 @@ type UserRepo struct {
 
 	users  map[models.ID]models.User
 	byMail map[string]models.ID // индекс для поиска по email без перебора
-	lastID models.ID
 }
 
 // NewUserRepo создаёт пустое хранилище.
@@ -44,8 +45,11 @@ func (s *UserRepo) Create(ctx context.Context, user models.User) (models.User, e
 		return models.User{}, repository.ErrEmailTaken
 	}
 
-	s.lastID++
-	user.ID = s.lastID
+	id, err := newUserID()
+	if err != nil {
+		return models.User{}, err
+	}
+	user.ID = id
 	user.CreatedAt = time.Now()
 
 	s.users[user.ID] = user
@@ -85,4 +89,14 @@ func (s *UserRepo) GetByEmail(ctx context.Context, email string) (models.User, e
 		return models.User{}, repository.ErrUserNotFound
 	}
 	return s.users[id], nil
+}
+
+func newUserID() (models.ID, error) {
+	var raw [16]byte
+	if _, err := rand.Read(raw[:]); err != nil {
+		return "", err
+	}
+	raw[6] = (raw[6] & 0x0f) | 0x40
+	raw[8] = (raw[8] & 0x3f) | 0x80
+	return models.ID(fmt.Sprintf("%x-%x-%x-%x-%x", raw[0:4], raw[4:6], raw[6:8], raw[8:10], raw[10:16])), nil
 }

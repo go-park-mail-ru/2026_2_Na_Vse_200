@@ -4,7 +4,7 @@ package models
 import "time"
 
 // ID — идентификатор сущности. В JSON отдаётся строкой.
-type ID int64
+type ID string
 
 // User — аккаунт пользователя.
 type User struct {

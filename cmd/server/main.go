@@ -12,11 +12,14 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgxpool"
+
 	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/auth"
 	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/config"
 	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/handlers"
 	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/middleware"
 	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/repository/memory"
+	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/repository/postgres"
 )
 
 // component попадает в лог полем handled_by.
@@ -32,10 +35,27 @@ func main() {
 		Level: slog.LevelInfo,
 	}))
 
-	// До готовности слоя на PostgreSQL аккаунты живут в памяти процесса
-	// и пропадают при перезапуске. Сессии там же — но и после переезда
-	// аккаунтов в базу останутся в памяти: в схеме БД их нет.
-	users := memory.NewUserRepo()
+	// Аккаунты в PostgreSQL. Сессии остаются в памяти: в схеме БД их нет,
+	// при перезапуске сервера они пропадают, аккаунты сохраняются.
+	if cfg.PostgreSQLDSN == "" {
+		log.Fatalf("конфигурация: POSTGRES_DSN не задан")
+	}
+
+	pool, err := pgxpool.New(context.Background(), cfg.PostgreSQLDSN)
+	if err != nil {
+		log.Fatalf("postgresql: %v", err)
+	}
+	defer pool.Close()
+
+	pingCtx, pingCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	err = pool.Ping(pingCtx)
+	pingCancel()
+	if err != nil {
+		pool.Close()
+		log.Fatalf("postgresql: %v", err)
+	}
+
+	users := postgres.NewUserRepo(pool)
 	sessions := memory.NewSessionRepo()
 
 	api := handlers.New(&cfg, &handlers.Deps{

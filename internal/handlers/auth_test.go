@@ -9,7 +9,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
-	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -467,8 +466,8 @@ func TestSignupCreatesUsableSession(t *testing.T) {
 		t.Fatalf("сессия из cookie не нашлась в хранилище: %v", err)
 	}
 
-	if owner := strconv.FormatInt(int64(session.UserID), 10); owner != user.ID {
-		t.Errorf("сессия принадлежит пользователю %s, а зарегистрирован %s", owner, user.ID)
+	if string(session.UserID) != user.ID {
+		t.Errorf("сессия принадлежит пользователю %s, а зарегистрирован %s", session.UserID, user.ID)
 	}
 
 	if session.IsExpired(time.Now()) {
