@@ -11,6 +11,8 @@ Backend репозиторий команды На все 200 с проекто�
  - [Фронтенд проекта](https://github.com/frontend-park-mail-ru/2026_2_Na_Vse_200)
  - [Figma](https://google.com)
  - [Deploy](https://google.com)
+ - [ER-диаграмма](https://github.com/go-park-mail-ru/2026_2_Na_Vse_200/db/normalized/er.md)
+ - [Модель данных бд](https://github.com/go-park-mail-ru/2026_2_Na_Vse_200/db/normalized/relations.md)
 
 ### Правила оформления Pull Requests
   1. Ветка создается с названием `MUSIC-###`, где ### - номер задачи.
