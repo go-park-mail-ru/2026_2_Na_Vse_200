@@ -168,3 +168,72 @@ func writeInvalidCredentials(w http.ResponseWriter) {
 	response.WriteError(w, http.StatusUnauthorized,
 		apimessage.CodeInvalidCredentials, apimessage.MsgInvalidCredentials)
 }
+
+// sessionIDFromRequest достаёт идентификатор сессии из cookie.
+// Пустая строка означает, что клиент её не прислал.
+func (a *API) sessionIDFromRequest(r *http.Request) string {
+	cookie, err := r.Cookie(sessionCookieName)
+	if err != nil {
+		return ""
+	}
+	return cookie.Value
+}
+
+// Me отдаёт пользователя текущей сессии: GET /api/v1/auth/me.
+// Фронтенд зовёт её при запуске, чтобы восстановиться после перезагрузки страницы.
+func (a *API) Me(w http.ResponseWriter, r *http.Request) {
+	id := a.sessionIDFromRequest(r)
+	if id == "" {
+		writeUnauthorized(w)
+		return
+	}
+
+	session, err := a.deps.Sessions.GetByID(r.Context(), id)
+	switch {
+	case errors.Is(err, repository.ErrSessionNotFound), errors.Is(err, repository.ErrSessionExpired):
+		// Неизвестная и истёкшая сессии отвечают одинаково: разница подсказывала бы,
+		// что идентификатор угадан верно.
+		writeUnauthorized(w)
+		return
+	case err != nil:
+		// Сбой хранилища под 401 маскировать нельзя: фронтенд принял бы падение
+		// базы за разлогин и молча показал гостевой интерфейс.
+		writeInternalError(w, "ошибка чтения сессии", err)
+		return
+	}
+
+	user, err := a.deps.Users.GetByID(r.Context(), session.UserID)
+	switch {
+	case errors.Is(err, repository.ErrUserNotFound):
+		writeUnauthorized(w)
+		return
+	case err != nil:
+		writeInternalError(w, "ошибка поиска пользователя", err)
+		return
+	}
+
+	response.WriteJSON(w, http.StatusOK, newUserResponse(user))
+}
+
+// Logout завершает сессию: POST /api/v1/auth/logout.
+// Выход без cookie и повторный выход тоже считаются успехом — результат тот же.
+func (a *API) Logout(w http.ResponseWriter, r *http.Request) {
+	if id := a.sessionIDFromRequest(r); id != "" {
+		// Удаляем именно на сервере: погасить одну cookie мало,
+		// украденный идентификатор остался бы рабочим.
+		if err := a.deps.Sessions.Delete(r.Context(), id); err != nil {
+			writeInternalError(w, "ошибка удаления сессии", err)
+			return
+		}
+	}
+
+	a.clearSessionCookie(w)
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// writeUnauthorized отвечает одинаково на отсутствующую, неизвестную
+// и истёкшую сессию.
+func writeUnauthorized(w http.ResponseWriter) {
+	response.WriteError(w, http.StatusUnauthorized,
+		apimessage.CodeUnauthorized, apimessage.MsgUnauthorized)
+}

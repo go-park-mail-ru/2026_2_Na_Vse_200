@@ -475,3 +475,176 @@ func TestSignupCreatesUsableSession(t *testing.T) {
 		t.Error("выданная сессия уже просрочена")
 	}
 }
+
+// requestWithCookie отправляет запрос без тела, приложив cookie, если она задана.
+func requestWithCookie(t *testing.T, handler http.Handler, method, path string, cookie *http.Cookie) *httptest.ResponseRecorder {
+	t.Helper()
+
+	req := httptest.NewRequest(method, path, nil)
+	if cookie != nil {
+		req.AddCookie(cookie)
+	}
+	w := httptest.NewRecorder()
+
+	handler.ServeHTTP(w, req)
+	return w
+}
+
+// Полный сценарий: после регистрации клиент опознаётся по cookie,
+// после выхода — уже нет.
+func TestSessionLifecycle(t *testing.T) {
+	handler := newAuthHandler()
+
+	signup := postJSON(t, handler, "/api/v1/auth/signup",
+		`{"email":"andrey@example.com","password":"muzyka2026","display_name":"Андрей"}`)
+	if signup.Code != http.StatusCreated {
+		t.Fatalf("регистрация: статус = %d, тело: %s", signup.Code, signup.Body.String())
+	}
+
+	cookie := sessionCookie(t, signup)
+
+	me := requestWithCookie(t, handler, http.MethodGet, "/api/v1/auth/me", cookie)
+	if me.Code != http.StatusOK {
+		t.Fatalf("me: статус = %d, ожидался %d, тело: %s", me.Code, http.StatusOK, me.Body.String())
+	}
+
+	var user userResponse
+	if err := json.Unmarshal(me.Body.Bytes(), &user); err != nil {
+		t.Fatalf("тело не разобралось: %v, тело: %s", err, me.Body.String())
+	}
+
+	if user.Email != "andrey@example.com" {
+		t.Errorf("email = %q, ожидался %q", user.Email, "andrey@example.com")
+	}
+
+	logout := requestWithCookie(t, handler, http.MethodPost, "/api/v1/auth/logout", cookie)
+	if logout.Code != http.StatusNoContent {
+		t.Fatalf("logout: статус = %d, ожидался %d", logout.Code, http.StatusNoContent)
+	}
+
+	if cleared := sessionCookie(t, logout); cleared.MaxAge >= 0 {
+		t.Errorf("MaxAge = %d, ожидалось отрицательное: cookie должна гаснуть", cleared.MaxAge)
+	}
+
+	// Сессия удалена на сервере, поэтому старая cookie больше не работает.
+	after := requestWithCookie(t, handler, http.MethodGet, "/api/v1/auth/me", cookie)
+	if after.Code != http.StatusUnauthorized {
+		t.Errorf("me после выхода: статус = %d, ожидался %d", after.Code, http.StatusUnauthorized)
+	}
+}
+
+// Отсутствующая, неизвестная, истёкшая сессия и удалённый пользователь
+// обязаны отвечать одинаково: разница подсказывала бы, что идентификатор угадан.
+func TestMeUnauthorizedCases(t *testing.T) {
+	sessions := memory.NewSessionRepo()
+	api := New(&testConfig, &Deps{
+		Users:    memory.NewUserRepo(),
+		Sessions: sessions,
+		Hasher:   auth.NewBcryptHasherWithCost(auth.MinCost),
+	})
+	handler := middleware.Chain(api.Routes(), middleware.WithJSONErrors)
+
+	ctx := context.Background()
+	expired := models.Session{ID: auth.NewSessionID(), UserID: 1, ExpiresAt: time.Now().Add(-time.Minute)}
+	orphan := models.Session{ID: auth.NewSessionID(), UserID: 404, ExpiresAt: time.Now().Add(time.Hour)}
+
+	for _, session := range []models.Session{expired, orphan} {
+		if err := sessions.Create(ctx, session); err != nil {
+			t.Fatalf("подготовка сессии: %v", err)
+		}
+	}
+
+	tests := []struct {
+		name   string
+		cookie *http.Cookie
+	}{
+		{name: "cookie не прислана", cookie: nil},
+		{name: "сессия неизвестна", cookie: &http.Cookie{Name: sessionCookieName, Value: auth.NewSessionID()}},
+		{name: "сессия истекла", cookie: &http.Cookie{Name: sessionCookieName, Value: expired.ID}},
+		{name: "пользователь удалён", cookie: &http.Cookie{Name: sessionCookieName, Value: orphan.ID}},
+	}
+
+	var first string
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			w := requestWithCookie(t, handler, http.MethodGet, "/api/v1/auth/me", tt.cookie)
+
+			if w.Code != http.StatusUnauthorized {
+				t.Fatalf("статус = %d, ожидался %d, тело: %s", w.Code, http.StatusUnauthorized, w.Body.String())
+			}
+
+			if got := decodeError(t, w); got.Error.Code != apimessage.CodeUnauthorized {
+				t.Errorf("code = %q, ожидался %q", got.Error.Code, apimessage.CodeUnauthorized)
+			}
+
+			if first == "" {
+				first = w.Body.String()
+			} else if w.Body.String() != first {
+				t.Errorf("ответ отличается от остальных:\n%s\n%s", first, w.Body.String())
+			}
+		})
+	}
+}
+
+// Выход без cookie и повторный выход дают тот же результат, что и обычный.
+func TestLogoutWithoutSession(t *testing.T) {
+	w := requestWithCookie(t, newAuthHandler(), http.MethodPost, "/api/v1/auth/logout", nil)
+
+	if w.Code != http.StatusNoContent {
+		t.Fatalf("статус = %d, ожидался %d", w.Code, http.StatusNoContent)
+	}
+
+	if w.Body.Len() != 0 {
+		t.Errorf("204 пришёл с телом: %s", w.Body.String())
+	}
+}
+
+// brokenSessionRepo изображает хранилище, не отвечающее на чтение и удаление.
+type brokenSessionRepo struct {
+	repository.SessionRepositoryInterface
+}
+
+func (brokenSessionRepo) GetByID(ctx context.Context, id string) (models.Session, error) {
+	return models.Session{}, errStorageDown
+}
+
+func (brokenSessionRepo) Delete(ctx context.Context, id string) error {
+	return errStorageDown
+}
+
+// Сбой хранилища не маскируется под 401: иначе фронтенд принял бы падение базы
+// за разлогин и молча показал гостевой интерфейс.
+func TestSessionStorageFailure(t *testing.T) {
+	log.SetOutput(io.Discard)
+	defer log.SetOutput(os.Stderr)
+
+	handler := newHandlerWithSessions(brokenSessionRepo{})
+	cookie := &http.Cookie{Name: sessionCookieName, Value: auth.NewSessionID()}
+
+	tests := []struct {
+		name   string
+		method string
+		path   string
+	}{
+		{name: "me", method: http.MethodGet, path: "/api/v1/auth/me"},
+		{name: "logout", method: http.MethodPost, path: "/api/v1/auth/logout"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			w := requestWithCookie(t, handler, tt.method, tt.path, cookie)
+
+			if w.Code != http.StatusInternalServerError {
+				t.Fatalf("статус = %d, ожидался %d, тело: %s", w.Code, http.StatusInternalServerError, w.Body.String())
+			}
+
+			if got := decodeError(t, w); got.Error.Code != apimessage.CodeInternal {
+				t.Errorf("code = %q, ожидался %q", got.Error.Code, apimessage.CodeInternal)
+			}
+
+			if strings.Contains(w.Body.String(), "5432") {
+				t.Errorf("детали ошибки хранилища ушли клиенту: %s", w.Body.String())
+			}
+		})
+	}
+}

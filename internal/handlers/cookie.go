@@ -17,6 +17,21 @@ func (a *API) setSessionCookie(w http.ResponseWriter, id string) {
 	})
 }
 
+// clearSessionCookie гасит cookie сессии. Остальные параметры повторяют
+// выставленные: cookie с другим Path или SameSite браузер считает чужой
+// и старую не трогает.
+func (a *API) clearSessionCookie(w http.ResponseWriter) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     sessionCookieName,
+		Value:    "",
+		Path:     "/",
+		MaxAge:   -1,
+		HttpOnly: true,
+		Secure:   a.cfg.CookieSecure,
+		SameSite: a.sessionSameSite(),
+	})
+}
+
 // sessionSameSite выбирает режим по тому, живут ли фронтенд и API на одном
 // адресе: при разных cookie доедет только с None, а его браузер принимает
 // лишь вместе с Secure.
