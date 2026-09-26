@@ -22,8 +22,8 @@ type Deps struct {
 
 // API — набор обработчиков со своими зависимостями.
 type API struct {
-	cfg  config.Config
-	deps Deps
+	cfg  *config.Config
+	deps *Deps
 }
 
 // writeInternalError логирует причину и отдаёт клиенту общий текст без деталей.
@@ -35,7 +35,7 @@ func writeInternalError(w http.ResponseWriter, context string, err error) {
 
 // New создаёт набор обработчиков. Аргумент cfg задаёт настройки сервиса,
 // deps — репозитории и хеширование паролей, которыми обработчики пользуются.
-func New(cfg config.Config, deps Deps) *API {
+func New(cfg *config.Config, deps *Deps) *API {
 	return &API{cfg: cfg, deps: deps}
 }
 

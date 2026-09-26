@@ -38,18 +38,18 @@ func main() {
 	users := memory.NewUserRepo()
 	sessions := memory.NewSessionRepo()
 
-	api := handlers.New(cfg, handlers.Deps{
+	api := handlers.New(&cfg, &handlers.Deps{
 		Users:    users,
 		Sessions: sessions,
 		Hasher:   auth.NewBcryptHasher(),
 	})
 
-	// Идентификатор запроса нужен логу и записи о панике, поэтому идёт первым;
-	// recover — снаружи остальных обёрток.
+	// Recover идёт первым, то есть становится самой внешней обёрткой: паника
+	// в любой из остальных тоже должна попасть в лог, а не уронить процесс.
 	handler := middleware.Chain(
 		api.Routes(),
-		middleware.WithRequestID,
 		middleware.WithRecover(logger),
+		middleware.WithRequestID,
 		middleware.WithLogging(logger, component),
 		middleware.WithCORS(cfg.AllowedOrigin),
 		middleware.WithJSONErrors,
@@ -88,7 +88,6 @@ func main() {
 		}
 	case <-ctx.Done():
 		logger.Info("получен сигнал остановки, завершаем текущие запросы")
-
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), cfg.ShutdownTimeout)
 		defer cancel()
 

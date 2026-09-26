@@ -19,9 +19,11 @@ func TestSignupValid(t *testing.T) {
 	if result.Email != "andrey@example.com" {
 		t.Errorf("Email = %q, ожидался %q", result.Email, "andrey@example.com")
 	}
+
 	if result.DisplayName != "Андрей" {
 		t.Errorf("DisplayName = %q, ожидался %q", result.DisplayName, "Андрей")
 	}
+
 	if result.Password != "muzyka2026" {
 		t.Errorf("Password = %q, пароль не должен меняться", result.Password)
 	}
@@ -60,6 +62,7 @@ func TestSignupEmail(t *testing.T) {
 			if tt.valid && hasError {
 				t.Errorf("email %q признан невалидным: %s", tt.email, result.Fields["email"])
 			}
+
 			if !tt.valid && !hasError {
 				t.Errorf("email %q признан валидным, а не должен", tt.email)
 			}
@@ -99,6 +102,7 @@ func TestSignupPassword(t *testing.T) {
 			if tt.valid && hasError {
 				t.Errorf("пароль признан невалидным: %s", result.Fields["password"])
 			}
+
 			if !tt.valid && !hasError {
 				t.Error("пароль признан валидным, а не должен")
 			}
@@ -134,6 +138,7 @@ func TestSignupDisplayName(t *testing.T) {
 			if tt.valid && hasError {
 				t.Errorf("имя %q признано невалидным: %s", tt.displayName, result.Fields["display_name"])
 			}
+
 			if !tt.valid && !hasError {
 				t.Errorf("имя %q признано валидным, а не должно", tt.displayName)
 			}
@@ -152,6 +157,7 @@ func TestSignupReportsAllErrorsAtOnce(t *testing.T) {
 	if result.Valid() {
 		t.Fatal("данные должны быть невалидны")
 	}
+
 	if len(result.Fields) != 3 {
 		t.Errorf("полей с ошибками = %d, ожидалось 3: %v", len(result.Fields), result.Fields)
 	}

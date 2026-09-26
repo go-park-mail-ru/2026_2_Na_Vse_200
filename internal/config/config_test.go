@@ -22,15 +22,19 @@ func TestLoadDefaults(t *testing.T) {
 	if cfg.Addr != ":8080" {
 		t.Errorf("Addr = %q, ожидался %q", cfg.Addr, ":8080")
 	}
+
 	if cfg.SessionTTL != 24*time.Hour {
 		t.Errorf("SessionTTL = %v, ожидалось %v", cfg.SessionTTL, 24*time.Hour)
 	}
+
 	if cfg.ShutdownTimeout != 10*time.Second {
 		t.Errorf("ShutdownTimeout = %v, ожидалось %v", cfg.ShutdownTimeout, 10*time.Second)
 	}
+
 	if cfg.CookieSecure {
 		t.Error("CookieSecure = true, локально по http:// браузер такую cookie не примет")
 	}
+
 	if cfg.AllowedOrigin != "" {
 		t.Errorf("AllowedOrigin = %q, ожидалась пустая строка (CORS выключен)", cfg.AllowedOrigin)
 	}
@@ -52,15 +56,19 @@ func TestLoadFromEnv(t *testing.T) {
 	if cfg.Addr != ":9000" {
 		t.Errorf("Addr = %q, ожидался %q", cfg.Addr, ":9000")
 	}
+
 	if !cfg.CookieSecure {
 		t.Error("CookieSecure = false, ожидалось true")
 	}
+
 	if cfg.SessionTTL != 90*time.Minute {
 		t.Errorf("SessionTTL = %v, ожидалось %v", cfg.SessionTTL, 90*time.Minute)
 	}
+
 	if cfg.ShutdownTimeout != 5*time.Second {
 		t.Errorf("ShutdownTimeout = %v, ожидалось %v", cfg.ShutdownTimeout, 5*time.Second)
 	}
+
 	if cfg.PostgreSQLDSN == "" {
 		t.Error("PostgreSQLDSN пуст, ожидалась строка подключения из окружения")
 	}

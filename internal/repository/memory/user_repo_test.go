@@ -26,6 +26,7 @@ func TestCreateAndGet(t *testing.T) {
 	if created.ID == 0 {
 		t.Error("Create не проставил ID")
 	}
+
 	if created.CreatedAt.IsZero() {
 		t.Error("Create не проставил CreatedAt")
 	}
@@ -34,6 +35,7 @@ func TestCreateAndGet(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetByID: неожиданная ошибка: %v", err)
 	}
+
 	if byID.Email != created.Email {
 		t.Errorf("GetByID вернул email %q, ожидался %q", byID.Email, created.Email)
 	}
@@ -42,6 +44,7 @@ func TestCreateAndGet(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetByEmail: неожиданная ошибка: %v", err)
 	}
+
 	if byEmail.PasswordHash != created.PasswordHash {
 		t.Error("GetByEmail не вернул хеш пароля, он нужен для проверки при входе")
 	}
@@ -54,6 +57,7 @@ func TestGetNotFound(t *testing.T) {
 	if _, err := repo.GetByID(ctx, 42); !errors.Is(err, repository.ErrUserNotFound) {
 		t.Errorf("GetByID: ошибка = %v, ожидалась ErrUserNotFound", err)
 	}
+
 	if _, err := repo.GetByEmail(ctx, "нет@такого.com"); !errors.Is(err, repository.ErrUserNotFound) {
 		t.Errorf("GetByEmail: ошибка = %v, ожидалась ErrUserNotFound", err)
 	}

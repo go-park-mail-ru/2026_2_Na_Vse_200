@@ -35,30 +35,27 @@ type Config struct {
 
 // Load собирает конфигурацию из окружения. Заданное, но неразбираемое значение —
 // ошибка, а не повод взять значение по умолчанию.
-func Load() (Config, error) {
-	cfg := Config{
+func Load() (cfg Config, err error) {
+	cfg = Config{
 		Addr:          getEnv("APP_ADDR", ":8080"),
 		AllowedOrigin: getEnv("APP_ALLOWED_ORIGIN", ""),
 		PostgreSQLDSN: getEnv("POSTGRES_DSN", ""),
 	}
 
-	secure, err := getBool("APP_COOKIE_SECURE", false)
+	cfg.CookieSecure, err = getBool("APP_COOKIE_SECURE", false)
 	if err != nil {
 		return Config{}, err
 	}
-	cfg.CookieSecure = secure
 
-	sessionTTL, err := getDuration("APP_SESSION_TTL", 24*time.Hour)
+	cfg.SessionTTL, err = getDuration("APP_SESSION_TTL", 24*time.Hour)
 	if err != nil {
 		return Config{}, err
 	}
-	cfg.SessionTTL = sessionTTL
 
-	shutdownTimeout, err := getDuration("APP_SHUTDOWN_TIMEOUT", 10*time.Second)
+	cfg.ShutdownTimeout, err = getDuration("APP_SHUTDOWN_TIMEOUT", 10*time.Second)
 	if err != nil {
 		return Config{}, err
 	}
-	cfg.ShutdownTimeout = shutdownTimeout
 
 	if cfg.AllowedOrigin != "" && !cfg.CookieSecure {
 		return Config{}, errors.New("APP_ALLOWED_ORIGIN задан, значит нужен APP_COOKIE_SECURE=true")
@@ -96,11 +93,13 @@ func getDuration(key string, fallback time.Duration) (time.Duration, error) {
 	}
 
 	value, err := time.ParseDuration(raw)
-	if err != nil {
+
+	switch {
+	case err != nil:
 		return 0, fmt.Errorf("разбор %s: %w", key, err)
-	}
-	if value <= 0 {
+	case value <= 0:
 		return 0, fmt.Errorf("разбор %s: длительность должна быть положительной, получено %q", key, raw)
+	default:
+		return value, nil
 	}
-	return value, nil
 }

@@ -28,7 +28,7 @@ var testConfig = config.Config{SessionTTL: time.Hour}
 
 // newAuthHandler собирает обработчики с настоящими хранилищами в памяти.
 func newAuthHandler() http.Handler {
-	api := New(testConfig, Deps{
+	api := New(&testConfig, &Deps{
 		Users:    memory.NewUserRepo(),
 		Sessions: memory.NewSessionRepo(),
 		Hasher:   auth.NewBcryptHasherWithCost(auth.MinCost),
@@ -80,12 +80,15 @@ func TestSignupSuccess(t *testing.T) {
 	if got.ID == "" {
 		t.Error("в ответе нет id")
 	}
+
 	if got.Email != "andrey@example.com" {
 		t.Errorf("email = %q, ожидался %q", got.Email, "andrey@example.com")
 	}
+
 	if got.DisplayName != "Андрей" {
 		t.Errorf("display_name = %q, ожидался %q", got.DisplayName, "Андрей")
 	}
+
 	if got.AvatarURL != nil {
 		t.Errorf("avatar_url = %v, ожидался null", *got.AvatarURL)
 	}
@@ -94,9 +97,11 @@ func TestSignupSuccess(t *testing.T) {
 	if cookie.Value == "" {
 		t.Error("cookie сессии пустая")
 	}
+
 	if !cookie.HttpOnly {
 		t.Error("cookie сессии без HttpOnly: её прочитает JavaScript")
 	}
+
 	if cookie.Path != "/" {
 		t.Errorf("Path = %q, ожидался %q", cookie.Path, "/")
 	}
@@ -231,7 +236,7 @@ func TestSignupStorageFailure(t *testing.T) {
 	log.SetOutput(io.Discard)
 	defer log.SetOutput(os.Stderr)
 
-	api := New(testConfig, Deps{
+	api := New(&testConfig, &Deps{
 		Users:    failingUserRepo{},
 		Sessions: memory.NewSessionRepo(),
 		Hasher:   auth.NewBcryptHasherWithCost(auth.MinCost),
@@ -249,6 +254,7 @@ func TestSignupStorageFailure(t *testing.T) {
 	if got.Error.Code != apimessage.CodeInternal {
 		t.Errorf("code = %q, ожидался %q", got.Error.Code, apimessage.CodeInternal)
 	}
+
 	if strings.Contains(w.Body.String(), "5432") {
 		t.Errorf("детали ошибки хранилища ушли клиенту: %s", w.Body.String())
 	}
@@ -265,7 +271,7 @@ func (failingSessionRepo) Create(ctx context.Context, session models.Session) er
 
 // newHandlerWithSessions собирает обработчики с подменённым хранилищем сессий.
 func newHandlerWithSessions(sessions repository.SessionRepositoryInterface) http.Handler {
-	api := New(testConfig, Deps{
+	api := New(&testConfig, &Deps{
 		Users:    memory.NewUserRepo(),
 		Sessions: sessions,
 		Hasher:   auth.NewBcryptHasherWithCost(auth.MinCost),
@@ -284,6 +290,7 @@ func TestSignupSessionFailure(t *testing.T) {
 	if w.Code != http.StatusCreated {
 		t.Fatalf("статус = %d, ожидался %d, тело: %s", w.Code, http.StatusCreated, w.Body.String())
 	}
+
 	if len(w.Result().Cookies()) != 0 {
 		t.Error("выставлена cookie, хотя сессия не сохранилась")
 	}
@@ -307,6 +314,7 @@ func TestLoginSuccess(t *testing.T) {
 	if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil {
 		t.Fatalf("тело не разобралось: %v, тело: %s", err, w.Body.String())
 	}
+
 	if got.Email != "andrey@example.com" {
 		t.Errorf("email = %q, ожидался %q", got.Email, "andrey@example.com")
 	}
@@ -335,9 +343,11 @@ func TestLoginInvalidCredentials(t *testing.T) {
 		if w.Code != http.StatusUnauthorized {
 			t.Fatalf("статус = %d, ожидался %d, тело: %s", w.Code, http.StatusUnauthorized, w.Body.String())
 		}
+
 		if got := decodeError(t, w); got.Error.Code != apimessage.CodeInvalidCredentials {
 			t.Errorf("code = %q, ожидался %q", got.Error.Code, apimessage.CodeInvalidCredentials)
 		}
+
 		if len(w.Result().Cookies()) != 0 {
 			t.Error("неудачный вход выставил cookie")
 		}
@@ -424,6 +434,7 @@ func TestLoginSessionFailure(t *testing.T) {
 	if w.Code != http.StatusInternalServerError {
 		t.Fatalf("статус = %d, ожидался %d, тело: %s", w.Code, http.StatusInternalServerError, w.Body.String())
 	}
+
 	if got := decodeError(t, w); got.Error.Code != apimessage.CodeInternal {
 		t.Errorf("code = %q, ожидался %q", got.Error.Code, apimessage.CodeInternal)
 	}
@@ -433,7 +444,7 @@ func TestLoginSessionFailure(t *testing.T) {
 // этого же пользователя, иначе автовход есть только на бумаге.
 func TestSignupCreatesUsableSession(t *testing.T) {
 	sessions := memory.NewSessionRepo()
-	api := New(testConfig, Deps{
+	api := New(&testConfig, &Deps{
 		Users:    memory.NewUserRepo(),
 		Sessions: sessions,
 		Hasher:   auth.NewBcryptHasherWithCost(auth.MinCost),
@@ -459,6 +470,7 @@ func TestSignupCreatesUsableSession(t *testing.T) {
 	if owner := strconv.FormatInt(int64(session.UserID), 10); owner != user.ID {
 		t.Errorf("сессия принадлежит пользователю %s, а зарегистрирован %s", owner, user.ID)
 	}
+
 	if session.IsExpired(time.Now()) {
 		t.Error("выданная сессия уже просрочена")
 	}

@@ -92,7 +92,7 @@ func (a *API) Signup(w http.ResponseWriter, r *http.Request) {
 
 	hash, err := a.deps.Hasher.Hash(form.Password)
 	if err != nil {
-		writeInternalError(w, "хеширование пароля", err)
+		writeInternalError(w, "ошибка хеширования пароля", err)
 		return
 	}
 
@@ -106,7 +106,7 @@ func (a *API) Signup(w http.ResponseWriter, r *http.Request) {
 		response.WriteError(w, http.StatusConflict, apimessage.CodeEmailTaken, apimessage.MsgEmailTaken)
 		return
 	case err != nil:
-		writeInternalError(w, "создание пользователя", err)
+		writeInternalError(w, "ошибка создания пользователя", err)
 		return
 	}
 
