@@ -7,6 +7,10 @@ Backend репозиторий команды На все 200 с проекто�
  3. [Кузнецов Станислав](https://github.com/Stadmi)
  4. [Селибов Артём](https://github.com/BezFantasii)
 
+### Документация
+ - [Контракт API](docs/api.md) — ручки, коды ответов, формат ошибок
+ - [Разработка](internal/README.md) — запуск, конфигурация, структура проекта
+
 ### Внешние ссылки - TODO
  - [Фронтенд проекта](https://github.com/frontend-park-mail-ru/2026_2_Na_Vse_200)
  - [Figma](https://google.com)
