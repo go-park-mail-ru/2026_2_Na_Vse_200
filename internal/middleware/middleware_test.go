@@ -59,6 +59,7 @@ func TestWithRequestID(t *testing.T) {
 		if seen == "" {
 			t.Fatal("идентификатор не попал в контекст запроса")
 		}
+
 		if got := w.Header().Get(HeaderRequestID); got != seen {
 			t.Errorf("заголовок ответа = %q, в контексте %q — значения должны совпадать", got, seen)
 		}
@@ -84,6 +85,7 @@ func TestWithRequestID(t *testing.T) {
 		if strings.Contains(seen, "произвольный") {
 			t.Errorf("в лог уехало значение клиента без проверки: %q", seen)
 		}
+
 		if seen == "" {
 			t.Error("взамен мусора не сгенерирован свой идентификатор")
 		}
@@ -121,6 +123,7 @@ func TestWithLogging(t *testing.T) {
 	if fields["method"] != http.MethodPost {
 		t.Errorf("method = %v, ожидался %v", fields["method"], http.MethodPost)
 	}
+
 	if fields["status"] != float64(http.StatusCreated) {
 		t.Errorf("status = %v, ожидался %d", fields["status"], http.StatusCreated)
 	}
@@ -128,12 +131,15 @@ func TestWithLogging(t *testing.T) {
 	if url, _ := fields["url"].(string); !strings.Contains(url, "utm=test") {
 		t.Errorf("url = %v, ожидалась строка запроса целиком", fields["url"])
 	}
+
 	if fields["real_ip"] != "203.0.113.7" {
 		t.Errorf("real_ip = %v, ожидался адрес из X-Real-IP", fields["real_ip"])
 	}
+
 	if fields["handled_by"] != "monolith/middleware" {
 		t.Errorf("handled_by = %v, ожидался monolith/middleware", fields["handled_by"])
 	}
+
 	if id, _ := fields["request_id"].(string); id == "" {
 		t.Error("request_id пуст — лог нельзя связать с конкретным запросом")
 	}
@@ -191,11 +197,13 @@ func TestWithRecover(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/health", nil)
 	w := httptest.NewRecorder()
 
-	Chain(panicking, WithRequestID, WithRecover(logger)).ServeHTTP(w, req)
+	// Порядок как в main: recover снаружи всех остальных обёрток.
+	Chain(panicking, WithRecover(logger), WithRequestID).ServeHTTP(w, req)
 
 	if w.Code != http.StatusInternalServerError {
 		t.Fatalf("статус = %d, ожидался %d", w.Code, http.StatusInternalServerError)
 	}
+
 	if got := decodeError(t, w); got.Error.Code != apimessage.CodeInternal {
 		t.Errorf("code = %q, ожидался %q", got.Error.Code, apimessage.CodeInternal)
 	}
@@ -208,6 +216,7 @@ func TestWithRecover(t *testing.T) {
 	if fields["stack"] == nil {
 		t.Error("в логе нет стека — по такой записи аварию не разобрать")
 	}
+
 	if id, _ := fields["request_id"].(string); id == "" {
 		t.Error("в записи о панике нет request_id")
 	}
@@ -232,9 +241,11 @@ func TestWithCORS(t *testing.T) {
 		if got != allowed {
 			t.Errorf("Allow-Origin = %q, ожидался %q", got, allowed)
 		}
+
 		if got == "*" {
 			t.Error("Allow-Origin = *, это несовместимо с Allow-Credentials: cookie ходить не будут")
 		}
+
 		if got := w.Header().Get("Access-Control-Allow-Credentials"); got != "true" {
 			t.Errorf("Allow-Credentials = %q, ожидался %q", got, "true")
 		}
@@ -263,6 +274,7 @@ func TestWithCORS(t *testing.T) {
 		if w.Code != http.StatusNoContent {
 			t.Errorf("статус = %d, ожидался %d", w.Code, http.StatusNoContent)
 		}
+
 		if got := w.Header().Get("Access-Control-Allow-Methods"); got == "" {
 			t.Error("Allow-Methods пуст, браузер не пропустит основной запрос")
 		}
@@ -310,9 +322,11 @@ func TestWithJSONErrors(t *testing.T) {
 			if w.Code != tt.wantCode {
 				t.Fatalf("статус = %d, ожидался %d", w.Code, tt.wantCode)
 			}
+
 			if got := w.Header().Get("Content-Type"); got != "application/json; charset=utf-8" {
 				t.Errorf("Content-Type = %q, ответ должен быть JSON, а не текстом маршрутизатора", got)
 			}
+
 			if got := decodeError(t, w); got.Error.Code != tt.wantErr {
 				t.Errorf("code = %q, ожидался %q", got.Error.Code, tt.wantErr)
 			}
@@ -334,6 +348,7 @@ func TestWithJSONErrorsPassesSuccess(t *testing.T) {
 	if w.Code != http.StatusOK {
 		t.Errorf("статус = %d, ожидался %d", w.Code, http.StatusOK)
 	}
+
 	if body := w.Body.String(); !strings.Contains(body, "\"status\":\"ok\"") {
 		t.Errorf("тело успешного ответа изменено: %s", body)
 	}

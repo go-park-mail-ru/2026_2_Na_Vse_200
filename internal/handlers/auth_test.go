@@ -23,7 +23,7 @@ import (
 
 // newSignupHandler собирает обработчики с настоящим хранилищем в памяти.
 func newSignupHandler() http.Handler {
-	api := New(config.Config{}, Deps{
+	api := New(&config.Config{}, &Deps{
 		Users:  memory.NewUserRepo(),
 		Hasher: auth.NewBcryptHasherWithCost(auth.MinCost),
 	})
@@ -60,12 +60,15 @@ func TestSignupSuccess(t *testing.T) {
 	if got.ID == "" {
 		t.Error("в ответе нет id")
 	}
+
 	if got.Email != "andrey@example.com" {
 		t.Errorf("email = %q, ожидался %q", got.Email, "andrey@example.com")
 	}
+
 	if got.DisplayName != "Андрей" {
 		t.Errorf("display_name = %q, ожидался %q", got.DisplayName, "Андрей")
 	}
+
 	if got.AvatarURL != nil {
 		t.Errorf("avatar_url = %v, ожидался null", *got.AvatarURL)
 	}
@@ -204,7 +207,7 @@ func TestSignupStorageFailure(t *testing.T) {
 	log.SetOutput(io.Discard)
 	defer log.SetOutput(os.Stderr)
 
-	api := New(config.Config{}, Deps{
+	api := New(&config.Config{}, &Deps{
 		Users:  failingUserRepo{},
 		Hasher: auth.NewBcryptHasherWithCost(auth.MinCost),
 	})
@@ -221,6 +224,7 @@ func TestSignupStorageFailure(t *testing.T) {
 	if got.Error.Code != apimessage.CodeInternal {
 		t.Errorf("code = %q, ожидался %q", got.Error.Code, apimessage.CodeInternal)
 	}
+
 	if strings.Contains(w.Body.String(), "5432") {
 		t.Errorf("детали ошибки хранилища ушли клиенту: %s", w.Body.String())
 	}

@@ -14,7 +14,7 @@ import (
 
 // newTestHandler собирает маршруты с подменой текстовых ошибок на JSON.
 func newTestHandler() http.Handler {
-	api := New(config.Config{}, Deps{})
+	api := New(&config.Config{}, &Deps{})
 	return middleware.Chain(api.Routes(), middleware.WithJSONErrors)
 }
 
@@ -32,6 +32,7 @@ func TestHealth(t *testing.T) {
 	if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
 		t.Fatalf("GET /health: тело не разобралось: %v, тело: %s", err, w.Body.String())
 	}
+
 	if body.Status != "ok" {
 		t.Errorf("GET /health: status = %q, ожидался %q", body.Status, "ok")
 	}
@@ -92,6 +93,7 @@ func TestRoutesErrors(t *testing.T) {
 			if got.Error.Code != tt.wantErr {
 				t.Errorf("%s %s: code = %q, ожидался %q", tt.method, tt.path, got.Error.Code, tt.wantErr)
 			}
+
 			if got.Error.Message == "" {
 				t.Errorf("%s %s: message пустой", tt.method, tt.path)
 			}

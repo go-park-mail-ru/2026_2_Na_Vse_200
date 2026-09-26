@@ -19,6 +19,7 @@ func TestHashAndVerify(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Verify верный пароль: %v", err)
 	}
+
 	if !ok {
 		t.Error("верный пароль не прошёл проверку")
 	}
@@ -27,6 +28,7 @@ func TestHashAndVerify(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Verify неверный пароль: %v", err)
 	}
+
 	if ok {
 		t.Error("неверный пароль прошёл проверку")
 	}
@@ -45,6 +47,7 @@ func TestVerifyOtherCost(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Verify: %v", err)
 	}
+
 	if !ok {
 		t.Error("хеш с cost=6 не прошёл проверку хешером с cost=MinCost")
 	}
@@ -58,6 +61,7 @@ func TestHashTooLong(t *testing.T) {
 	if err == nil {
 		t.Fatal("Hash принял пароль длиннее предела")
 	}
+
 	if !errors.Is(err, ErrPasswordTooLong) {
 		t.Errorf("Hash вернул %v, ожидалась ErrPasswordTooLong", err)
 	}
@@ -79,6 +83,7 @@ func TestVerifyBrokenHash(t *testing.T) {
 		if ok {
 			t.Errorf("Verify принял битый хеш %q", hash)
 		}
+
 		if err == nil {
 			t.Errorf("Verify не вернул ошибку для %q", hash)
 		}

@@ -57,11 +57,13 @@ func (h BcryptHasher) Hash(password string) (string, error) {
 // Verify сообщает, соответствует ли пароль хешу.
 func (h BcryptHasher) Verify(password, hash string) (bool, error) {
 	err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
-	if err == nil {
+
+	switch {
+	case err == nil:
 		return true, nil
-	}
-	if errors.Is(err, bcrypt.ErrMismatchedHashAndPassword) {
+	case errors.Is(err, bcrypt.ErrMismatchedHashAndPassword):
 		return false, nil
+	default:
+		return false, fmt.Errorf("проверка пароля: %w", err)
 	}
-	return false, fmt.Errorf("проверка пароля: %w", err)
 }

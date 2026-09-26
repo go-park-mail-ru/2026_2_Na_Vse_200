@@ -27,6 +27,7 @@ func TestWriteJSON(t *testing.T) {
 	if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
 		t.Fatalf("WriteJSON: тело не разобралось как JSON: %v, тело: %s", err, w.Body.String())
 	}
+
 	if body["email"] != "andrey@example.com" {
 		t.Errorf("WriteJSON: email = %q, ожидался %q", body["email"], "andrey@example.com")
 	}
@@ -45,9 +46,11 @@ func TestWriteError(t *testing.T) {
 	if got.Error.Code != "email_taken" {
 		t.Errorf("WriteError: code = %q, ожидался %q", got.Error.Code, "email_taken")
 	}
+
 	if got.Error.Message == "" {
 		t.Error("WriteError: message пустой, клиенту нечего показать пользователю")
 	}
+
 	if got.Error.Fields != nil {
 		t.Errorf("WriteError: fields = %v, ожидалось отсутствие ключа для ошибки не про поля", got.Error.Fields)
 	}
@@ -69,9 +72,11 @@ func TestWriteFieldsError(t *testing.T) {
 	if got.Error.Code != "validation_failed" {
 		t.Errorf("WriteFieldsError: code = %q, ожидался %q", got.Error.Code, "validation_failed")
 	}
+
 	if len(got.Error.Fields) != 2 {
 		t.Errorf("WriteFieldsError: полей = %d, ожидалось 2: %v", len(got.Error.Fields), got.Error.Fields)
 	}
+
 	if got.Error.Fields["email"] == "" {
 		t.Error("WriteFieldsError: для поля email нет текста ошибки")
 	}
