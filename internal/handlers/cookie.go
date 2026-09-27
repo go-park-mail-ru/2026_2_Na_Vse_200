@@ -22,7 +22,7 @@ func (a *API) setSessionCookie(w http.ResponseWriter, id string) {
 // и старую не трогает.
 func (a *API) clearSessionCookie(w http.ResponseWriter) {
 	http.SetCookie(w, &http.Cookie{
-		Name:     sessionCookieName,
+		Name:     _sessionCookieName,
 		Value:    "",
 		Path:     "/",
 		MaxAge:   -1,

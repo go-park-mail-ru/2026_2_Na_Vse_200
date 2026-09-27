@@ -284,15 +284,33 @@ func TestSignupSessionFailure(t *testing.T) {
 	log.SetOutput(io.Discard)
 	defer log.SetOutput(os.Stderr)
 
-	w := postJSON(t, newHandlerWithSessions(failingSessionRepo{}), "/api/v1/auth/signup",
+	users := memory.NewUserRepo()
+	api := New(&testConfig, &Deps{
+		Users:    users,
+		Sessions: failingSessionRepo{},
+		Hasher:   auth.NewBcryptHasherWithCost(auth.MinCost),
+	})
+	handler := middleware.Chain(api.Routes(), middleware.WithJSONErrors)
+
+	w := postJSON(t, handler, "/api/v1/auth/signup",
 		`{"email":"andrey@example.com","password":"muzyka2026","display_name":"Андрей"}`)
 
-	if w.Code != http.StatusCreated {
-		t.Fatalf("статус = %d, ожидался %d, тело: %s", w.Code, http.StatusCreated, w.Body.String())
+	if w.Code != http.StatusInternalServerError {
+		t.Fatalf("статус = %d, ожидался %d, тело: %s", w.Code, http.StatusInternalServerError, w.Body.String())
+	}
+
+	if got := decodeError(t, w); got.Error.Code != apimessage.CodeInternal {
+		t.Errorf("code = %q, ожидался %q", got.Error.Code, apimessage.CodeInternal)
 	}
 
 	if len(w.Result().Cookies()) != 0 {
 		t.Error("выставлена cookie, хотя сессия не сохранилась")
+	}
+
+	// Аккаунт остаётся созданным: откатывать его нечем — пользователи и сессии
+	// живут в разных хранилищах, общей транзакции у них нет.
+	if _, err := users.GetByEmail(context.Background(), "andrey@example.com"); err != nil {
+		t.Errorf("аккаунт не найден после отказа: %v", err)
 	}
 }
 
@@ -422,15 +440,29 @@ func TestLoginSessionFailure(t *testing.T) {
 	log.SetOutput(io.Discard)
 	defer log.SetOutput(os.Stderr)
 
-	handler := newHandlerWithSessions(failingSessionRepo{})
-
-	if w := postJSON(t, handler, "/api/v1/auth/signup",
-		`{"email":"andrey@example.com","password":"muzyka2026","display_name":"Андрей"}`); w.Code != http.StatusCreated {
-		t.Fatalf("регистрация: статус = %d, тело: %s", w.Code, w.Body.String())
+	hasher := auth.NewBcryptHasherWithCost(auth.MinCost)
+	hash, err := hasher.Hash("muzyka2026")
+	if err != nil {
+		t.Fatalf("хеширование пароля: %v", err)
 	}
+
+	// Аккаунт заводим напрямую: через ручку не выйдет, регистрация тоже
+	// упрётся в недоступное хранилище сессий.
+	users := memory.NewUserRepo()
+	if _, err := users.Create(context.Background(), models.User{
+		Email:        "andrey@example.com",
+		PasswordHash: hash,
+		DisplayName:  "Андрей",
+	}); err != nil {
+		t.Fatalf("подготовка аккаунта: %v", err)
+	}
+
+	api := New(&testConfig, &Deps{Users: users, Sessions: failingSessionRepo{}, Hasher: hasher})
+	handler := middleware.Chain(api.Routes(), middleware.WithJSONErrors)
 
 	w := postJSON(t, handler, "/api/v1/auth/login",
 		`{"email":"andrey@example.com","password":"muzyka2026"}`)
+
 	if w.Code != http.StatusInternalServerError {
 		t.Fatalf("статус = %d, ожидался %d, тело: %s", w.Code, http.StatusInternalServerError, w.Body.String())
 	}
@@ -559,9 +591,9 @@ func TestMeUnauthorizedCases(t *testing.T) {
 		cookie *http.Cookie
 	}{
 		{name: "cookie не прислана", cookie: nil},
-		{name: "сессия неизвестна", cookie: &http.Cookie{Name: sessionCookieName, Value: auth.NewSessionID()}},
-		{name: "сессия истекла", cookie: &http.Cookie{Name: sessionCookieName, Value: expired.ID}},
-		{name: "пользователь удалён", cookie: &http.Cookie{Name: sessionCookieName, Value: orphan.ID}},
+		{name: "сессия неизвестна", cookie: &http.Cookie{Name: _sessionCookieName, Value: auth.NewSessionID()}},
+		{name: "сессия истекла", cookie: &http.Cookie{Name: _sessionCookieName, Value: expired.ID}},
+		{name: "пользователь удалён", cookie: &http.Cookie{Name: _sessionCookieName, Value: orphan.ID}},
 	}
 
 	var first string
@@ -619,7 +651,7 @@ func TestSessionStorageFailure(t *testing.T) {
 	defer log.SetOutput(os.Stderr)
 
 	handler := newHandlerWithSessions(brokenSessionRepo{})
-	cookie := &http.Cookie{Name: sessionCookieName, Value: auth.NewSessionID()}
+	cookie := &http.Cookie{Name: _sessionCookieName, Value: auth.NewSessionID()}
 
 	tests := []struct {
 		name   string

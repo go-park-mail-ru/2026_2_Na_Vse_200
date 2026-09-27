@@ -3,11 +3,14 @@ package middleware
 import (
 	"log/slog"
 	"net/http"
-	"runtime/debug"
+	"runtime"
 
 	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/apimessage"
 	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/pkg/response"
 )
+
+// _stackBufferSize — сколько места отводится под стек в записи о панике.
+const _stackBufferSize = 4 << 10
 
 // WithRecover перехватывает панику: клиент получает 500 в формате контракта,
 // стек и идентификатор запроса остаются в логе.
@@ -19,12 +22,16 @@ func WithRecover(logger *slog.Logger) Middleware {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			defer func() {
 				if rec := recover(); rec != nil {
+					// Буфер ограничен: полный стек всех горутин может занять мегабайты.
+					stackTrace := make([]byte, _stackBufferSize)
+					stackTrace = stackTrace[:runtime.Stack(stackTrace, true)]
+
 					logger.LogAttrs(r.Context(), slog.LevelError, "паника при обработке запроса",
 						slog.String("request_id", w.Header().Get(HeaderRequestID)),
 						slog.String("method", r.Method),
 						slog.String("url", r.URL.RequestURI()),
 						slog.Any("panic", rec),
-						slog.String("stack", string(debug.Stack())),
+						slog.String("stack", string(stackTrace)),
 					)
 
 					response.WriteError(w, http.StatusInternalServerError,

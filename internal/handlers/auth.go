@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"log"
 	"net/http"
 	"time"
 
@@ -18,16 +17,6 @@ import (
 )
 
 const _maxBodySize = 1 << 20 // 1 МБ
-
-// Пояснения к внутренним ошибкам. Уходят только в лог: клиент видит общий текст.
-const (
-	_errHashPassword   = "ошибка хеширования пароля"
-	_errCreateUser     = "ошибка создания пользователя"
-	_errAutoSignIn     = "ошибка автовхода после регистрации"
-	_errFindUser       = "ошибка поиска пользователя"
-	_errVerifyPassword = "ошибка проверки пароля"
-	_errSignIn         = "ошибка входа пользователя"
-)
 
 type signupRequest struct {
 	Email       string `json:"email"`
@@ -115,7 +104,8 @@ func (a *API) Signup(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := a.signIn(r.Context(), w, user); err != nil {
-		log.Printf("%s: %v", _errAutoSignIn, err)
+		writeInternalError(w, _errAutoSignIn, err)
+		return
 	}
 
 	response.WriteJSON(w, http.StatusCreated, newUserResponse(user))
@@ -136,7 +126,10 @@ func (a *API) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	form := validation.Login(validation.LoginInput{Email: req.Email, Password: req.Password})
+	form := validation.Login(validation.LoginInput{
+		Email:    req.Email,
+		Password: req.Password,
+	})
 	if !form.Valid() {
 		response.WriteFieldsError(w, http.StatusBadRequest,
 			apimessage.CodeValidationFailed, apimessage.MsgValidationFailed, form.Fields)
@@ -146,7 +139,7 @@ func (a *API) Login(w http.ResponseWriter, r *http.Request) {
 	user, err := a.deps.Users.GetByEmail(r.Context(), form.Email)
 	switch {
 	case errors.Is(err, repository.ErrUserNotFound):
-		writeInvalidCredentials(w)
+		writeInvalidCredentials(w, _errUnknownEmail)
 		return
 	case err != nil:
 		writeInternalError(w, _errFindUser, err)
@@ -159,7 +152,7 @@ func (a *API) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !matched {
-		writeInvalidCredentials(w)
+		writeInvalidCredentials(w, _errWrongPassword)
 		return
 	}
 
@@ -171,53 +164,44 @@ func (a *API) Login(w http.ResponseWriter, r *http.Request) {
 	response.WriteJSON(w, http.StatusOK, newUserResponse(user))
 }
 
-// writeInvalidCredentials отвечает одинаково на неизвестный email и на неверный
-// пароль: по разнице ответов перебирают зарегистрированные адреса.
-func writeInvalidCredentials(w http.ResponseWriter) {
-	response.WriteError(w, http.StatusUnauthorized,
-		apimessage.CodeInvalidCredentials, apimessage.MsgInvalidCredentials)
-}
-
 // sessionIDFromRequest достаёт идентификатор сессии из cookie.
-// Пустая строка означает, что клиент её не прислал.
-func (a *API) sessionIDFromRequest(r *http.Request) string {
-	cookie, err := r.Cookie(sessionCookieName)
+// Ошибка означает, что клиент её не прислал.
+func (a *API) sessionIDFromRequest(r *http.Request) (string, error) {
+	cookie, err := r.Cookie(_sessionCookieName)
 	if err != nil {
-		return ""
+		return "", fmt.Errorf("чтение cookie %s: %w", _sessionCookieName, err)
 	}
-	return cookie.Value
+	return cookie.Value, nil
 }
 
 // Me отдаёт пользователя текущей сессии: GET /api/v1/auth/me.
 // Фронтенд зовёт её при запуске, чтобы восстановиться после перезагрузки страницы.
 func (a *API) Me(w http.ResponseWriter, r *http.Request) {
-	id := a.sessionIDFromRequest(r)
-	if id == "" {
-		writeUnauthorized(w)
+	id, err := a.sessionIDFromRequest(r)
+	if err != nil {
+		writeUnauthorized(w, _errNoSessionCookie, err)
 		return
 	}
 
 	session, err := a.deps.Sessions.GetByID(r.Context(), id)
 	switch {
 	case errors.Is(err, repository.ErrSessionNotFound), errors.Is(err, repository.ErrSessionExpired):
-		// Неизвестная и истёкшая сессии отвечают одинаково: разница подсказывала бы,
-		// что идентификатор угадан верно.
-		writeUnauthorized(w)
+		writeUnauthorized(w, _errSessionRejected, err)
 		return
 	case err != nil:
 		// Сбой хранилища под 401 маскировать нельзя: фронтенд принял бы падение
 		// базы за разлогин и молча показал гостевой интерфейс.
-		writeInternalError(w, "ошибка чтения сессии", err)
+		writeInternalError(w, _errReadSession, err)
 		return
 	}
 
 	user, err := a.deps.Users.GetByID(r.Context(), session.UserID)
 	switch {
 	case errors.Is(err, repository.ErrUserNotFound):
-		writeUnauthorized(w)
+		writeUnauthorized(w, _errUserGone, err)
 		return
 	case err != nil:
-		writeInternalError(w, "ошибка поиска пользователя", err)
+		writeInternalError(w, _errFindUser, err)
 		return
 	}
 
@@ -227,22 +211,18 @@ func (a *API) Me(w http.ResponseWriter, r *http.Request) {
 // Logout завершает сессию: POST /api/v1/auth/logout.
 // Выход без cookie и повторный выход тоже считаются успехом — результат тот же.
 func (a *API) Logout(w http.ResponseWriter, r *http.Request) {
-	if id := a.sessionIDFromRequest(r); id != "" {
+	switch id, err := a.sessionIDFromRequest(r); {
+	case err != nil:
+		logCause(_errNoSessionCookie, err)
+	default:
 		// Удаляем именно на сервере: погасить одну cookie мало,
 		// украденный идентификатор остался бы рабочим.
 		if err := a.deps.Sessions.Delete(r.Context(), id); err != nil {
-			writeInternalError(w, "ошибка удаления сессии", err)
+			writeInternalError(w, _errDeleteSession, err)
 			return
 		}
 	}
 
 	a.clearSessionCookie(w)
 	w.WriteHeader(http.StatusNoContent)
-}
-
-// writeUnauthorized отвечает одинаково на отсутствующую, неизвестную
-// и истёкшую сессию.
-func writeUnauthorized(w http.ResponseWriter) {
-	response.WriteError(w, http.StatusUnauthorized,
-		apimessage.CodeUnauthorized, apimessage.MsgUnauthorized)
 }

@@ -27,6 +27,8 @@ curl http://localhost:8080/health      # {"status":"ok"}
 |---|---|---|
 | `APP_ADDR` | `:8080` | адрес, который слушает сервер |
 | `APP_ALLOWED_ORIGIN` | пусто | адрес фронтенда для CORS; пусто — фронт и API на одном origin |
+| `APP_ALLOWED_METHODS` | `GET, POST, OPTIONS` | методы, разрешённые кросс-доменному запросу |
+| `APP_ALLOWED_HEADERS` | `Content-Type` | заголовки, разрешённые кросс-доменному запросу |
 | `APP_COOKIE_SECURE` | `false` | флаг `Secure` у сессионной cookie; на стенде с HTTPS — `true` |
 | `APP_SESSION_TTL` | `24h` | срок жизни сессии |
 | `APP_SHUTDOWN_TIMEOUT` | `10s` | сколько ждём завершения запросов при остановке |

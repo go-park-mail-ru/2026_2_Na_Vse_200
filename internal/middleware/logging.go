@@ -9,8 +9,8 @@ import (
 )
 
 // WithLogging пишет структурированную запись на каждый обработанный запрос.
-// component попадает в поле handled_by и отвечает, кто обработал запрос.
-func WithLogging(logger *slog.Logger, component string) Middleware {
+// handledBy отвечает, кто обработал запрос, и попадает в одноимённое поле лога.
+func WithLogging(logger *slog.Logger, handledBy string) Middleware {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			start := time.Now()
@@ -36,7 +36,7 @@ func WithLogging(logger *slog.Logger, component string) Middleware {
 				slog.Time("start_time", start),
 				slog.String("duration_human_readable", duration.String()),
 				slog.Float64("duration_ms", float64(duration.Nanoseconds())/1e6),
-				slog.String("handled_by", component),
+				slog.String("handled_by", handledBy),
 			)
 		})
 	}

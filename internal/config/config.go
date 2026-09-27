@@ -15,6 +15,8 @@ import (
 type Config struct {
 	Addr            string        // адрес прослушивания, например ":8080"
 	AllowedOrigin   string        // адрес фронтенда для CORS; пусто — общий с ним origin
+	AllowedMethods  string        // методы, разрешённые кросс-доменному запросу
+	AllowedHeaders  string        // заголовки, разрешённые кросс-доменному запросу
 	CookieSecure    bool          // флаг Secure у сессионной cookie, по http:// false
 	SessionTTL      time.Duration // срок жизни сессии и cookie
 	ShutdownTimeout time.Duration // сколько ждём завершения запросов при остановке
@@ -25,9 +27,11 @@ type Config struct {
 // ошибка, а не повод взять значение по умолчанию.
 func Load() (cfg Config, err error) {
 	cfg = Config{
-		Addr:          getEnv("APP_ADDR", ":8080"),
-		AllowedOrigin: getEnv("APP_ALLOWED_ORIGIN", ""),
-		PostgreSQLDSN: getEnv("POSTGRES_DSN", ""),
+		Addr:           getEnv("APP_ADDR", ":8080"),
+		AllowedOrigin:  getEnv("APP_ALLOWED_ORIGIN", ""),
+		AllowedMethods: getEnv("APP_ALLOWED_METHODS", "GET, POST, OPTIONS"),
+		AllowedHeaders: getEnv("APP_ALLOWED_HEADERS", "Content-Type"),
+		PostgreSQLDSN:  getEnv("POSTGRES_DSN", ""),
 	}
 
 	cfg.CookieSecure, err = getBool("APP_COOKIE_SECURE", false)
