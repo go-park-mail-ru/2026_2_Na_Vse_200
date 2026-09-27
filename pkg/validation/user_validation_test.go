@@ -1,6 +1,7 @@
 package validation
 
 import (
+	"errors"
 	"strings"
 	"testing"
 )
@@ -165,5 +166,68 @@ func TestSignupReportsAllErrorsAtOnce(t *testing.T) {
 		if result.Fields[field] == "" {
 			t.Errorf("нет текста ошибки для поля %q", field)
 		}
+	}
+}
+
+func TestLoginValid(t *testing.T) {
+	got := Login(LoginInput{Email: "  Andrey@Example.com ", Password: "muzyka2026"})
+
+	if !got.Valid() {
+		t.Fatalf("данные не прошли проверку: %v", got.Fields)
+	}
+	if got.Email != "andrey@example.com" {
+		t.Errorf("email = %q, ожидался %q", got.Email, "andrey@example.com")
+	}
+}
+
+func TestLoginEmptyFields(t *testing.T) {
+	got := Login(LoginInput{Email: "   ", Password: ""})
+
+	for _, field := range []string{"email", "password"} {
+		if got.Fields[field] == "" {
+			t.Errorf("нет ошибки по полю %q, получено: %v", field, got.Fields)
+		}
+	}
+}
+
+func TestLoginIgnoresPasswordRules(t *testing.T) {
+	if got := Login(LoginInput{Email: "andrey@example.com", Password: "123"}); !got.Valid() {
+		t.Errorf("короткий пароль отклонён на входе: %v", got.Fields)
+	}
+}
+
+func TestPasswordTrimmed(t *testing.T) {
+	const want = "muzyka2026"
+
+	signup := Signup(SignupInput{
+		Email:       "andrey@example.com",
+		Password:    "  " + want + "  ",
+		DisplayName: "Андрей",
+	})
+	if signup.Password != want {
+		t.Errorf("регистрация: пароль = %q, ожидался %q", signup.Password, want)
+	}
+
+	login := Login(LoginInput{Email: "andrey@example.com", Password: "  " + want + "  "})
+	if login.Password != want {
+		t.Errorf("вход: пароль = %q, ожидался %q", login.Password, want)
+	}
+}
+
+func TestCheckReturnsNamedErrors(t *testing.T) {
+	if err := checkEmail("без-собаки"); !errors.Is(err, ErrEmailInvalid) {
+		t.Errorf("checkEmail: ошибка = %v, ожидалась ErrEmailInvalid", err)
+	}
+
+	if err := checkPassword("муз1"); !errors.Is(err, ErrPasswordShort) {
+		t.Errorf("checkPassword: ошибка = %v, ожидалась ErrPasswordShort", err)
+	}
+
+	if err := checkPassword("muzykamuzyka"); !errors.Is(err, ErrPasswordSimple) {
+		t.Errorf("checkPassword: ошибка = %v, ожидалась ErrPasswordSimple", err)
+	}
+
+	if err := checkDisplayName("А"); !errors.Is(err, ErrDisplayNameLength) {
+		t.Errorf("checkDisplayName: ошибка = %v, ожидалась ErrDisplayNameLength", err)
 	}
 }

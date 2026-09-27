@@ -1,0 +1,27 @@
+package handlers
+
+import "net/http"
+
+const _sessionCookieName = "session_id"
+
+// setSessionCookie кладёт идентификатор сессии в cookie.
+func (a *API) setSessionCookie(w http.ResponseWriter, id string) {
+	http.SetCookie(w, &http.Cookie{
+		Name:     _sessionCookieName,
+		Value:    id,
+		Path:     "/",
+		MaxAge:   int(a.cfg.SessionTTL.Seconds()),
+		HttpOnly: true,
+		Secure:   a.cfg.CookieSecure,
+		SameSite: a.sessionSameSite(),
+	})
+}
+
+// sessionSameSite выбирает режим по тому, живут ли фронтенд и API на одном
+// адресе
+func (a *API) sessionSameSite() http.SameSite {
+	if a.cfg.AllowedOrigin == "" {
+		return http.SameSiteLaxMode
+	}
+	return http.SameSiteNoneMode
+}

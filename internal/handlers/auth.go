@@ -1,19 +1,34 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
+	"log"
 	"net/http"
 	"strconv"
+	"time"
 
 	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/apimessage"
+	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/auth"
 	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/models"
 	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/repository"
 	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/pkg/response"
 	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/pkg/validation"
 )
 
-const maxBodySize = 1 << 20 // 1 МБ
+const _maxBodySize = 1 << 20 // 1 МБ
+
+// Пояснения к внутренним ошибкам. Уходят только в лог: клиент видит общий текст.
+const (
+	_errHashPassword   = "ошибка хеширования пароля"
+	_errCreateUser     = "ошибка создания пользователя"
+	_errAutoSignIn     = "ошибка автовхода после регистрации"
+	_errFindUser       = "ошибка поиска пользователя"
+	_errVerifyPassword = "ошибка проверки пароля"
+	_errSignIn         = "ошибка входа пользователя"
+)
 
 type signupRequest struct {
 	Email       string `json:"email"`
@@ -44,10 +59,24 @@ func newUserResponse(user models.User) userResponse {
 	return resp
 }
 
-// Signup создаёт аккаунт: POST /api/v1/auth/signup.
-// Cookie не выставляется — автоматического входа после регистрации нет.
+// signIn заводит сессию для user и кладёт её идентификатор в cookie.
+func (a *API) signIn(ctx context.Context, w http.ResponseWriter, user models.User) error {
+	session := models.Session{
+		ID:        auth.NewSessionID(),
+		UserID:    user.ID,
+		ExpiresAt: time.Now().Add(a.cfg.SessionTTL),
+	}
+	if err := a.deps.Sessions.Create(ctx, session); err != nil {
+		return fmt.Errorf("ошибка сохранения сессии: %w", err)
+	}
+
+	a.setSessionCookie(w, session.ID)
+	return nil
+}
+
+// Signup создаёт аккаунт и сразу выполняет вход: POST /api/v1/auth/signup.
 func (a *API) Signup(w http.ResponseWriter, r *http.Request) {
-	r.Body = http.MaxBytesReader(w, r.Body, maxBodySize)
+	r.Body = http.MaxBytesReader(w, r.Body, _maxBodySize)
 
 	var req signupRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -68,7 +97,7 @@ func (a *API) Signup(w http.ResponseWriter, r *http.Request) {
 
 	hash, err := a.deps.Hasher.Hash(form.Password)
 	if err != nil {
-		writeInternalError(w, "ошибка хеширования пароля", err)
+		writeInternalError(w, _errHashPassword, err)
 		return
 	}
 
@@ -82,9 +111,70 @@ func (a *API) Signup(w http.ResponseWriter, r *http.Request) {
 		response.WriteError(w, http.StatusConflict, apimessage.CodeEmailTaken, apimessage.MsgEmailTaken)
 		return
 	case err != nil:
-		writeInternalError(w, "ошибка создания пользователя", err)
+		writeInternalError(w, _errCreateUser, err)
 		return
 	}
 
+	if err := a.signIn(r.Context(), w, user); err != nil {
+		log.Printf("%s: %v", _errAutoSignIn, err)
+	}
+
 	response.WriteJSON(w, http.StatusCreated, newUserResponse(user))
+}
+
+type loginRequest struct {
+	Email    string `json:"email"`
+	Password string `json:"password"`
+}
+
+// Login выдаёт сессию по email и паролю: POST /api/v1/auth/login.
+func (a *API) Login(w http.ResponseWriter, r *http.Request) {
+	r.Body = http.MaxBytesReader(w, r.Body, _maxBodySize)
+
+	var req loginRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		response.WriteError(w, http.StatusBadRequest, apimessage.CodeInvalidJSON, apimessage.MsgInvalidJSON)
+		return
+	}
+
+	form := validation.Login(validation.LoginInput{Email: req.Email, Password: req.Password})
+	if !form.Valid() {
+		response.WriteFieldsError(w, http.StatusBadRequest,
+			apimessage.CodeValidationFailed, apimessage.MsgValidationFailed, form.Fields)
+		return
+	}
+
+	user, err := a.deps.Users.GetByEmail(r.Context(), form.Email)
+	switch {
+	case errors.Is(err, repository.ErrUserNotFound):
+		writeInvalidCredentials(w)
+		return
+	case err != nil:
+		writeInternalError(w, _errFindUser, err)
+		return
+	}
+
+	matched, err := a.deps.Hasher.Verify(form.Password, user.PasswordHash)
+	if err != nil {
+		writeInternalError(w, _errVerifyPassword, err)
+		return
+	}
+	if !matched {
+		writeInvalidCredentials(w)
+		return
+	}
+
+	if err := a.signIn(r.Context(), w, user); err != nil {
+		writeInternalError(w, _errSignIn, err)
+		return
+	}
+
+	response.WriteJSON(w, http.StatusOK, newUserResponse(user))
+}
+
+// writeInvalidCredentials отвечает одинаково на неизвестный email и на неверный
+// пароль: по разнице ответов перебирают зарегистрированные адреса.
+func writeInvalidCredentials(w http.ResponseWriter) {
+	response.WriteError(w, http.StatusUnauthorized,
+		apimessage.CodeInvalidCredentials, apimessage.MsgInvalidCredentials)
 }

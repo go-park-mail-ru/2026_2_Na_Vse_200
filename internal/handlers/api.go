@@ -27,8 +27,8 @@ type API struct {
 }
 
 // writeInternalError логирует причину и отдаёт клиенту общий текст без деталей.
-func writeInternalError(w http.ResponseWriter, context string, err error) {
-	log.Printf("%s: %v", context, err)
+func writeInternalError(w http.ResponseWriter, cause string, err error) {
+	log.Printf("%s: %v", cause, err)
 	response.WriteError(w, http.StatusInternalServerError,
 		apimessage.CodeInternal, apimessage.MsgInternal)
 }
@@ -46,6 +46,7 @@ func (a *API) Routes() http.Handler {
 
 	mux.HandleFunc("GET /health", a.Health)
 	mux.HandleFunc("POST /api/v1/auth/signup", a.Signup)
+	mux.HandleFunc("POST /api/v1/auth/login", a.Login)
 
 	return mux
 }

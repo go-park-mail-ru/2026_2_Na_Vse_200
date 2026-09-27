@@ -2,6 +2,7 @@
 package validation
 
 import (
+	"errors"
 	"fmt"
 	"strings"
 	"unicode"
@@ -9,15 +10,29 @@ import (
 )
 
 const (
-	emailMinLen = 3
-	emailMaxLen = 254
+	_emailMinLen = 3
+	_emailMaxLen = 254
 
 	// Минимум считается в символах, максимум — в байтах: столько принимает bcrypt.
-	passwordMinRunes = 8
-	passwordMaxBytes = 72
+	_passwordMinRunes = 8
+	_passwordMaxBytes = 72
 
-	displayNameMinLen = 2
-	displayNameMaxLen = 50
+	_displayNameMinLen = 2
+	_displayNameMaxLen = 50
+)
+
+var (
+	ErrEmailRequired = errors.New("Укажите email")
+	ErrEmailInvalid  = errors.New("Некорректный email")
+
+	ErrPasswordRequired = errors.New("Укажите пароль")
+	ErrPasswordShort    = fmt.Errorf("Пароль должен быть не короче %d символов", _passwordMinRunes)
+	ErrPasswordLong     = errors.New("Пароль слишком длинный")
+	ErrPasswordSimple   = errors.New("Пароль должен содержать хотя бы одну букву и одну цифру")
+
+	ErrDisplayNameRequired = errors.New("Укажите имя")
+	ErrDisplayNameLength   = fmt.Errorf("Имя должно содержать от %d до %d символов",
+		_displayNameMinLen, _displayNameMaxLen)
 )
 
 // SignupInput — данные формы регистрации от клиента.
@@ -27,8 +42,8 @@ type SignupInput struct {
 	DisplayName string
 }
 
-// SignupResult — результат проверки: нормализованные поля и ошибки по каждому
-// непрошедшему полю. Пустой Fields означает, что данные в порядке.
+// SignupResult — результат проверки: нормализованные поля и причина отказа
+// по каждому непрошедшему полю. Пустой Fields означает, что данные в порядке.
 type SignupResult struct {
 	Email       string
 	DisplayName string
@@ -47,18 +62,59 @@ func Signup(in SignupInput) SignupResult {
 	result := SignupResult{
 		Email:       NormalizeEmail(in.Email),
 		DisplayName: strings.TrimSpace(in.DisplayName),
-		Password:    in.Password, // пробелы могут быть частью пароля
+		Password:    strings.TrimSpace(in.Password),
 		Fields:      make(map[string]string),
 	}
 
-	if msg := checkEmail(result.Email); msg != "" {
-		result.Fields["email"] = msg
+	if err := checkEmail(result.Email); err != nil {
+		result.Fields["email"] = err.Error()
 	}
-	if msg := checkPassword(result.Password); msg != "" {
-		result.Fields["password"] = msg
+
+	if err := checkPassword(result.Password); err != nil {
+		result.Fields["password"] = err.Error()
 	}
-	if msg := checkDisplayName(result.DisplayName); msg != "" {
-		result.Fields["display_name"] = msg
+
+	if err := checkDisplayName(result.DisplayName); err != nil {
+		result.Fields["display_name"] = err.Error()
+	}
+
+	return result
+}
+
+// LoginInput — данные формы входа от клиента.
+type LoginInput struct {
+	Email    string
+	Password string
+}
+
+// LoginResult — результат проверки: нормализованный email и причины отказа по полям.
+type LoginResult struct {
+	Email    string
+	Password string
+	Fields   map[string]string
+}
+
+// Valid сообщает, прошли ли данные проверку.
+func (r LoginResult) Valid() bool {
+	return len(r.Fields) == 0
+}
+
+// Login проверяет, что поля входа заполнены, и нормализует email.
+// Правила длины и состава пароля здесь не применяются: аккаунт мог быть заведён
+// до их ужесточения, да и отказ по ним подсказывал бы требования к паролю.
+func Login(in LoginInput) LoginResult {
+	result := LoginResult{
+		Email:    NormalizeEmail(in.Email),
+		Password: strings.TrimSpace(in.Password),
+		Fields:   make(map[string]string),
+	}
+
+	if result.Email == "" {
+		result.Fields["email"] = ErrEmailRequired.Error()
+	}
+
+	if result.Password == "" {
+		result.Fields["password"] = ErrPasswordRequired.Error()
 	}
 
 	return result
@@ -70,52 +126,55 @@ func NormalizeEmail(email string) string {
 	return strings.ToLower(strings.TrimSpace(email))
 }
 
-// checkEmail возвращает текст ошибки или пустую строку, если адрес годится.
+// checkEmail сообщает, годится ли адрес.
 // Проверка по RFC 5322 не делается: адрес подтверждается письмом.
-func checkEmail(email string) string {
-	const msg = "Некорректный email"
-
+func checkEmail(email string) error {
 	if email == "" {
-		return "Укажите email"
+		return ErrEmailRequired
 	}
-	if len(email) < emailMinLen || len(email) > emailMaxLen {
-		return msg
+
+	if len(email) < _emailMinLen || len(email) > _emailMaxLen {
+		return ErrEmailInvalid
 	}
 
 	local, domain, found := strings.Cut(email, "@")
 	if !found || local == "" || domain == "" {
-		return msg
+		return ErrEmailInvalid
 	}
+
 	if strings.Contains(domain, "@") {
-		return msg
+		return ErrEmailInvalid
 	}
+
 	if strings.ContainsAny(email, " \t\n\r") {
-		return msg
+		return ErrEmailInvalid
 	}
 
 	// Точка в домене обязательна и не может стоять с краю.
 	dot := strings.Index(domain, ".")
 	if dot <= 0 || dot == len(domain)-1 {
-		return msg
+		return ErrEmailInvalid
 	}
 
-	return ""
+	return nil
 }
 
-// checkPassword возвращает текст ошибки или пустую строку, если пароль годится.
-func checkPassword(password string) string {
+// checkPassword сообщает, годится ли пароль.
+func checkPassword(password string) error {
 	if password == "" {
-		return "Укажите пароль"
+		return ErrPasswordRequired
 	}
+
 	// Символы, а не байты: иначе пароль из шести кириллических букв
 	// прошёл бы как достаточно длинный.
-	if utf8.RuneCountInString(password) < passwordMinRunes {
-		return fmt.Sprintf("Пароль должен быть не короче %d символов", passwordMinRunes)
+	if utf8.RuneCountInString(password) < _passwordMinRunes {
+		return ErrPasswordShort
 	}
+
 	// Предел bcrypt задан в байтах, поэтому в символах он разный:
 	// называть число пользователю было бы враньём.
-	if len(password) > passwordMaxBytes {
-		return "Пароль слишком длинный"
+	if len(password) > _passwordMaxBytes {
+		return ErrPasswordLong
 	}
 
 	var hasLetter, hasDigit bool
@@ -127,26 +186,25 @@ func checkPassword(password string) string {
 			hasDigit = true
 		}
 	}
+
 	if !hasLetter || !hasDigit {
-		return "Пароль должен содержать хотя бы одну букву и одну цифру"
+		return ErrPasswordSimple
 	}
 
-	return ""
+	return nil
 }
 
-// checkDisplayName возвращает текст ошибки или пустую строку, если имя годится.
-func checkDisplayName(name string) string {
-	const msg = "Имя должно содержать от 2 до 50 символов"
-
+// checkDisplayName сообщает, годится ли имя.
+func checkDisplayName(name string) error {
 	if name == "" {
-		return "Укажите имя"
+		return ErrDisplayNameRequired
 	}
 
 	// Считаем символы, а не байты: кириллица занимает по два байта.
 	length := utf8.RuneCountInString(name)
-	if length < displayNameMinLen || length > displayNameMaxLen {
-		return msg
+	if length < _displayNameMinLen || length > _displayNameMaxLen {
+		return ErrDisplayNameLength
 	}
 
-	return ""
+	return nil
 }
