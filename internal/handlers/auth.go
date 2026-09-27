@@ -18,7 +18,17 @@ import (
 	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/pkg/validation"
 )
 
-const maxBodySize = 1 << 20 // 1 МБ
+const _maxBodySize = 1 << 20 // 1 МБ
+
+// Пояснения к внутренним ошибкам. Уходят только в лог: клиент видит общий текст.
+const (
+	_errHashPassword   = "ошибка хеширования пароля"
+	_errCreateUser     = "ошибка создания пользователя"
+	_errAutoSignIn     = "ошибка автовхода после регистрации"
+	_errFindUser       = "ошибка поиска пользователя"
+	_errVerifyPassword = "ошибка проверки пароля"
+	_errSignIn         = "ошибка входа пользователя"
+)
 
 type signupRequest struct {
 	Email       string `json:"email"`
@@ -66,7 +76,7 @@ func (a *API) signIn(ctx context.Context, w http.ResponseWriter, user models.Use
 
 // Signup создаёт аккаунт и сразу выполняет вход: POST /api/v1/auth/signup.
 func (a *API) Signup(w http.ResponseWriter, r *http.Request) {
-	r.Body = http.MaxBytesReader(w, r.Body, maxBodySize)
+	r.Body = http.MaxBytesReader(w, r.Body, _maxBodySize)
 
 	var req signupRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -87,7 +97,7 @@ func (a *API) Signup(w http.ResponseWriter, r *http.Request) {
 
 	hash, err := a.deps.Hasher.Hash(form.Password)
 	if err != nil {
-		writeInternalError(w, "ошибка хеширования пароля", err)
+		writeInternalError(w, _errHashPassword, err)
 		return
 	}
 
@@ -101,12 +111,12 @@ func (a *API) Signup(w http.ResponseWriter, r *http.Request) {
 		response.WriteError(w, http.StatusConflict, apimessage.CodeEmailTaken, apimessage.MsgEmailTaken)
 		return
 	case err != nil:
-		writeInternalError(w, "ошибка создания пользователя", err)
+		writeInternalError(w, _errCreateUser, err)
 		return
 	}
 
 	if err := a.signIn(r.Context(), w, user); err != nil {
-		log.Printf("ошибка автовхода после регистрации: %v", err)
+		log.Printf("%s: %v", _errAutoSignIn, err)
 	}
 
 	response.WriteJSON(w, http.StatusCreated, newUserResponse(user))
@@ -119,7 +129,7 @@ type loginRequest struct {
 
 // Login выдаёт сессию по email и паролю: POST /api/v1/auth/login.
 func (a *API) Login(w http.ResponseWriter, r *http.Request) {
-	r.Body = http.MaxBytesReader(w, r.Body, maxBodySize)
+	r.Body = http.MaxBytesReader(w, r.Body, _maxBodySize)
 
 	var req loginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -140,13 +150,13 @@ func (a *API) Login(w http.ResponseWriter, r *http.Request) {
 		writeInvalidCredentials(w)
 		return
 	case err != nil:
-		writeInternalError(w, "ошибка поиска пользователя", err)
+		writeInternalError(w, _errFindUser, err)
 		return
 	}
 
 	matched, err := a.deps.Hasher.Verify(form.Password, user.PasswordHash)
 	if err != nil {
-		writeInternalError(w, "ошибка проверки пароля", err)
+		writeInternalError(w, _errVerifyPassword, err)
 		return
 	}
 	if !matched {
@@ -155,7 +165,7 @@ func (a *API) Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := a.signIn(r.Context(), w, user); err != nil {
-		writeInternalError(w, "ошибка входа пользователя", err)
+		writeInternalError(w, _errSignIn, err)
 		return
 	}
 

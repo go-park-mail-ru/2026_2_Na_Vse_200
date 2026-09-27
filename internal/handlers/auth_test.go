@@ -41,12 +41,12 @@ func sessionCookie(t *testing.T, w *httptest.ResponseRecorder) *http.Cookie {
 	t.Helper()
 
 	for _, cookie := range w.Result().Cookies() {
-		if cookie.Name == sessionCookieName {
+		if cookie.Name == _sessionCookieName {
 			return cookie
 		}
 	}
 
-	t.Fatalf("в ответе нет cookie %q", sessionCookieName)
+	t.Fatalf("в ответе нет cookie %q", _sessionCookieName)
 	return nil
 }
 

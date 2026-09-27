@@ -2,12 +2,12 @@ package handlers
 
 import "net/http"
 
-const sessionCookieName = "session_id"
+const _sessionCookieName = "session_id"
 
 // setSessionCookie кладёт идентификатор сессии в cookie.
 func (a *API) setSessionCookie(w http.ResponseWriter, id string) {
 	http.SetCookie(w, &http.Cookie{
-		Name:     sessionCookieName,
+		Name:     _sessionCookieName,
 		Value:    id,
 		Path:     "/",
 		MaxAge:   int(a.cfg.SessionTTL.Seconds()),
@@ -18,8 +18,7 @@ func (a *API) setSessionCookie(w http.ResponseWriter, id string) {
 }
 
 // sessionSameSite выбирает режим по тому, живут ли фронтенд и API на одном
-// адресе: при разных cookie доедет только с None, а его браузер принимает
-// лишь вместе с Secure.
+// адресе
 func (a *API) sessionSameSite() http.SameSite {
 	if a.cfg.AllowedOrigin == "" {
 		return http.SameSiteLaxMode

@@ -21,7 +21,7 @@ if [ -f "$ENV_FILE" ]; then
 	echo "настройки загружены из $ENV_FILE"
 else
 	echo "файл $ENV_FILE не найден — используются значения по умолчанию" >&2
-	echo "чтобы задать свои: cp .env.example .env" >&2
+	echo "чтобы задать свои: создайте .env, список переменных в internal/README.md" >&2
 fi
 
 if [ "$#" -eq 0 ]; then
