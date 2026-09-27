@@ -19,8 +19,8 @@ import (
 	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/repository/memory"
 )
 
-// component попадает в лог полем handled_by.
-const component = "monolith/middleware"
+// _component попадает в лог полем handled_by.
+const _component = "monolith/middleware"
 
 func main() {
 	cfg, err := config.Load()
@@ -50,7 +50,7 @@ func main() {
 		api.Routes(),
 		middleware.WithRecover(logger),
 		middleware.WithRequestID,
-		middleware.WithLogging(logger, component),
+		middleware.WithLogging(logger, _component),
 		middleware.WithCORS(cfg.AllowedOrigin),
 		middleware.WithJSONErrors,
 	)
@@ -72,7 +72,7 @@ func main() {
 	// ListenAndServe блокирует, поэтому ждём сигнал остановки в главной горутине.
 	serverErrors := make(chan error, 1)
 	go func() {
-		logger.Info("сервер запущен", slog.String("addr", cfg.Addr), slog.String("component", component))
+		logger.Info("сервер запущен", slog.String("addr", cfg.Addr), slog.String("component", _component))
 		// После Shutdown возвращается ErrServerClosed — это штатное завершение.
 		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			serverErrors <- err

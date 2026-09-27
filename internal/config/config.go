@@ -13,24 +13,12 @@ import (
 
 // Config — настройки, собранные при старте.
 type Config struct {
-	// Addr — адрес прослушивания, например ":8080".
-	Addr string
-
-	// AllowedOrigin — адрес фронтенда для CORS.
-	// Пустая строка означает общий с фронтендом origin: CORS не нужен.
-	AllowedOrigin string
-
-	// CookieSecure — флаг Secure у сессионной cookie. По http:// должен быть false.
-	CookieSecure bool
-
-	// SessionTTL — срок жизни сессии и cookie.
-	SessionTTL time.Duration
-
-	// ShutdownTimeout — сколько ждём завершения запросов при остановке.
-	ShutdownTimeout time.Duration
-
-	// PostgreSQLDSN — строка подключения к PostgreSQL.
-	PostgreSQLDSN string
+	Addr            string        // адрес прослушивания, например ":8080"
+	AllowedOrigin   string        // адрес фронтенда для CORS; пусто — общий с ним origin
+	CookieSecure    bool          // флаг Secure у сессионной cookie, по http:// false
+	SessionTTL      time.Duration // срок жизни сессии и cookie
+	ShutdownTimeout time.Duration // сколько ждём завершения запросов при остановке
+	PostgreSQLDSN   string        // строка подключения к PostgreSQL
 }
 
 // Load собирает конфигурацию из окружения. Заданное, но неразбираемое значение —

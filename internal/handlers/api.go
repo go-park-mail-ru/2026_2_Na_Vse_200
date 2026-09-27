@@ -27,8 +27,8 @@ type API struct {
 }
 
 // writeInternalError логирует причину и отдаёт клиенту общий текст без деталей.
-func writeInternalError(w http.ResponseWriter, context string, err error) {
-	log.Printf("%s: %v", context, err)
+func writeInternalError(w http.ResponseWriter, cause string, err error) {
+	log.Printf("%s: %v", cause, err)
 	response.WriteError(w, http.StatusInternalServerError,
 		apimessage.CodeInternal, apimessage.MsgInternal)
 }
