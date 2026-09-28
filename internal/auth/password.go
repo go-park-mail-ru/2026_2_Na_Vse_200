@@ -8,11 +8,12 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
-// MinCost — минимальная цена bcrypt.
-const MinCost = bcrypt.MinCost
-
-// MaxPasswordBytes — предел bcrypt: всё после 72 байт он отбрасывает.
-const MaxPasswordBytes = 72
+const (
+	// MinCost — минимальная цена bcrypt.
+	MinCost = bcrypt.MinCost
+	// MaxPasswordBytes — предел bcrypt: всё после 72 байт он отбрасывает.
+	MaxPasswordBytes = 72
+)
 
 // ErrPasswordTooLong возвращается, когда пароль длиннее MaxPasswordBytes.
 // Отличается от внутренних ошибок: виноват клиент, а не сервис.

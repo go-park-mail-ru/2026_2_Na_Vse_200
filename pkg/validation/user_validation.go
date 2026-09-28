@@ -1,9 +1,8 @@
 // Package validation проверяет данные, пришедшие от клиента.
+// Причины отказа объявлены в errors.go.
 package validation
 
 import (
-	"errors"
-	"fmt"
 	"strings"
 	"unicode"
 	"unicode/utf8"
@@ -19,20 +18,6 @@ const (
 
 	_displayNameMinLen = 2
 	_displayNameMaxLen = 50
-)
-
-var (
-	ErrEmailRequired = errors.New("Укажите email")
-	ErrEmailInvalid  = errors.New("Некорректный email")
-
-	ErrPasswordRequired = errors.New("Укажите пароль")
-	ErrPasswordShort    = fmt.Errorf("Пароль должен быть не короче %d символов", _passwordMinRunes)
-	ErrPasswordLong     = errors.New("Пароль слишком длинный")
-	ErrPasswordSimple   = errors.New("Пароль должен содержать хотя бы одну букву и одну цифру")
-
-	ErrDisplayNameRequired = errors.New("Укажите имя")
-	ErrDisplayNameLength   = fmt.Errorf("Имя должно содержать от %d до %d символов",
-		_displayNameMinLen, _displayNameMaxLen)
 )
 
 // SignupInput — данные формы регистрации от клиента.

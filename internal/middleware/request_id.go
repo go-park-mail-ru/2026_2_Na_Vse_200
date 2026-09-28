@@ -6,12 +6,15 @@ import (
 	"uuid"
 )
 
-// HeaderRequestID — имя заголовка, в котором идентификатор приходит и уходит.
-const HeaderRequestID = "X-Request-ID"
-
 type ctxKey int
 
-const _requestIDKey ctxKey = iota
+const (
+	// HeaderRequestID — имя заголовка, в котором идентификатор приходит и уходит.
+	HeaderRequestID = "X-Request-ID"
+	// _requestIDKey — под этим ключом идентификатор лежит в контексте.
+	// Свой тип не даёт чужому пакету перезаписать значение.
+	_requestIDKey ctxKey = 0
+)
 
 // WithRequestID кладёт идентификатор запроса в контекст и в заголовок ответа.
 // Присланный клиентом идентификатор переиспользуется, если это валидный UUID.

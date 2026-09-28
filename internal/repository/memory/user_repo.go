@@ -6,6 +6,7 @@ import (
 	"context"
 	"sync"
 	"time"
+	"uuid"
 
 	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/models"
 	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/repository"
@@ -16,16 +17,15 @@ import (
 type UserRepo struct {
 	mu sync.RWMutex
 
-	users  map[models.ID]models.User
-	byMail map[string]models.ID // индекс для поиска по email без перебора
-	lastID models.ID
+	users  map[models.UserID]models.User
+	byMail map[string]models.UserID // индекс для поиска по email без перебора
 }
 
 // NewUserRepo создаёт пустое хранилище.
 func NewUserRepo() *UserRepo {
 	return &UserRepo{
-		users:  make(map[models.ID]models.User),
-		byMail: make(map[string]models.ID),
+		users:  make(map[models.UserID]models.User),
+		byMail: make(map[string]models.UserID),
 	}
 }
 
@@ -44,8 +44,8 @@ func (s *UserRepo) Create(ctx context.Context, user models.User) (models.User, e
 		return models.User{}, repository.ErrEmailTaken
 	}
 
-	s.lastID++
-	user.ID = s.lastID
+	// Ключ выдаёт хранилище, как это будет делать gen_random_uuid() в БД.
+	user.ID = models.UserID(uuid.New().String())
 	user.CreatedAt = time.Now()
 
 	s.users[user.ID] = user
@@ -55,7 +55,7 @@ func (s *UserRepo) Create(ctx context.Context, user models.User) (models.User, e
 }
 
 // GetByID возвращает пользователя по идентификатору.
-func (s *UserRepo) GetByID(ctx context.Context, id models.ID) (models.User, error) {
+func (s *UserRepo) GetByID(ctx context.Context, id models.UserID) (models.User, error) {
 	if err := ctx.Err(); err != nil {
 		return models.User{}, err
 	}

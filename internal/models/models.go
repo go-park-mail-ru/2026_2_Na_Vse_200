@@ -3,12 +3,16 @@ package models
 
 import "time"
 
-// ID — идентификатор сущности. В JSON отдаётся строкой.
-type ID int64
+// UserID — идентификатор сущности: UUID строкой, как первичные ключи в схеме БД.
+type UserID string
+type SessionID string
+type ArtistID string
+type TrackID string
+type AlbumID string
 
 // User — аккаунт пользователя.
 type User struct {
-	ID           ID
+	ID           UserID
 	Email        string // в нижнем регистре, уникален
 	PasswordHash string // клиенту не отдаётся
 	DisplayName  string
@@ -18,8 +22,8 @@ type User struct {
 
 // Session — серверная сессия пользователя.
 type Session struct {
-	ID        string
-	UserID    ID
+	ID        SessionID
+	UserID    UserID
 	ExpiresAt time.Time
 }
 
@@ -30,13 +34,13 @@ func (s Session) IsExpired(now time.Time) bool {
 
 // ArtistRef — краткие данные исполнителя внутри карточки трека или альбома.
 type ArtistRef struct {
-	ID   ID
+	ID   ArtistID
 	Name string
 }
 
 // Track — аудиозапись.
 type Track struct {
-	ID         ID
+	ID         TrackID
 	Title      string
 	DurationMS int
 	CoverURL   string // пустая строка — обложки нет
@@ -45,14 +49,14 @@ type Track struct {
 
 // Artist — исполнитель или группа.
 type Artist struct {
-	ID       ID
+	ID       ArtistID
 	Name     string
 	ImageURL string // пустая строка — изображения нет
 }
 
 // Album — музыкальный релиз.
 type Album struct {
-	ID          ID
+	ID          AlbumID
 	Title       string
 	ReleaseDate *time.Time // nil — дата неизвестна
 	CoverURL    string

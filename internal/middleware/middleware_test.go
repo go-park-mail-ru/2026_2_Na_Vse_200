@@ -223,12 +223,16 @@ func TestWithRecover(t *testing.T) {
 }
 
 func TestWithCORS(t *testing.T) {
-	const allowed = "http://localhost:3000"
+	const (
+		allowed = "http://localhost:3000"
+		methods = "GET, POST, OPTIONS"
+		headers = "Content-Type"
+	)
 
 	okHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	})
-	handler := WithCORS(allowed)(okHandler)
+	handler := WithCORS(allowed, methods, headers)(okHandler)
 
 	t.Run("разрешённый origin", func(t *testing.T) {
 		req := httptest.NewRequest(http.MethodGet, "/health", nil)

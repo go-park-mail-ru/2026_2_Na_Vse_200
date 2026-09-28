@@ -2,14 +2,11 @@
 package handlers
 
 import (
-	"log"
 	"net/http"
 
-	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/apimessage"
 	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/auth"
 	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/config"
 	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/repository"
-	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/pkg/response"
 )
 
 // Deps — зависимости обработчиков.
@@ -26,13 +23,6 @@ type API struct {
 	deps *Deps
 }
 
-// writeInternalError логирует причину и отдаёт клиенту общий текст без деталей.
-func writeInternalError(w http.ResponseWriter, cause string, err error) {
-	log.Printf("%s: %v", cause, err)
-	response.WriteError(w, http.StatusInternalServerError,
-		apimessage.CodeInternal, apimessage.MsgInternal)
-}
-
 // New создаёт набор обработчиков. Аргумент cfg задаёт настройки сервиса,
 // deps — репозитории и хеширование паролей, которыми обработчики пользуются.
 func New(cfg *config.Config, deps *Deps) *API {
@@ -47,6 +37,8 @@ func (a *API) Routes() http.Handler {
 	mux.HandleFunc("GET /health", a.Health)
 	mux.HandleFunc("POST /api/v1/auth/signup", a.Signup)
 	mux.HandleFunc("POST /api/v1/auth/login", a.Login)
+	mux.HandleFunc("GET /api/v1/auth/me", a.Me)
+	mux.HandleFunc("POST /api/v1/auth/logout", a.Logout)
 
 	return mux
 }
