@@ -13,12 +13,12 @@ import (
 // RWMutex: чтение удаляет просроченную запись, то есть тоже пишет.
 type SessionRepo struct {
 	mu       sync.Mutex
-	sessions map[string]models.Session
+	sessions map[models.SessionID]models.Session
 }
 
 // NewSessionRepo создаёт пустое хранилище.
 func NewSessionRepo() *SessionRepo {
-	return &SessionRepo{sessions: make(map[string]models.Session)}
+	return &SessionRepo{sessions: make(map[models.SessionID]models.Session)}
 }
 
 // Create сохраняет сессию.
@@ -36,7 +36,7 @@ func (s *SessionRepo) Create(ctx context.Context, session models.Session) error 
 
 // GetByID возвращает сессию по идентификатору. Просроченная запись удаляется:
 // иначе мапа растёт до перезапуска сервера.
-func (s *SessionRepo) GetByID(ctx context.Context, id string) (models.Session, error) {
+func (s *SessionRepo) GetByID(ctx context.Context, id models.SessionID) (models.Session, error) {
 	if err := ctx.Err(); err != nil {
 		return models.Session{}, err
 	}
@@ -57,7 +57,7 @@ func (s *SessionRepo) GetByID(ctx context.Context, id string) (models.Session, e
 }
 
 // Delete удаляет сессию. Удаление несуществующей ошибкой не считается.
-func (s *SessionRepo) Delete(ctx context.Context, id string) error {
+func (s *SessionRepo) Delete(ctx context.Context, id models.SessionID) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}

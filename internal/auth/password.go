@@ -11,7 +11,6 @@ import (
 const (
 	// MinCost — минимальная цена bcrypt.
 	MinCost = bcrypt.MinCost
-
 	// MaxPasswordBytes — предел bcrypt: всё после 72 байт он отбрасывает.
 	MaxPasswordBytes = 72
 )

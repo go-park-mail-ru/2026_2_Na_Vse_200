@@ -494,7 +494,7 @@ func TestSignupCreatesUsableSession(t *testing.T) {
 		t.Fatalf("тело не разобралось: %v, тело: %s", err, w.Body.String())
 	}
 
-	session, err := sessions.GetByID(context.Background(), sessionCookie(t, w).Value)
+	session, err := sessions.GetByID(context.Background(), models.SessionID(sessionCookie(t, w).Value))
 	if err != nil {
 		t.Fatalf("сессия из cookie не нашлась в хранилище: %v", err)
 	}
@@ -577,8 +577,8 @@ func TestMeUnauthorizedCases(t *testing.T) {
 	handler := middleware.Chain(api.Routes(), middleware.WithJSONErrors)
 
 	ctx := context.Background()
-	expired := models.Session{ID: auth.NewSessionID(), UserID: models.ID(uuid.New().String()), ExpiresAt: time.Now().Add(-time.Minute)}
-	orphan := models.Session{ID: auth.NewSessionID(), UserID: models.ID(uuid.New().String()), ExpiresAt: time.Now().Add(time.Hour)}
+	expired := models.Session{ID: auth.NewSessionID(), UserID: models.UserID(uuid.New().String()), ExpiresAt: time.Now().Add(-time.Minute)}
+	orphan := models.Session{ID: auth.NewSessionID(), UserID: models.UserID(uuid.New().String()), ExpiresAt: time.Now().Add(time.Hour)}
 
 	for _, session := range []models.Session{expired, orphan} {
 		if err := sessions.Create(ctx, session); err != nil {
@@ -591,9 +591,9 @@ func TestMeUnauthorizedCases(t *testing.T) {
 		cookie *http.Cookie
 	}{
 		{name: "cookie не прислана", cookie: nil},
-		{name: "сессия неизвестна", cookie: &http.Cookie{Name: _sessionCookieName, Value: auth.NewSessionID()}},
-		{name: "сессия истекла", cookie: &http.Cookie{Name: _sessionCookieName, Value: expired.ID}},
-		{name: "пользователь удалён", cookie: &http.Cookie{Name: _sessionCookieName, Value: orphan.ID}},
+		{name: "сессия неизвестна", cookie: &http.Cookie{Name: _sessionCookieName, Value: string(auth.NewSessionID())}},
+		{name: "сессия истекла", cookie: &http.Cookie{Name: _sessionCookieName, Value: string(expired.ID)}},
+		{name: "пользователь удалён", cookie: &http.Cookie{Name: _sessionCookieName, Value: string(orphan.ID)}},
 	}
 
 	var first string
@@ -636,11 +636,11 @@ type brokenSessionRepo struct {
 	repository.SessionRepositoryInterface
 }
 
-func (brokenSessionRepo) GetByID(ctx context.Context, id string) (models.Session, error) {
+func (brokenSessionRepo) GetByID(ctx context.Context, id models.SessionID) (models.Session, error) {
 	return models.Session{}, errStorageDown
 }
 
-func (brokenSessionRepo) Delete(ctx context.Context, id string) error {
+func (brokenSessionRepo) Delete(ctx context.Context, id models.SessionID) error {
 	return errStorageDown
 }
 
@@ -651,7 +651,7 @@ func TestSessionStorageFailure(t *testing.T) {
 	defer log.SetOutput(os.Stderr)
 
 	handler := newHandlerWithSessions(brokenSessionRepo{})
-	cookie := &http.Cookie{Name: _sessionCookieName, Value: auth.NewSessionID()}
+	cookie := &http.Cookie{Name: _sessionCookieName, Value: string(auth.NewSessionID())}
 
 	tests := []struct {
 		name   string

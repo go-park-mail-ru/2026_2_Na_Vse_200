@@ -11,7 +11,6 @@ type ctxKey int
 const (
 	// HeaderRequestID — имя заголовка, в котором идентификатор приходит и уходит.
 	HeaderRequestID = "X-Request-ID"
-
 	// _requestIDKey — под этим ключом идентификатор лежит в контексте.
 	// Свой тип не даёт чужому пакету перезаписать значение.
 	_requestIDKey ctxKey = 0

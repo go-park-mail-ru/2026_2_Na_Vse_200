@@ -55,7 +55,7 @@ func TestGetNotFound(t *testing.T) {
 	ctx := context.Background()
 	repo := NewUserRepo()
 
-	if _, err := repo.GetByID(ctx, models.ID(uuid.New().String())); !errors.Is(err, repository.ErrUserNotFound) {
+	if _, err := repo.GetByID(ctx, models.UserID(uuid.New().String())); !errors.Is(err, repository.ErrUserNotFound) {
 		t.Errorf("GetByID: ошибка = %v, ожидалась ErrUserNotFound", err)
 	}
 

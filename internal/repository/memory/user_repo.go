@@ -17,15 +17,15 @@ import (
 type UserRepo struct {
 	mu sync.RWMutex
 
-	users  map[models.ID]models.User
-	byMail map[string]models.ID // индекс для поиска по email без перебора
+	users  map[models.UserID]models.User
+	byMail map[string]models.UserID // индекс для поиска по email без перебора
 }
 
 // NewUserRepo создаёт пустое хранилище.
 func NewUserRepo() *UserRepo {
 	return &UserRepo{
-		users:  make(map[models.ID]models.User),
-		byMail: make(map[string]models.ID),
+		users:  make(map[models.UserID]models.User),
+		byMail: make(map[string]models.UserID),
 	}
 }
 
@@ -45,7 +45,7 @@ func (s *UserRepo) Create(ctx context.Context, user models.User) (models.User, e
 	}
 
 	// Ключ выдаёт хранилище, как это будет делать gen_random_uuid() в БД.
-	user.ID = models.ID(uuid.New().String())
+	user.ID = models.UserID(uuid.New().String())
 	user.CreatedAt = time.Now()
 
 	s.users[user.ID] = user
@@ -55,7 +55,7 @@ func (s *UserRepo) Create(ctx context.Context, user models.User) (models.User, e
 }
 
 // GetByID возвращает пользователя по идентификатору.
-func (s *UserRepo) GetByID(ctx context.Context, id models.ID) (models.User, error) {
+func (s *UserRepo) GetByID(ctx context.Context, id models.UserID) (models.User, error) {
 	if err := ctx.Err(); err != nil {
 		return models.User{}, err
 	}

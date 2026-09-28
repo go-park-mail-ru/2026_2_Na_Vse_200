@@ -11,19 +11,19 @@ import (
 // Причины отказа для лога. Клиенту они не уходят: он видит общий текст,
 // иначе по ответу можно было бы изучать устройство сервиса.
 const (
-	_errHashPassword    = "ошибка хеширования пароля"
-	_errCreateUser      = "ошибка создания пользователя"
-	_errAutoSignIn      = "ошибка автовхода после регистрации"
-	_errFindUser        = "ошибка поиска пользователя"
-	_errVerifyPassword  = "ошибка проверки пароля"
-	_errSignIn          = "ошибка входа пользователя"
-	_errReadSession     = "ошибка чтения сессии"
-	_errDeleteSession   = "ошибка удаления сессии"
-	_errNoSessionCookie = "запрос без cookie сессии"
-	_errUnknownEmail    = "вход по незарегистрированному email"
-	_errWrongPassword   = "вход с неверным паролем"
-	_errSessionRejected = "сессия неизвестна или истекла"
-	_errUserGone        = "сессия ссылается на удалённый аккаунт"
+	errHashPassword    = "ошибка хеширования пароля"
+	errCreateUser      = "ошибка создания пользователя"
+	errAutoSignIn      = "ошибка автовхода после регистрации"
+	errFindUser        = "ошибка поиска пользователя"
+	errVerifyPassword  = "ошибка проверки пароля"
+	errSignIn          = "ошибка входа пользователя"
+	errReadSession     = "ошибка чтения сессии"
+	errDeleteSession   = "ошибка удаления сессии"
+	errNoSessionCookie = "запрос без cookie сессии"
+	errUnknownEmail    = "вход по незарегистрированному email"
+	errWrongPassword   = "вход с неверным паролем"
+	errSessionRejected = "сессия неизвестна или истекла"
+	errUserGone        = "сессия ссылается на удалённый аккаунт"
 )
 
 // logCause записывает причину отказа. Ошибка может отсутствовать: не за каждым

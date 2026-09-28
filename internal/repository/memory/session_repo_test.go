@@ -17,7 +17,7 @@ func TestSessionCreateAndGet(t *testing.T) {
 
 	session := models.Session{
 		ID:        "kR3n8Qv1XpLmA7bYcZfTdWgHsJuNeOiP",
-		UserID:    models.ID(uuid.New().String()),
+		UserID:    models.UserID(uuid.New().String()),
 		ExpiresAt: time.Now().Add(time.Hour),
 	}
 
@@ -50,7 +50,7 @@ func TestSessionExpired(t *testing.T) {
 
 	session := models.Session{
 		ID:        "kR3n8Qv1XpLmA7bYcZfTdWgHsJuNeOiP",
-		UserID:    models.ID(uuid.New().String()),
+		UserID:    models.UserID(uuid.New().String()),
 		ExpiresAt: time.Now().Add(-time.Minute),
 	}
 
@@ -74,7 +74,7 @@ func TestSessionDelete(t *testing.T) {
 
 	session := models.Session{
 		ID:        "kR3n8Qv1XpLmA7bYcZfTdWgHsJuNeOiP",
-		UserID:    models.ID(uuid.New().String()),
+		UserID:    models.UserID(uuid.New().String()),
 		ExpiresAt: time.Now().Add(time.Hour),
 	}
 

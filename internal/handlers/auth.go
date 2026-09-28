@@ -58,7 +58,7 @@ func (a *API) signIn(ctx context.Context, w http.ResponseWriter, user models.Use
 		return fmt.Errorf("ошибка сохранения сессии: %w", err)
 	}
 
-	a.setSessionCookie(w, session.ID)
+	a.setSessionCookie(w, string(session.ID))
 	return nil
 }
 
@@ -85,7 +85,7 @@ func (a *API) Signup(w http.ResponseWriter, r *http.Request) {
 
 	hash, err := a.deps.Hasher.Hash(form.Password)
 	if err != nil {
-		writeInternalError(w, _errHashPassword, err)
+		writeInternalError(w, errHashPassword, err)
 		return
 	}
 
@@ -99,12 +99,12 @@ func (a *API) Signup(w http.ResponseWriter, r *http.Request) {
 		response.WriteError(w, http.StatusConflict, apimessage.CodeEmailTaken, apimessage.MsgEmailTaken)
 		return
 	case err != nil:
-		writeInternalError(w, _errCreateUser, err)
+		writeInternalError(w, errCreateUser, err)
 		return
 	}
 
 	if err := a.signIn(r.Context(), w, user); err != nil {
-		writeInternalError(w, _errAutoSignIn, err)
+		writeInternalError(w, errAutoSignIn, err)
 		return
 	}
 
@@ -139,25 +139,25 @@ func (a *API) Login(w http.ResponseWriter, r *http.Request) {
 	user, err := a.deps.Users.GetByEmail(r.Context(), form.Email)
 	switch {
 	case errors.Is(err, repository.ErrUserNotFound):
-		writeInvalidCredentials(w, _errUnknownEmail)
+		writeInvalidCredentials(w, errUnknownEmail)
 		return
 	case err != nil:
-		writeInternalError(w, _errFindUser, err)
+		writeInternalError(w, errFindUser, err)
 		return
 	}
 
 	matched, err := a.deps.Hasher.Verify(form.Password, user.PasswordHash)
 	if err != nil {
-		writeInternalError(w, _errVerifyPassword, err)
+		writeInternalError(w, errVerifyPassword, err)
 		return
 	}
 	if !matched {
-		writeInvalidCredentials(w, _errWrongPassword)
+		writeInvalidCredentials(w, errWrongPassword)
 		return
 	}
 
 	if err := a.signIn(r.Context(), w, user); err != nil {
-		writeInternalError(w, _errSignIn, err)
+		writeInternalError(w, errSignIn, err)
 		return
 	}
 
@@ -179,29 +179,29 @@ func (a *API) sessionIDFromRequest(r *http.Request) (string, error) {
 func (a *API) Me(w http.ResponseWriter, r *http.Request) {
 	id, err := a.sessionIDFromRequest(r)
 	if err != nil {
-		writeUnauthorized(w, _errNoSessionCookie, err)
+		writeUnauthorized(w, errNoSessionCookie, err)
 		return
 	}
 
-	session, err := a.deps.Sessions.GetByID(r.Context(), id)
+	session, err := a.deps.Sessions.GetByID(r.Context(), models.SessionID(id))
 	switch {
 	case errors.Is(err, repository.ErrSessionNotFound), errors.Is(err, repository.ErrSessionExpired):
-		writeUnauthorized(w, _errSessionRejected, err)
+		writeUnauthorized(w, errSessionRejected, err)
 		return
 	case err != nil:
 		// Сбой хранилища под 401 маскировать нельзя: фронтенд принял бы падение
 		// базы за разлогин и молча показал гостевой интерфейс.
-		writeInternalError(w, _errReadSession, err)
+		writeInternalError(w, errReadSession, err)
 		return
 	}
 
 	user, err := a.deps.Users.GetByID(r.Context(), session.UserID)
 	switch {
 	case errors.Is(err, repository.ErrUserNotFound):
-		writeUnauthorized(w, _errUserGone, err)
+		writeUnauthorized(w, errUserGone, err)
 		return
 	case err != nil:
-		writeInternalError(w, _errFindUser, err)
+		writeInternalError(w, errFindUser, err)
 		return
 	}
 
@@ -213,12 +213,12 @@ func (a *API) Me(w http.ResponseWriter, r *http.Request) {
 func (a *API) Logout(w http.ResponseWriter, r *http.Request) {
 	switch id, err := a.sessionIDFromRequest(r); {
 	case err != nil:
-		logCause(_errNoSessionCookie, err)
+		logCause(errNoSessionCookie, err)
 	default:
 		// Удаляем именно на сервере: погасить одну cookie мало,
 		// украденный идентификатор остался бы рабочим.
-		if err := a.deps.Sessions.Delete(r.Context(), id); err != nil {
-			writeInternalError(w, _errDeleteSession, err)
+		if err := a.deps.Sessions.Delete(r.Context(), models.SessionID(id)); err != nil {
+			writeInternalError(w, errDeleteSession, err)
 			return
 		}
 	}

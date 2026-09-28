@@ -16,7 +16,7 @@ type UserRepositoryInterface interface {
 	Create(ctx context.Context, user models.User) (models.User, error)
 
 	// GetByID возвращает пользователя или ErrUserNotFound.
-	GetByID(ctx context.Context, id models.ID) (models.User, error)
+	GetByID(ctx context.Context, id models.UserID) (models.User, error)
 
 	// GetByEmail возвращает пользователя вместе с PasswordHash или ErrUserNotFound.
 	// Email ожидается в нижнем регистре.
@@ -28,10 +28,10 @@ type SessionRepositoryInterface interface {
 	Create(ctx context.Context, session models.Session) error
 
 	// GetByID возвращает сессию, ErrSessionNotFound или ErrSessionExpired.
-	GetByID(ctx context.Context, id string) (models.Session, error)
+	GetByID(ctx context.Context, id models.SessionID) (models.Session, error)
 
 	// Delete удаляет сессию. Удаление несуществующей ошибкой не считается.
-	Delete(ctx context.Context, id string) error
+	Delete(ctx context.Context, id models.SessionID) error
 }
 
 // CatalogRepositoryInterface читает каталог для главной страницы.
