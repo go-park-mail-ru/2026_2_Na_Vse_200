@@ -32,12 +32,15 @@ func main() {
 	// До готовности слоя на PostgreSQL аккаунты живут в памяти процесса
 	// и пропадают при перезапуске. Сессии там же — но и после переезда
 	// аккаунтов в базу останутся в памяти: в схеме БД их нет.
+	// Каталог главной тоже в памяти: seed-данные для РК1
 	users := memory.NewUserRepo()
 	sessions := memory.NewSessionRepo()
+	catalog := memory.NewCatalogRepo()
 
 	api := handlers.New(&cfg, &handlers.Deps{
 		Users:    users,
 		Sessions: sessions,
+		Catalog:  catalog,
 		Hasher:   auth.NewBcryptHasher(),
 	})
 
