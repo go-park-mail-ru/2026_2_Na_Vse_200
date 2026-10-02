@@ -43,8 +43,6 @@ type artistRefResponse struct {
 	Name string `json:"name"`
 }
 
-// Home отдаёт данные главной страницы: GET /api/v1/home
-// Ручка публичная, т.е ответ одинаковый для гостя и для вошедшего пользователя
 func (a *API) Home(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
@@ -124,7 +122,7 @@ func newArtistRefResponses(artists []models.ArtistRef) []artistRefResponse {
 	return out
 }
 
-// optionalString отдаёт null, если строка пустая
+// optionalString возвращает указатель на value или nil, если строка пустая.
 func optionalString(value string) *string {
 	if value == "" {
 		return nil
@@ -132,7 +130,7 @@ func optionalString(value string) *string {
 	return &value
 }
 
-// formatReleaseDate отдаёт YYYY-MM-DD или null
+// formatReleaseDate форматирует дату в YYYY-MM-DD или возвращает nil.
 func formatReleaseDate(value *time.Time) *string {
 	if value == nil {
 		return nil

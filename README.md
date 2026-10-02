@@ -13,7 +13,7 @@ Backend репозиторий команды На все 200 с проекто�
 
 ### Внешние ссылки - TODO
  - [Фронтенд проекта](https://github.com/frontend-park-mail-ru/2026_2_Na_Vse_200)
- - [Figma](https://google.com)
+ - [Figma](https://www.figma.com/design/a6FEt86x6uF36jjA64WcW8/MUSIC?node-id=0-1&t=Yrg1OBQLQ2NnfmIr-0)
  - [Deploy](https://google.com)
 
 ### Правила оформления Pull Requests

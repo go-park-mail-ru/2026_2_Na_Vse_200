@@ -8,8 +8,7 @@ import (
 	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/models"
 )
 
-// CatalogRepo хранит тестовый каталог главной страницы в памяти.
-// Данные задаются при создании и дальше только читаются.
+// CatalogRepo хранит каталог главной страницы в памяти.
 type CatalogRepo struct {
 	mu      sync.RWMutex
 	tracks  []models.Track
@@ -17,7 +16,6 @@ type CatalogRepo struct {
 	albums  []models.Album
 }
 
-// NewCatalogRepo создаёт хранилище с заранее заполненным каталогом для РК1.
 func NewCatalogRepo() *CatalogRepo {
 	mira := models.ArtistRef{
 		ID:   "c41d7f02-9b63-4a58-8e17-0d5b2a6c9e34",
@@ -37,7 +35,6 @@ func NewCatalogRepo() *CatalogRepo {
 	releaseNight := time.Date(2025, 5, 25, 0, 0, 0, 0, time.UTC)
 
 	return &CatalogRepo{
-		// Порядок уже «новые первыми»: limit просто отрезает хвост.
 		tracks: []models.Track{
 			{
 				ID:         "3b8e5c90-77a1-4d2f-b6e4-12c9f0a5d738",
@@ -125,7 +122,7 @@ func NewCatalogRepo() *CatalogRepo {
 	}
 }
 
-// HomeTracks возвращает не более limit треков. Пустой каталог — пустой срез.
+// HomeTracks возвращает не более limit треков.
 func (c *CatalogRepo) HomeTracks(ctx context.Context, limit int) ([]models.Track, error) {
 	if err := ctx.Err(); err != nil {
 		return nil, err
