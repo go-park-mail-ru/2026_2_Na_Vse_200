@@ -39,6 +39,7 @@ func (a *API) Routes() http.Handler {
 	mux.HandleFunc("POST /api/v1/auth/login", a.Login)
 	mux.HandleFunc("GET /api/v1/auth/me", a.Me)
 	mux.HandleFunc("POST /api/v1/auth/logout", a.Logout)
+	mux.HandleFunc("GET /api/v1/home", a.Home)
 
 	return mux
 }
