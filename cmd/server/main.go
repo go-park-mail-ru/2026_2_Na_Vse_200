@@ -29,20 +29,17 @@ func main() {
 		Level: slog.LevelInfo,
 	}))
 
-	// До готовности слоя на PostgreSQL аккаунты живут в памяти процесса
-	// и пропадают при перезапуске. Сессии там же — но и после переезда
-	// аккаунтов в базу останутся в памяти: в схеме БД их нет.
 	users := memory.NewUserRepo()
 	sessions := memory.NewSessionRepo()
+	catalog := memory.NewCatalogRepo()
 
 	api := handlers.New(&cfg, &handlers.Deps{
 		Users:    users,
 		Sessions: sessions,
+		Catalog:  catalog,
 		Hasher:   auth.NewBcryptHasher(),
 	})
 
-	// Recover идёт первым, то есть становится самой внешней обёрткой: паника
-	// в любой из остальных тоже должна попасть в лог, а не уронить процесс.
 	handler := middleware.Chain(
 		api.Routes(),
 		middleware.WithRecover(logger),
@@ -52,8 +49,6 @@ func main() {
 		middleware.WithJSONErrors,
 	)
 
-	// Таймауты рассчитаны на JSON-API: самая долгая операция — проверка пароля,
-	// около 60 мс. IdleTimeout больше остальных: это keep-alive между запросами.
 	server := &http.Server{
 		Addr:              cfg.Addr,
 		Handler:           handler,
@@ -66,11 +61,9 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	// ListenAndServe блокирует, поэтому ждём сигнал остановки в главной горутине.
 	serverErrors := make(chan error, 1)
 	go func() {
 		logger.Info("запуск сервера", slog.String("addr", cfg.Addr), slog.String("handled_by", "monolith/server"))
-		// После Shutdown возвращается ErrServerClosed — это штатное завершение.
 		if err := server.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
 			serverErrors <- err
 			return
