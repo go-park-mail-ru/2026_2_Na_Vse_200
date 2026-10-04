@@ -89,3 +89,23 @@ func TestVerifyBrokenHash(t *testing.T) {
 		}
 	}
 }
+
+// Хешер с ценой по умолчанию проверяем один раз: на этой цене один хеш
+// считается около ста миллисекунд, поэтому остальные тесты берут MinCost.
+func TestNewBcryptHasher(t *testing.T) {
+	h := NewBcryptHasher()
+
+	hash, err := h.Hash("muzyka2026")
+	if err != nil {
+		t.Fatalf("хеширование: %v", err)
+	}
+
+	ok, err := h.Verify("muzyka2026", hash)
+	if err != nil {
+		t.Fatalf("проверка: %v", err)
+	}
+
+	if !ok {
+		t.Error("верный пароль не прошёл проверку")
+	}
+}

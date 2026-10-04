@@ -2,8 +2,11 @@ package response
 
 import (
 	"encoding/json"
+	"io"
+	"log"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 )
 
@@ -91,4 +94,24 @@ func decode(t *testing.T, w *httptest.ResponseRecorder) ErrorResponse {
 		t.Fatalf("тело не разобралось как ошибка API: %v, тело: %s", err, w.Body.String())
 	}
 	return got
+}
+
+// Данные, которые не сериализуются, не должны оставить клиента с половиной
+// ответа: тело собирается целиком до отправки заголовков.
+func TestWriteJSONUnserializable(t *testing.T) {
+	log.SetOutput(io.Discard)
+	defer log.SetOutput(os.Stderr)
+
+	w := httptest.NewRecorder()
+
+	// Канал не имеет представления в JSON, Marshal на нём падает.
+	WriteJSON(w, http.StatusOK, map[string]any{"ch": make(chan int)})
+
+	if w.Code != http.StatusInternalServerError {
+		t.Errorf("статус = %d, ожидался %d", w.Code, http.StatusInternalServerError)
+	}
+
+	if w.Body.Len() != 0 {
+		t.Errorf("отправлено тело при ошибке сериализации: %s", w.Body.String())
+	}
 }

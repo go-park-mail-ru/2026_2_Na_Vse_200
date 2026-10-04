@@ -67,3 +67,43 @@ func TestCatalogHomeLimit(t *testing.T) {
 		t.Fatalf("HomeArtists(0): len = %d, ожидалось 0", len(empty))
 	}
 }
+
+// Предел запрошенных карточек не должен ломать выдачу: ноль и отрицательное
+// дают пустой список, слишком большое — всё, что есть.
+func TestCatalogLimits(t *testing.T) {
+	ctx := context.Background()
+	repo := NewCatalogRepo()
+
+	all, err := repo.HomeTracks(ctx, 1000)
+	if err != nil {
+		t.Fatalf("HomeTracks: неожиданная ошибка: %v", err)
+	}
+
+	if len(all) == 0 {
+		t.Fatal("каталог пуст")
+	}
+
+	tests := []struct {
+		name  string
+		limit int
+		want  int
+	}{
+		{name: "отрицательный", limit: -1, want: 0},
+		{name: "ноль", limit: 0, want: 0},
+		{name: "один", limit: 1, want: 1},
+		{name: "больше, чем есть", limit: 1000, want: len(all)},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tracks, err := repo.HomeTracks(ctx, tt.limit)
+			if err != nil {
+				t.Fatalf("неожиданная ошибка: %v", err)
+			}
+
+			if len(tracks) != tt.want {
+				t.Errorf("треков = %d, ожидалось %d", len(tracks), tt.want)
+			}
+		})
+	}
+}
