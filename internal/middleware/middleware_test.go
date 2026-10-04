@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"log/slog"
 	"net/http"
@@ -389,5 +390,35 @@ func TestChainOrder(t *testing.T) {
 		if order[i] != want[i] {
 			t.Fatalf("порядок вызовов = %v, ожидался %v", order, want)
 		}
+	}
+}
+
+// Обработчик вправе написать тело, не вызвав WriteHeader явно: тогда
+// стандартная библиотека подставляет 200, и лог должен показать именно его.
+func TestWithLoggingStatusWithoutWriteHeader(t *testing.T) {
+	logger, buf := testLogger()
+
+	silent := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if _, err := w.Write([]byte(`{"status":"ok"}`)); err != nil {
+			t.Errorf("запись тела: %v", err)
+		}
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/health", nil)
+	w := httptest.NewRecorder()
+
+	WithLogging(logger, "test")(silent).ServeHTTP(w, req)
+
+	fields := decodeLog(t, buf)
+	if status, _ := fields["status"].(float64); status != http.StatusOK {
+		t.Errorf("в логе status = %v, ожидался %d", fields["status"], http.StatusOK)
+	}
+}
+
+// Идентификатора в контексте может не быть: обёртка стоит не первой или
+// обработчик позвали напрямую из теста.
+func TestRequestIDFromContextWithoutValue(t *testing.T) {
+	if got := RequestIDFromContext(context.Background()); got != "" {
+		t.Errorf("идентификатор = %q, ожидалась пустая строка", got)
 	}
 }

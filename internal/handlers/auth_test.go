@@ -680,3 +680,55 @@ func TestSessionStorageFailure(t *testing.T) {
 		})
 	}
 }
+
+// При фронтенде на отдельном адресе cookie обязана уходить с SameSite=None,
+// иначе браузер не приложит её к кросс-доменному запросу. None он принимает
+// только вместе с Secure — обе настройки проверяем разом.
+func TestSessionCookieCrossOrigin(t *testing.T) {
+	cfg := config.Config{
+		SessionTTL:    time.Hour,
+		AllowedOrigin: "https://music.example.com",
+		CookieSecure:  true,
+	}
+
+	api := New(&cfg, &Deps{
+		Users:    memory.NewUserRepo(),
+		Sessions: memory.NewSessionRepo(),
+		Hasher:   auth.NewBcryptHasherWithCost(auth.MinCost),
+	})
+	handler := middleware.Chain(api.Routes(), middleware.WithJSONErrors)
+
+	w := postJSON(t, handler, "/api/v1/auth/signup",
+		`{"email":"andrey@example.com","password":"muzyka2026","display_name":"Андрей"}`)
+	if w.Code != http.StatusCreated {
+		t.Fatalf("статус = %d, тело: %s", w.Code, w.Body.String())
+	}
+
+	cookie := sessionCookie(t, w)
+
+	if cookie.SameSite != http.SameSiteNoneMode {
+		t.Errorf("SameSite = %v, ожидался None", cookie.SameSite)
+	}
+
+	if !cookie.Secure {
+		t.Error("cookie без Secure: с SameSite=None браузер её выбросит")
+	}
+}
+
+// Аватар приходит строкой, когда он есть, и null, когда его нет.
+func TestUserResponseAvatar(t *testing.T) {
+	const url = "https://cdn.example.com/avatars/andrey.jpg"
+
+	withAvatar := newUserResponse(models.User{AvatarURL: url})
+	if withAvatar.AvatarURL == nil {
+		t.Fatal("аватар потерялся")
+	}
+
+	if *withAvatar.AvatarURL != url {
+		t.Errorf("аватар = %q, ожидался %q", *withAvatar.AvatarURL, url)
+	}
+
+	if withoutAvatar := newUserResponse(models.User{}); withoutAvatar.AvatarURL != nil {
+		t.Errorf("аватар = %q, ожидался nil", *withoutAvatar.AvatarURL)
+	}
+}
