@@ -32,11 +32,12 @@ func (a *API) clearSessionCookie(w http.ResponseWriter) {
 	})
 }
 
-// sessionSameSite выбирает режим по тому, живут ли фронтенд и API на одном
-// адресе
+// sessionSameSite выбирает режим cookie.
+// SameSite=None нужен только для кросс-сайта и только вместе с Secure (HTTPS).
+// На HTTP-стенде с разными портами одного хоста хватает Lax + Secure=false.
 func (a *API) sessionSameSite() http.SameSite {
-	if a.cfg.AllowedOrigin == "" {
-		return http.SameSiteLaxMode
+	if a.cfg.AllowedOrigin != "" && a.cfg.CookieSecure {
+		return http.SameSiteNoneMode
 	}
-	return http.SameSiteNoneMode
+	return http.SameSiteLaxMode
 }

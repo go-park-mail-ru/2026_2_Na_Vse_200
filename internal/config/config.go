@@ -3,7 +3,6 @@
 package config
 
 import (
-	"errors"
 	"fmt"
 	"os"
 	"strconv"
@@ -47,10 +46,6 @@ func Load() (cfg Config, err error) {
 	cfg.ShutdownTimeout, err = getDuration("APP_SHUTDOWN_TIMEOUT", 10*time.Second)
 	if err != nil {
 		return Config{}, err
-	}
-
-	if cfg.AllowedOrigin != "" && !cfg.CookieSecure {
-		return Config{}, errors.New("APP_ALLOWED_ORIGIN задан, значит нужен APP_COOKIE_SECURE=true")
 	}
 
 	return cfg, nil
