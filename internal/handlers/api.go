@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/auth"
 	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/config"
+	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/middleware"
 	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/repository"
 )
 
@@ -40,6 +41,9 @@ func (a *API) Routes() http.Handler {
 	mux.HandleFunc("GET /api/v1/auth/me", a.Me)
 	mux.HandleFunc("POST /api/v1/auth/logout", a.Logout)
 	mux.HandleFunc("GET /api/v1/home", a.Home)
+
+	requireAuth := middleware.WithAuth(_sessionCookieName, a.deps.Sessions)
+	mux.Handle("GET /api/v1/users/{id}", requireAuth(http.HandlerFunc(a.Profile)))
 
 	return mux
 }

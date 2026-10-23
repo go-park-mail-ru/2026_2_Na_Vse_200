@@ -25,6 +25,9 @@ const (
 	errSessionRejected = "сессия неизвестна или истекла"
 	errUserGone        = "сессия ссылается на удалённый аккаунт"
 	errReadCatalog     = "ошибка чтения каталога"
+
+	errNoSessionInContext = "обработчик вызван без сессии в контексте"
+	errNotOwner           = "запрос профиля не его владельцем"
 )
 
 // logCause записывает причину отказа. Ошибка может отсутствовать: не за каждым
@@ -50,6 +53,12 @@ func writeUnauthorized(w http.ResponseWriter, cause string, err error) {
 	logCause(cause, err)
 	response.WriteError(w, http.StatusUnauthorized,
 		apimessage.CodeUnauthorized, apimessage.MsgUnauthorized)
+}
+
+func writeForbidden(w http.ResponseWriter, cause string) {
+	logCause(cause, nil)
+	response.WriteError(w, http.StatusForbidden,
+		apimessage.CodeForbidden, apimessage.MsgForbidden)
 }
 
 // writeInvalidCredentials отвечает одинаково на неизвестный email и на неверный
