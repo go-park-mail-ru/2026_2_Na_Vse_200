@@ -17,6 +17,8 @@ import (
 	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/handlers"
 	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/middleware"
 	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/repository/memory"
+	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/repository/postgres"
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 func main() {
@@ -29,7 +31,25 @@ func main() {
 		Level: slog.LevelInfo,
 	}))
 
-	users := memory.NewUserRepo()
+	if cfg.PostgreSQLDSN == "" {
+		log.Fatalf("конфигурация: POSTGRES_DSN не задан")
+	}
+
+	pool, err := pgxpool.New(context.Background(), cfg.PostgreSQLDSN)
+	if err != nil {
+		log.Fatalf("postgresql: %v", err)
+	}
+	defer pool.Close()
+
+	pingCtx, pingCancel := context.WithTimeout(context.Background(), 5*time.Second)
+	err = pool.Ping(pingCtx)
+	pingCancel()
+	if err != nil {
+		log.Fatalf("postgresql: %v", err)
+	}
+
+	users := postgres.NewUserRepo(pool)
+
 	sessions := memory.NewSessionRepo()
 	catalog := memory.NewCatalogRepo()
 
