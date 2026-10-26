@@ -19,6 +19,9 @@ type UserRepo struct {
 	pool *pgxpool.Pool
 }
 
+var _ repository.UserRepositoryInterface = (*UserRepo)(nil)
+var _ repository.ProfileRepositoryInterface = (*UserRepo)(nil)
+
 // NewUserRepo создаёт репозиторий поверх уже открытого пула
 func NewUserRepo(pool *pgxpool.Pool) *UserRepo {
 	return &UserRepo{pool: pool}
@@ -28,13 +31,15 @@ func NewUserRepo(pool *pgxpool.Pool) *UserRepo {
 // Повтор email — ErrEmailTaken.
 func (r *UserRepo) Create(ctx context.Context, user models.User) (models.User, error) {
 	const query = `
-		INSERT INTO account (email, password_hash, display_name)
-		VALUES ($1, $2, $3)
+		INSERT INTO account (email, password_hash, display_name, avatar_file_id)
+		VALUES ($1, $2, $3, $4)
 		RETURNING id, created_at`
 
 	var id string
 
-	err := r.pool.QueryRow(ctx, query, user.Email, user.PasswordHash, user.DisplayName).
+	err := r.pool.QueryRow(ctx, query,
+		user.Email, user.PasswordHash, user.DisplayName, mediaFileIDValue(user.AvatarFileID),
+	).
 		Scan(&id, &user.CreatedAt)
 	if err != nil {
 		if isEmailConflict(err) {
@@ -50,7 +55,7 @@ func (r *UserRepo) Create(ctx context.Context, user models.User) (models.User, e
 // GetByID возвращает пользователя или ErrUserNotFound
 func (r *UserRepo) GetByID(ctx context.Context, id models.UserID) (models.User, error) {
 	const query = `
-		SELECT id, email, password_hash, display_name, created_at
+		SELECT id, email, password_hash, display_name, avatar_file_id::text, created_at
 		FROM account
 		WHERE id = $1::uuid`
 
@@ -68,7 +73,7 @@ func (r *UserRepo) GetByID(ctx context.Context, id models.UserID) (models.User, 
 // Email ожидается в нижнем регистре.
 func (r *UserRepo) GetByEmail(ctx context.Context, email string) (models.User, error) {
 	const query = `
-		SELECT id, email, password_hash, display_name, created_at
+		SELECT id, email, password_hash, display_name, avatar_file_id::text, created_at
 		FROM account
 		WHERE email = $1`
 
@@ -85,15 +90,51 @@ func (r *UserRepo) GetByEmail(ctx context.Context, email string) (models.User, e
 // scanUser читает строку таблицы account в models.User.
 func scanUser(row pgx.Row) (models.User, error) {
 	var (
-		user models.User
-		id   string
+		user         models.User
+		id           string
+		avatarFileID *string
 	)
-	err := row.Scan(&id, &user.Email, &user.PasswordHash, &user.DisplayName, &user.CreatedAt)
+	err := row.Scan(&id, &user.Email, &user.PasswordHash, &user.DisplayName, &avatarFileID, &user.CreatedAt)
 	if err != nil {
 		return models.User{}, err
 	}
 
 	user.ID = models.UserID(id)
+	if avatarFileID != nil {
+		fileID := models.MediaFileID(*avatarFileID)
+		user.AvatarFileID = &fileID
+	}
+	return user, nil
+}
+
+// UpdateProfile changes the email, display name, and optional avatar atomically.
+// A nil avatarFileID clears the current avatar.
+func (r *UserRepo) UpdateProfile(
+	ctx context.Context,
+	id models.UserID,
+	email, displayName string,
+	avatarFileID *models.MediaFileID,
+) (models.User, error) {
+	const query = `
+		UPDATE account
+		SET email = $2, display_name = $3, avatar_file_id = $4
+		WHERE id = $1::uuid
+		RETURNING id::text, email, password_hash, display_name, avatar_file_id::text, created_at`
+
+	var avatar any
+	if avatarFileID != nil {
+		avatar = string(*avatarFileID)
+	}
+	user, err := scanUser(r.pool.QueryRow(ctx, query, string(id), email, displayName, avatar))
+	if err != nil {
+		if errors.Is(err, pgx.ErrNoRows) || isInvalidID(err) {
+			return models.User{}, repository.ErrUserNotFound
+		}
+		if isEmailConflict(err) {
+			return models.User{}, repository.ErrEmailTaken
+		}
+		return models.User{}, fmt.Errorf("update account profile: %w", err)
+	}
 	return user, nil
 }
 
