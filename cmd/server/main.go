@@ -51,7 +51,7 @@ func main() {
 	users := postgres.NewUserRepo(pool)
 
 	sessions := memory.NewSessionRepo()
-	catalog := memory.NewCatalogRepo()
+	catalog := postgres.NewCatalogRepo(pool)
 
 	api := handlers.New(&cfg, &handlers.Deps{
 		Users:    users,

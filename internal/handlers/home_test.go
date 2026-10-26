@@ -20,7 +20,7 @@ import (
 	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/repository/memory"
 )
 
-// newHomeHandler собирает обработчики с настоящим каталогом в памяти.
+// newHomeHandler собирает обработчики с переданным репозиторием каталога.
 func newHomeHandler(catalog repository.CatalogRepositoryInterface) http.Handler {
 	api := New(&testConfig, &Deps{
 		Users:    memory.NewUserRepo(),

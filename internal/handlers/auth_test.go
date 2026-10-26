@@ -279,7 +279,7 @@ func newHandlerWithSessions(sessions repository.SessionRepositoryInterface) http
 	return middleware.Chain(api.Routes(), middleware.WithJSONErrors)
 }
 
-// Аккаунт создан, значит регистрация удалась — даже если автовход не вышел.
+// При сбое создания сессии сервер возвращает 500, а сохранённый аккаунт остаётся.
 func TestSignupSessionFailure(t *testing.T) {
 	log.SetOutput(io.Discard)
 	defer log.SetOutput(os.Stderr)
@@ -681,9 +681,7 @@ func TestSessionStorageFailure(t *testing.T) {
 	}
 }
 
-// При фронтенде на отдельном адресе cookie обязана уходить с SameSite=None,
-// иначе браузер не приложит её к кросс-доменному запросу. None он принимает
-// только вместе с Secure — обе настройки проверяем разом.
+// При заданном origin и HTTPS-конфигурации cookie получает SameSite=None и Secure.
 func TestSessionCookieCrossOrigin(t *testing.T) {
 	cfg := config.Config{
 		SessionTTL:    time.Hour,

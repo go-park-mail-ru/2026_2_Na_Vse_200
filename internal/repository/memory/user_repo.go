@@ -1,5 +1,5 @@
 // Package memory реализует репозитории в памяти процесса.
-// Используется до готовности слоя на PostgreSQL: данные живут до перезапуска.
+// UserRepo и CatalogRepo используются в тестах; SessionRepo — также сервером.
 package memory
 
 import (

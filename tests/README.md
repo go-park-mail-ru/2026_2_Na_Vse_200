@@ -2,27 +2,14 @@
 
 Требование РК1 — покрытие не ниже 50%.
 
-Файлы `*_test.go` лежат рядом с кодом: в Go тест обязан быть в одном пакете
-с проверяемым кодом. Здесь только сводка.
+Файлы `*_test.go` лежат рядом с проверяемым кодом. Здесь — описание проверок и команды запуска.
 
 ## Покрытие
 
-**Всего по проекту: 81.3%**, 13 файлов, 77 тестов.
-
-| Пакет | Покрытие | Файлы | Тестов |
-|---|---|---|---|
-| `internal/config` | 100.0% | `config_test.go` | 4 |
-| `internal/models` | 100.0% | `models_test.go` | 1 |
-| `pkg/validation` | 100.0% | `user_validation_test.go` | 10 |
-| `internal/middleware` | 96.7% | `middleware_test.go` | 10 |
-| `internal/repository/memory` | 95.7% | `user_repo_test.go`, `session_repo_test.go`, `catalog_repo_test.go` | 13 |
-| `internal/auth` | 93.8% | `password_test.go`, `session_test.go` | 6 |
-| `internal/handlers` | 93.3% | `api_test.go`, `auth_test.go`, `home_test.go` | 29 |
-| `pkg/response` | 92.9% | `response_test.go` | 4 |
-| `cmd/server` | 0.0% | — | — |
-
-`cmd/server/main.go` юнит-тестами не покрывается: проверка потребовала бы занять
-порт и отправить процессу сигнал. Закрывается прогоном на стенде.
+Покрытие измеряется по текущему коду командами из раздела [«Запуск»](#запуск).
+Фиксированная цифра в документации быстро устаревает после добавления пакетов.
+В `internal/repository/postgres`, `cmd/server` и `cmd/migrate` пока нет собственных
+тестовых файлов; тесты обработчиков используют хранилища в памяти.
 
 ## Что проверяется
 
@@ -58,7 +45,7 @@
   неизвестна, сессия истекла, пользователь удалён;
 - выход без cookie и повторный выход — `204`;
 - недоступное хранилище — `500`, а не `401`;
-- при заданном `AllowedOrigin` cookie уходит с `SameSite=None` и `Secure`.
+- при заданном `AllowedOrigin` и `CookieSecure=true` cookie уходит с `SameSite=None` и `Secure`.
 
 Главная:
 
@@ -124,8 +111,8 @@
 
 ### `internal/config`
 
-Значения по умолчанию; чтение из окружения; неразбираемое значение роняет старт;
-`APP_ALLOWED_ORIGIN` без `APP_COOKIE_SECURE=true` — ошибка конфигурации.
+Значения по умолчанию; чтение из окружения; ошибки разбора bool и длительности;
+локальный HTTP допускает `APP_ALLOWED_ORIGIN` при `APP_COOKIE_SECURE=false`.
 
 ### `internal/models`
 

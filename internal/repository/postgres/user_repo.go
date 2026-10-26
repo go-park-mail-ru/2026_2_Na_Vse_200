@@ -37,7 +37,7 @@ func (r *UserRepo) Create(ctx context.Context, user models.User) (models.User, e
 	err := r.pool.QueryRow(ctx, query, user.Email, user.PasswordHash, user.DisplayName).
 		Scan(&id, &user.CreatedAt)
 	if err != nil {
-		if isUniqueViolation(err) {
+		if isEmailConflict(err) {
 			return models.User{}, repository.ErrEmailTaken
 		}
 		return models.User{}, fmt.Errorf("insert account: %w", err)
@@ -97,10 +97,10 @@ func scanUser(row pgx.Row) (models.User, error) {
 	return user, nil
 }
 
-// проверка уникальности
-func isUniqueViolation(err error) bool {
+// isEmailConflict отличает занятый email от других нарушений уникальности.
+func isEmailConflict(err error) bool {
 	var pgErr *pgconn.PgError
-	return errors.As(err, &pgErr) && pgErr.Code == "23505"
+	return errors.As(err, &pgErr) && pgErr.Code == "23505" && pgErr.ConstraintName == "account_email_uk"
 }
 
 // проверка на неверный ID
