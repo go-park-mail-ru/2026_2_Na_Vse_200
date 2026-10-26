@@ -49,6 +49,20 @@ try {
     if ($CommandArgs.Count -gt 1) {
         $programArgs = $CommandArgs[1..($CommandArgs.Count - 1)]
     }
+    $requiresPostgres = $false
+    if ([System.IO.Path]::GetFileName($program) -in @('go', 'go.exe') -and
+        $programArgs.Count -ge 2 -and $programArgs[0] -eq 'run') {
+        $target = $programArgs[1].Replace('\', '/').TrimEnd('/')
+        $requiresPostgres = $target -eq './cmd/server' -or (
+            $target -eq './cmd/migrate' -and $programArgs.Count -ge 3 -and
+            $programArgs[2] -in @('up', 'version', 'down')
+        )
+    }
+    if ($requiresPostgres -and $programArgs -notcontains '--help' -and
+        $programArgs -notcontains '-h' -and [string]::IsNullOrWhiteSpace($env:POSTGRES_DSN)) {
+        $envStatus = if (Test-Path -LiteralPath $envFile) { 'found' } else { 'not found' }
+        Write-Warning -WarningAction Continue "POSTGRES_DSN is not set. Settings file: $envFile ($envStatus). For Go on this computer, set POSTGRES_DSN in that file or the environment; see .env.example and db/README.md. For the full Docker setup, use: docker compose up --build -d."
+    }
     & $program @programArgs
     exit $LASTEXITCODE
 } finally {

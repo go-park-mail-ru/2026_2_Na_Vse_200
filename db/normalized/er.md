@@ -1,5 +1,8 @@
 # ER Диаграммы модели данных
 
+В PostgreSQL определены 15 прикладных таблиц, включая `auth_session` из миграции `000004_create_auth_session`.
+Миграция `000005_media_local_storage` заменяет местоположение медиа на уникальный `storage_key` — относительный путь внутри каталога `MEDIA_ROOT` на диске сервера. Файлы этой миграцией не переносятся; загрузка и скачивание пока не реализованы.
+
 ## 1. Основные сущности (PostgreSQL)
 
 ```mermaid
@@ -14,10 +17,15 @@ direction LR
         created_at
         updated_at
     }
+    class AUTH_SESSION {
+        id [PK]
+        account_id [FK]
+        expires_at
+        created_at
+    }
     class MEDIA_FILE {
         id [PK]
-        bucket [UK1]
-        object_key [UK1]
+        storage_key [UK1]
         mime_type
         byte_size
         duration_ms
@@ -50,6 +58,7 @@ direction LR
         created_at
         updated_at
     }
+    ACCOUNT "1" -- "0..*" AUTH_SESSION : has_sessions
     ACCOUNT "1" -- "0..*" TRACK : uploads
     MEDIA_FILE "0..1" -- "0..*" ACCOUNT : avatar_file_id
     MEDIA_FILE "0..1" -- "0..*" ARTIST : image_file_id
@@ -162,7 +171,9 @@ direction LR
     TRACK "1" -- "0..*" LISTENING_EVENT : listened_in
 ```
 
-## 4. Redis, S3 и подключения плеера: логические связи с PostgreSQL
+## 4. Диск сервера и проектируемые Redis и подключения плеера: логические связи с PostgreSQL
+
+`AUTH_SESSION` уже хранится в PostgreSQL. Для файлов выбран диск сервера: `LOCAL_MEDIA_FILE.storage_key` соответствует пути внутри `MEDIA_ROOT`, а содержимое не входит в БД. Файловый слой, Redis для состояния плеера и очереди и WebSocket пока не реализованы; диаграмма показывает связи модели этих подсистем. Перенос сессий в Redis не требуется.
 
 ```mermaid
 classDiagram
@@ -175,13 +186,13 @@ direction LR
     }
     class MEDIA_FILE {
         id [PK]
-        bucket [UK1]
-        object_key [UK1]
+        storage_key [UK1]
     }
-    class SESSION {
-        session_id [PK]
-        account_id
+    class AUTH_SESSION {
+        id [PK]
+        account_id [FK]
         expires_at
+        created_at
     }
     class PLAYBACK_STATE {
         account_id [PK]
@@ -205,21 +216,20 @@ direction LR
         session_id
         connection
     }
-    class S3_OBJECT {
-        bucket [PK]
-        object_key [PK]
+    class LOCAL_MEDIA_FILE {
+        storage_key [PK]
         binary_content
     }
     class LISTENING_EVENT {
         id [PK]
     }
-    ACCOUNT "1" .. "0..*" SESSION : has_active
+    ACCOUNT "1" -- "0..*" AUTH_SESSION : has_sessions
     ACCOUNT "1" .. "0..1" PLAYBACK_STATE : syncs_to
     ACCOUNT "1" .. "0..*" PLAYBACK_QUEUE_ITEM : queues
     TRACK "1" .. "0..*" PLAYBACK_QUEUE_ITEM : queued_in
     PLAYBACK_QUEUE_ITEM "0..1" .. "0..1" PLAYBACK_STATE : account_id_current_item_id
-    SESSION "1" .. "0..*" PLAYER_CONNECTION : session_id
+    AUTH_SESSION "1" .. "0..*" PLAYER_CONNECTION : session_id
     PLAYER_CONNECTION "0..1" .. "0..1" PLAYBACK_STATE : active_device_id
     LISTENING_EVENT "0..1" .. "0..1" PLAYBACK_STATE : playback_id
-    MEDIA_FILE "0..1" .. "1" S3_OBJECT : bucket_object_key
+    MEDIA_FILE "0..1" .. "1" LOCAL_MEDIA_FILE : storage_key_within_MEDIA_ROOT
 ```

@@ -13,21 +13,14 @@ import (
 	"time"
 
 	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/apimessage"
-	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/auth"
 	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/middleware"
 	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/models"
 	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/repository"
-	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/repository/memory"
 )
 
 // newHomeHandler собирает обработчики с переданным репозиторием каталога.
 func newHomeHandler(catalog repository.CatalogRepositoryInterface) http.Handler {
-	api := New(&testConfig, &Deps{
-		Users:    memory.NewUserRepo(),
-		Sessions: memory.NewSessionRepo(),
-		Catalog:  catalog,
-		Hasher:   auth.NewBcryptHasherWithCost(auth.MinCost),
-	})
+	api := New(&testConfig, &Deps{Catalog: catalog})
 	return middleware.Chain(api.Routes(), middleware.WithJSONErrors)
 }
 
@@ -43,7 +36,7 @@ func getHome(t *testing.T, handler http.Handler) *httptest.ResponseRecorder {
 }
 
 func TestHomeSuccess(t *testing.T) {
-	w := getHome(t, newHomeHandler(memory.NewCatalogRepo()))
+	w := getHome(t, newHomeHandler(homeCatalogFixture{}))
 
 	if w.Code != http.StatusOK {
 		t.Fatalf("статус = %d, ожидался %d, тело: %s", w.Code, http.StatusOK, w.Body.String())
@@ -74,7 +67,7 @@ func TestHomeSuccess(t *testing.T) {
 // Карточка трека должна приходить собранной: без исполнителя и длительности
 // фронтенду нечего показывать в списке.
 func TestHomeTrackCardIsComplete(t *testing.T) {
-	w := getHome(t, newHomeHandler(memory.NewCatalogRepo()))
+	w := getHome(t, newHomeHandler(homeCatalogFixture{}))
 
 	var home homeResponse
 	if err := json.Unmarshal(w.Body.Bytes(), &home); err != nil {
@@ -179,7 +172,7 @@ func TestHomeMethodNotAllowed(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/home", nil)
 	w := httptest.NewRecorder()
 
-	newHomeHandler(memory.NewCatalogRepo()).ServeHTTP(w, req)
+	newHomeHandler(homeCatalogFixture{}).ServeHTTP(w, req)
 
 	if w.Code != http.StatusMethodNotAllowed {
 		t.Errorf("статус = %d, ожидался %d", w.Code, http.StatusMethodNotAllowed)

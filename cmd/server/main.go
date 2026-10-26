@@ -16,7 +16,6 @@ import (
 	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/config"
 	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/handlers"
 	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/middleware"
-	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/repository/memory"
 	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/repository/postgres"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -50,7 +49,7 @@ func main() {
 
 	users := postgres.NewUserRepo(pool)
 
-	sessions := memory.NewSessionRepo()
+	sessions := postgres.NewSessionRepo(pool)
 	catalog := postgres.NewCatalogRepo(pool)
 
 	api := handlers.New(&cfg, &handlers.Deps{
@@ -80,6 +79,16 @@ func main() {
 
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
+	cleanupCtx, cancelCleanup := context.WithCancel(ctx)
+	cleanupDone := make(chan struct{})
+	go func() {
+		defer close(cleanupDone)
+		cleanupExpiredSessions(cleanupCtx, logger, sessions)
+	}()
+	defer func() {
+		cancelCleanup()
+		<-cleanupDone
+	}()
 
 	serverErrors := make(chan error, 1)
 	go func() {
@@ -105,5 +114,27 @@ func main() {
 			log.Fatalf("остановка сервера: %v", err)
 		}
 		logger.Info("сервер остановлен")
+	}
+}
+
+// cleanupExpiredSessions удаляет истёкшие сессии при запуске и раз в час.
+// Проверка авторизации отклоняет их независимо от выполнения очистки.
+func cleanupExpiredSessions(ctx context.Context, logger *slog.Logger, sessions *postgres.SessionRepo) {
+	ticker := time.NewTicker(time.Hour)
+	defer ticker.Stop()
+
+	for {
+		cleanupCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+		err := sessions.DeleteExpired(cleanupCtx)
+		cancel()
+		if err != nil && ctx.Err() == nil {
+			logger.Error("очистка истёкших сессий", slog.Any("error", err))
+		}
+
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+		}
 	}
 }

@@ -1,17 +1,22 @@
 # 2026_2_Na_Vse_200
 Backend репозиторий команды На все 200 с проектом Spotify/Яндекс Музыка
 
-### Локальный запуск
+### Локальный запуск через Docker
 
 Установите и запустите Docker Desktop в режиме Linux containers либо используйте Docker Engine с Compose. Из корня проекта:
 
 ```powershell
+docker info
 docker compose up --build -d
 ```
+
+Дождитесь готовности Docker Engine. Ошибка подключения к named pipe означает, что Engine недоступен; сначала запустите Docker Desktop и повторите `docker info`.
 
 Откройте [http://localhost:8080/health](http://localhost:8080/health) или [главную API](http://localhost:8080/api/v1/home). PostgreSQL и SQL-миграции запускаются автоматически перед сервером; для первого локального запуска `.env` не требуется. Существующий `.env` сохраняйте.
 
 База Docker доступна отдельно на `localhost:5433`, её данные сохраняются в volume при `docker compose down`. Подробности, настройки портов, пароль разработки и команды проверки — в [инструкции БД](db/README.md#запуск-через-docker-compose). Обычный запуск через Go также описан в [инструкции разработки](internal/README.md).
+
+Для запуска Go-сервера на компьютере с БД в Docker используйте [отдельную инструкцию](db/README.md#go-на-компьютере-postgresql-в-docker): этому варианту нужен `POSTGRES_DSN` в `.env` или окружении.
 
 ### Участники команды
  1. [Федоров Федор](https://github.com/1ffedor) (база данных: схема, миграции, слой хранения)
