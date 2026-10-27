@@ -157,6 +157,7 @@ func (r *CatalogWriteRepo) CreateTrack(ctx context.Context, track models.Track) 
 	}
 	defer rollback(ctx, tx, &resultErr)
 
+	track.Status = trackStatus(track.Status)
 	if err := insertTrack(ctx, tx, &track); err != nil {
 		return models.Track{}, err
 	}
@@ -188,6 +189,7 @@ func (r *CatalogWriteRepo) CreateTrackWithAudio(
 		return models.Track{}, fmt.Errorf("insert track audio metadata: %w", err)
 	}
 	track.AudioFileID = audio.ID
+	track.Status = trackStatus(track.Status)
 	if err := insertTrack(ctx, tx, &track); err != nil {
 		return models.Track{}, err
 	}
@@ -207,8 +209,9 @@ func (r *CatalogWriteRepo) UpdateTrack(ctx context.Context, track models.Track) 
 	}
 	defer rollback(ctx, tx, &resultErr)
 
+	track.Status = trackStatus(track.Status)
 	err = tx.QueryRow(ctx, updateTrackQuery,
-		string(track.ID), track.Title, string(track.AudioFileID), mediaFileIDValue(track.CoverFileID), trackStatus(track.Status),
+		string(track.ID), track.Title, string(track.AudioFileID), mediaFileIDValue(track.CoverFileID), track.Status,
 	).Scan(&track.ID)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) || isInvalidID(err) {
@@ -231,7 +234,7 @@ func (r *CatalogWriteRepo) UpdateTrack(ctx context.Context, track models.Track) 
 func insertTrack(ctx context.Context, tx pgx.Tx, track *models.Track) error {
 	if err := tx.QueryRow(ctx, createTrackQuery,
 		string(track.UploaderID), track.Title, string(track.AudioFileID),
-		mediaFileIDValue(track.CoverFileID), trackStatus(track.Status),
+		mediaFileIDValue(track.CoverFileID), track.Status,
 	).Scan(&track.ID); err != nil {
 		return fmt.Errorf("insert track: %w", err)
 	}

@@ -60,6 +60,9 @@ func TestContentRepositories(t *testing.T) {
 	if err != nil {
 		t.Fatalf("CreateTrackWithAudio: %v", err)
 	}
+	if track.Status != "draft" {
+		t.Fatalf("CreateTrackWithAudio returned status %q, want draft", track.Status)
+	}
 	invalidAudioKey := fmt.Sprintf("test/%s.webp", uuid.New().String())
 	if _, err := catalog.CreateTrackWithAudio(ctx, models.Track{
 		UploaderID: owner.ID,
@@ -89,18 +92,24 @@ func TestContentRepositories(t *testing.T) {
 		UploaderID:  owner.ID,
 		Title:       "Second track",
 		AudioFileID: secondAudio.ID,
-		Status:      "published",
 		Artists:     []models.ArtistRef{{ID: firstArtist.ID}},
 	})
 	if err != nil {
 		t.Fatalf("CreateTrack: %v", err)
 	}
+	if secondTrack.Status != "draft" {
+		t.Fatalf("CreateTrack returned status %q, want draft", secondTrack.Status)
+	}
 
 	track.Title = "Edited track"
 	track.Artists = []models.ArtistRef{{ID: secondArtist.ID}}
-	track.Status = "published"
-	if _, err := catalog.UpdateTrack(ctx, track); err != nil {
+	track.Status = ""
+	updatedTrack, err := catalog.UpdateTrack(ctx, track)
+	if err != nil {
 		t.Fatalf("UpdateTrack: %v", err)
+	}
+	if updatedTrack.Status != "draft" {
+		t.Fatalf("UpdateTrack returned status %q, want draft", updatedTrack.Status)
 	}
 
 	releaseDate := time.Date(2026, 10, 26, 0, 0, 0, 0, time.UTC)
@@ -137,13 +146,16 @@ func TestContentRepositories(t *testing.T) {
 		OwnerID: owner.ID,
 		Title:   "Private playlist",
 		Items: []models.PlaylistItem{
-			{TrackID: track.ID, Position: 1},
+			{TrackID: track.ID},
 			{TrackID: track.ID, Position: 2},
 			{TrackID: secondTrack.ID, Position: 3},
 		},
 	})
 	if err != nil {
 		t.Fatalf("Create playlist: %v", err)
+	}
+	if playlist.Items[0].Position != 1 {
+		t.Fatalf("Create playlist returned position %d, want 1", playlist.Items[0].Position)
 	}
 	if _, err := playlists.GetVisible(ctx, playlist.ID, viewer.ID); !errors.Is(err, repository.ErrPlaylistNotFound) {
 		t.Fatalf("private playlist visible to another account: %v", err)
@@ -154,10 +166,13 @@ func TestContentRepositories(t *testing.T) {
 	}
 	playlist.Title = "Public playlist"
 	playlist.IsPublic = true
-	playlist.Items = []models.PlaylistItem{{TrackID: secondTrack.ID, Position: 1}}
+	playlist.Items = []models.PlaylistItem{{TrackID: secondTrack.ID}}
 	playlist, err = playlists.Update(ctx, playlist, playlist.Revision)
 	if err != nil || playlist.Revision != 1 {
 		t.Fatalf("Update playlist = %+v, error = %v", playlist, err)
+	}
+	if playlist.Items[0].Position != 1 {
+		t.Fatalf("Update playlist returned position %d, want 1", playlist.Items[0].Position)
 	}
 	invalidUpdate := playlist
 	invalidUpdate.Items = []models.PlaylistItem{{TrackID: models.TrackID(uuid.New().String()), Position: 1}}

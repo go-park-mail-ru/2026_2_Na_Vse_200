@@ -70,6 +70,12 @@ func (r *PlaylistRepo) Create(
 	ctx context.Context,
 	playlist models.Playlist,
 ) (result models.Playlist, resultErr error) {
+	var err error
+	playlist.Items, err = normalizePlaylistItems(playlist.Items)
+	if err != nil {
+		return models.Playlist{}, err
+	}
+
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return models.Playlist{}, fmt.Errorf("begin create playlist: %w", err)
@@ -178,6 +184,12 @@ func (r *PlaylistRepo) Update(
 	playlist models.Playlist,
 	expectedRevision int64,
 ) (result models.Playlist, resultErr error) {
+	var err error
+	playlist.Items, err = normalizePlaylistItems(playlist.Items)
+	if err != nil {
+		return models.Playlist{}, err
+	}
+
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return models.Playlist{}, fmt.Errorf("begin update playlist: %w", err)
@@ -234,20 +246,26 @@ func insertPlaylistItems(ctx context.Context, tx pgx.Tx, playlistID models.Playl
 	positions := make([]int32, len(items))
 	for i, item := range items {
 		trackIDs[i] = string(item.TrackID)
-		if item.Position > 0 {
-			if int64(item.Position) > math.MaxInt32 {
-				return fmt.Errorf("playlist position %d is outside the positive integer range", item.Position)
-			}
-			positions[i] = int32(item.Position)
-		} else {
-			if int64(i+1) > math.MaxInt32 {
-				return errors.New("playlist has more items than supported positions")
-			}
-			positions[i] = int32(i + 1)
-		}
+		positions[i] = int32(item.Position)
 	}
 	if _, err := tx.Exec(ctx, replacePlaylistItemsQuery, string(playlistID), trackIDs, positions); err != nil {
 		return fmt.Errorf("insert playlist items: %w", err)
 	}
 	return nil
+}
+
+func normalizePlaylistItems(items []models.PlaylistItem) ([]models.PlaylistItem, error) {
+	normalized := append([]models.PlaylistItem(nil), items...)
+	for i := range normalized {
+		if normalized[i].Position <= 0 {
+			if int64(i+1) > math.MaxInt32 {
+				return nil, errors.New("playlist has more items than supported positions")
+			}
+			normalized[i].Position = i + 1
+		}
+		if int64(normalized[i].Position) > math.MaxInt32 {
+			return nil, fmt.Errorf("playlist position %d is outside the positive integer range", normalized[i].Position)
+		}
+	}
+	return normalized, nil
 }
