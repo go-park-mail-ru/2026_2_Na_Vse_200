@@ -2,24 +2,39 @@
 
 Требование РК1 — покрытие не ниже 50%.
 
-Файлы `*_test.go` лежат рядом с кодом: в Go тест обязан быть в одном пакете
-с проверяемым кодом. Здесь только сводка.
+Файлы `*_test.go` лежат рядом с кодом. Тест может быть в том же пакете или
+во внешнем пакете с суффиксом `_test`. Здесь — сводка и команды запуска.
 
 ## Покрытие
 
-**Всего по проекту: 81.3%**, 13 файлов, 77 тестов.
+Фиксированная цифра быстро устаревает после добавления тестов и пакетов.
+Для РК2 требуется общее покрытие **больше 60%** без сгенерированных моков:
 
-| Пакет | Покрытие | Файлы | Тестов |
-|---|---|---|---|
-| `internal/config` | 100.0% | `config_test.go` | 4 |
-| `internal/models` | 100.0% | `models_test.go` | 1 |
-| `pkg/validation` | 100.0% | `user_validation_test.go` | 10 |
-| `internal/middleware` | 96.7% | `middleware_test.go` | 10 |
-| `internal/repository/memory` | 95.7% | `user_repo_test.go`, `session_repo_test.go`, `catalog_repo_test.go` | 13 |
-| `internal/auth` | 93.8% | `password_test.go`, `session_test.go` | 6 |
-| `internal/handlers` | 93.3% | `api_test.go`, `auth_test.go`, `home_test.go` | 29 |
-| `pkg/response` | 92.9% | `response_test.go` | 4 |
-| `cmd/server` | 0.0% | — | — |
+```powershell
+go test ./... '-coverprofile=cover.out'
+Get-Content cover.out | Where-Object { $_ -notmatch '/mocks/|/mock_[^/]*\.go:' } | Set-Content -Encoding ascii cover.nomocks.out
+go tool cover '-func=cover.nomocks.out'
+```
+
+Это исключает только код, созданный `mockgen`; непокрытые рабочие пакеты остаются
+в расчёте. Профили покрытия игнорируются Git.
+
+## Моки для HTTP-тестов
+
+Используется `go.uber.org/mock v0.6.0`. Из корня репозитория повторить генерацию
+после изменения интерфейсов:
+
+```powershell
+go run go.uber.org/mock/mockgen@v0.6.0 '-source=internal/repository/repository.go' '-destination=internal/repository/mocks/mock_repository.go' '-package=mocks'
+go run go.uber.org/mock/mockgen@v0.6.0 '-source=internal/auth/password.go' '-destination=internal/auth/mocks/mock_hasher.go' '-package=mocks'
+```
+
+Сгенерированные файлы не редактировать вручную. `home_gomock_test.go` задаёт
+ожидаемые вызовы каталога и проверяет JSON, а также остановку обработки при
+ошибке. `auth_gomock_test.go` проверяет передачу хеша в хранилище, создание
+сессии после регистрации и отсутствие сессии при неверном пароле. Тесты
+продолжают проверять HTTP-поведение через `httptest`; моки заменяют только
+зависимости обработчиков.
 
 `cmd/server/main.go` юнит-тестами не покрывается: проверка потребовала бы занять
 порт и отправить процессу сигнал. Закрывается прогоном на стенде.
@@ -143,12 +158,12 @@ go test ./... -cover          покрытие по пакетам
 go test ./... -v              с именами тестов
 ```
 
-Общая цифра и разбор по функциям:
+Общую цифру для РК2 считайте по профилю без сгенерированных моков,
+как показано в разделе «Покрытие» выше. Для просмотра функций и HTML-отчёта:
 
-```
-go test ./... -coverprofile=cover.out
-go tool cover -func=cover.out
-go tool cover -html=cover.out
+```powershell
+go tool cover '-func=cover.nomocks.out'
+go tool cover '-html=cover.nomocks.out'
 ```
 
 Отдельный пакет или тест:
