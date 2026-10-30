@@ -14,12 +14,12 @@ import (
 	"time"
 	"uuid"
 
-	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/apimessage"
-	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/auth"
-	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/config"
-	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/middleware"
-	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/models"
-	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/repository"
+	"2026_2_Na_Vse_200/internal/apimessage"
+	"2026_2_Na_Vse_200/internal/auth"
+	"2026_2_Na_Vse_200/internal/config"
+	"2026_2_Na_Vse_200/internal/delivery/middleware"
+	"2026_2_Na_Vse_200/internal/models"
+	"2026_2_Na_Vse_200/internal/usecase/ports"
 )
 
 // testConfig — настройки, при которых выданная сессия живёт дольше теста.
@@ -27,7 +27,7 @@ var testConfig = config.Config{SessionTTL: time.Hour}
 
 // newAuthHandler собирает обработчики с локальными тестовыми подменами.
 func newAuthHandler() http.Handler {
-	api := New(&testConfig, &Deps{
+	api := newRepositoryTestAPI(&testConfig, &repositoryTestDeps{
 		Users:    &authUsersFixture{},
 		Sessions: &authSessionsFixture{},
 		Hasher:   auth.NewBcryptHasherWithCost(auth.MinCost),
@@ -222,7 +222,7 @@ func TestSignupEmailCaseInsensitive(t *testing.T) {
 
 // failingUserRepo изображает недоступное хранилище.
 type failingUserRepo struct {
-	repository.UserRepositoryInterface
+	ports.UserRepository
 }
 
 var errStorageDown = errors.New("хранилище недоступно: connection refused to 10.0.0.5:5432")
@@ -235,7 +235,7 @@ func TestSignupStorageFailure(t *testing.T) {
 	log.SetOutput(io.Discard)
 	defer log.SetOutput(os.Stderr)
 
-	api := New(&testConfig, &Deps{
+	api := newRepositoryTestAPI(&testConfig, &repositoryTestDeps{
 		Users:    failingUserRepo{},
 		Sessions: &authSessionsFixture{},
 		Hasher:   auth.NewBcryptHasherWithCost(auth.MinCost),
@@ -261,7 +261,7 @@ func TestSignupStorageFailure(t *testing.T) {
 
 // failingSessionRepo изображает недоступное хранилище сессий.
 type failingSessionRepo struct {
-	repository.SessionRepositoryInterface
+	ports.SessionRepository
 }
 
 func (failingSessionRepo) Create(ctx context.Context, session models.Session) error {
@@ -269,8 +269,8 @@ func (failingSessionRepo) Create(ctx context.Context, session models.Session) er
 }
 
 // newHandlerWithSessions собирает обработчики с подменённым хранилищем сессий.
-func newHandlerWithSessions(sessions repository.SessionRepositoryInterface) http.Handler {
-	api := New(&testConfig, &Deps{
+func newHandlerWithSessions(sessions ports.SessionRepository) http.Handler {
+	api := newRepositoryTestAPI(&testConfig, &repositoryTestDeps{
 		Users:    &authUsersFixture{},
 		Sessions: sessions,
 		Hasher:   auth.NewBcryptHasherWithCost(auth.MinCost),
@@ -284,7 +284,7 @@ func TestSignupSessionFailure(t *testing.T) {
 	defer log.SetOutput(os.Stderr)
 
 	users := &authUsersFixture{}
-	api := New(&testConfig, &Deps{
+	api := newRepositoryTestAPI(&testConfig, &repositoryTestDeps{
 		Users:    users,
 		Sessions: failingSessionRepo{},
 		Hasher:   auth.NewBcryptHasherWithCost(auth.MinCost),
@@ -456,7 +456,7 @@ func TestLoginSessionFailure(t *testing.T) {
 		t.Fatalf("подготовка аккаунта: %v", err)
 	}
 
-	api := New(&testConfig, &Deps{Users: users, Sessions: failingSessionRepo{}, Hasher: hasher})
+	api := newRepositoryTestAPI(&testConfig, &repositoryTestDeps{Users: users, Sessions: failingSessionRepo{}, Hasher: hasher})
 	handler := middleware.Chain(api.Routes(), middleware.WithJSONErrors)
 
 	w := postJSON(t, handler, "/api/v1/auth/login",
@@ -475,7 +475,7 @@ func TestLoginSessionFailure(t *testing.T) {
 // этого же пользователя, иначе автовход есть только на бумаге.
 func TestSignupCreatesUsableSession(t *testing.T) {
 	sessions := &authSessionsFixture{}
-	api := New(&testConfig, &Deps{
+	api := newRepositoryTestAPI(&testConfig, &repositoryTestDeps{
 		Users:    &authUsersFixture{},
 		Sessions: sessions,
 		Hasher:   auth.NewBcryptHasherWithCost(auth.MinCost),
@@ -568,7 +568,7 @@ func TestSessionLifecycle(t *testing.T) {
 // обязаны отвечать одинаково: разница подсказывала бы, что идентификатор угадан.
 func TestMeUnauthorizedCases(t *testing.T) {
 	sessions := &authSessionsFixture{}
-	api := New(&testConfig, &Deps{
+	api := newRepositoryTestAPI(&testConfig, &repositoryTestDeps{
 		Users:    &authUsersFixture{},
 		Sessions: sessions,
 		Hasher:   auth.NewBcryptHasherWithCost(auth.MinCost),
@@ -632,7 +632,7 @@ func TestLogoutWithoutSession(t *testing.T) {
 
 // brokenSessionRepo изображает хранилище, не отвечающее на чтение и удаление.
 type brokenSessionRepo struct {
-	repository.SessionRepositoryInterface
+	ports.SessionRepository
 }
 
 func (brokenSessionRepo) GetByID(ctx context.Context, id models.SessionID) (models.Session, error) {
@@ -688,7 +688,7 @@ func TestSessionCookieCrossOrigin(t *testing.T) {
 		CookieSecure:  true,
 	}
 
-	api := New(&cfg, &Deps{
+	api := newRepositoryTestAPI(&cfg, &repositoryTestDeps{
 		Users:    &authUsersFixture{},
 		Sessions: &authSessionsFixture{},
 		Hasher:   auth.NewBcryptHasherWithCost(auth.MinCost),

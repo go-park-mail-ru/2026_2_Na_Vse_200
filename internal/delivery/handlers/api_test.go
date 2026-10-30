@@ -6,10 +6,10 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/apimessage"
-	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/config"
-	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/middleware"
-	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/pkg/response"
+	"2026_2_Na_Vse_200/internal/apimessage"
+	"2026_2_Na_Vse_200/internal/config"
+	"2026_2_Na_Vse_200/internal/delivery/middleware"
+	"2026_2_Na_Vse_200/pkg/response"
 )
 
 // newTestHandler собирает маршруты с подменой текстовых ошибок на JSON.

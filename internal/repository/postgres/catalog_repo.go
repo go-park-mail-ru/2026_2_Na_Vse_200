@@ -4,10 +4,9 @@ import (
 	"context"
 	"fmt"
 
+	"2026_2_Na_Vse_200/internal/models"
+	"2026_2_Na_Vse_200/internal/usecase/ports"
 	"github.com/jackc/pgx/v5/pgxpool"
-
-	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/models"
-	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/repository"
 )
 
 const homeArtistsQuery = `
@@ -49,7 +48,7 @@ type CatalogRepo struct {
 	pool *pgxpool.Pool
 }
 
-var _ repository.CatalogRepositoryInterface = (*CatalogRepo)(nil)
+var _ ports.CatalogRepository = (*CatalogRepo)(nil)
 
 // NewCatalogRepo создаёт репозиторий поверх уже открытого пула.
 func NewCatalogRepo(pool *pgxpool.Pool) *CatalogRepo {
@@ -96,7 +95,12 @@ func (r *CatalogRepo) HomeTracks(ctx context.Context, limit int) ([]models.Track
 		return tracks, nil
 	}
 
-	rows, err := r.pool.Query(ctx, homeTracksQuery, limit)
+	return readTracks(ctx, r.pool, homeTracksQuery, limit)
+}
+
+func readTracks(ctx context.Context, pool *pgxpool.Pool, query string, args ...any) ([]models.Track, error) {
+	tracks := make([]models.Track, 0)
+	rows, err := pool.Query(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("select home tracks: %w", err)
 	}
@@ -144,7 +148,12 @@ func (r *CatalogRepo) HomeAlbums(ctx context.Context, limit int) ([]models.Album
 		return albums, nil
 	}
 
-	rows, err := r.pool.Query(ctx, homeAlbumsQuery, limit)
+	return readAlbums(ctx, r.pool, homeAlbumsQuery, limit)
+}
+
+func readAlbums(ctx context.Context, pool *pgxpool.Pool, query string, args ...any) ([]models.Album, error) {
+	albums := make([]models.Album, 0)
+	rows, err := pool.Query(ctx, query, args...)
 	if err != nil {
 		return nil, fmt.Errorf("select home albums: %w", err)
 	}

@@ -12,15 +12,15 @@ import (
 	"testing"
 	"time"
 
-	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/apimessage"
-	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/middleware"
-	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/models"
-	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/repository"
+	"2026_2_Na_Vse_200/internal/apimessage"
+	"2026_2_Na_Vse_200/internal/delivery/middleware"
+	"2026_2_Na_Vse_200/internal/models"
+	"2026_2_Na_Vse_200/internal/usecase/ports"
 )
 
 // newHomeHandler собирает обработчики с переданным репозиторием каталога.
-func newHomeHandler(catalog repository.CatalogRepositoryInterface) http.Handler {
-	api := New(&testConfig, &Deps{Catalog: catalog})
+func newHomeHandler(catalog ports.CatalogRepository) http.Handler {
+	api := newRepositoryTestAPI(&testConfig, &repositoryTestDeps{Catalog: catalog})
 	return middleware.Chain(api.Routes(), middleware.WithJSONErrors)
 }
 

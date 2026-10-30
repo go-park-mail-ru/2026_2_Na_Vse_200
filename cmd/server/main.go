@@ -12,11 +12,13 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/auth"
-	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/config"
-	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/handlers"
-	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/middleware"
-	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/repository/postgres"
+	"2026_2_Na_Vse_200/internal/auth"
+	"2026_2_Na_Vse_200/internal/config"
+	"2026_2_Na_Vse_200/internal/delivery/handlers"
+	"2026_2_Na_Vse_200/internal/delivery/middleware"
+	"2026_2_Na_Vse_200/internal/repository/postgres"
+	authusecase "2026_2_Na_Vse_200/internal/usecase/auth"
+	catalogusecase "2026_2_Na_Vse_200/internal/usecase/catalog"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
@@ -53,12 +55,9 @@ func main() {
 	catalog := postgres.NewCatalogRepo(pool)
 
 	api := handlers.New(&cfg, &handlers.Deps{
-		Users:    users,
-		Sessions: sessions,
-		Catalog:  catalog,
-		Hasher:   auth.NewBcryptHasher(),
+		Auth:    authusecase.New(users, sessions, auth.NewBcryptHasher(), auth.NewSessionID, time.Now, cfg.SessionTTL),
+		Catalog: catalogusecase.New(catalog),
 	})
-
 	handler := middleware.Chain(
 		api.Routes(),
 		middleware.WithRecover(logger),

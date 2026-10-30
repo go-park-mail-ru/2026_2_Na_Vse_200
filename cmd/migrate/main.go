@@ -17,7 +17,7 @@ import (
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/stdlib"
 
-	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/db/migrations"
+	"2026_2_Na_Vse_200/db/migrations"
 )
 
 func main() {

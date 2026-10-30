@@ -3,8 +3,8 @@ package middleware
 import (
 	"net/http"
 
-	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/apimessage"
-	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/pkg/response"
+	"2026_2_Na_Vse_200/internal/apimessage"
+	"2026_2_Na_Vse_200/pkg/response"
 )
 
 // WithJSONErrors подменяет текстовые 404 и 405 от ServeMux на JSON контракта.

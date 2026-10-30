@@ -3,7 +3,7 @@ package handlers
 import (
 	"net/http"
 
-	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/pkg/response"
+	"2026_2_Na_Vse_200/pkg/response"
 )
 
 type healthResponse struct {

@@ -4,11 +4,9 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/models"
-	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/pkg/response"
+	"2026_2_Na_Vse_200/internal/models"
+	"2026_2_Na_Vse_200/pkg/response"
 )
-
-const _homeLimit = 20
 
 type homeResponse struct {
 	Tracks  []trackResponse  `json:"tracks"`
@@ -44,33 +42,17 @@ type artistRefResponse struct {
 }
 
 func (a *API) Home(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-
-	tracks, err := a.deps.Catalog.HomeTracks(ctx, _homeLimit)
+	result, err := a.deps.Catalog.Home(r.Context())
 	if err != nil {
 		writeInternalError(w, errReadCatalog, err)
 		return
 	}
-
-	artists, err := a.deps.Catalog.HomeArtists(ctx, _homeLimit)
-	if err != nil {
-		writeInternalError(w, errReadCatalog, err)
-		return
-	}
-
-	albums, err := a.deps.Catalog.HomeAlbums(ctx, _homeLimit)
-	if err != nil {
-		writeInternalError(w, errReadCatalog, err)
-		return
-	}
-
 	response.WriteJSON(w, http.StatusOK, homeResponse{
-		Tracks:  newTrackResponses(tracks),
-		Artists: newArtistResponses(artists),
-		Albums:  newAlbumResponses(albums),
+		Tracks:  newTrackResponses(result.Tracks),
+		Artists: newArtistResponses(result.Artists),
+		Albums:  newAlbumResponses(result.Albums),
 	})
 }
-
 func newTrackResponses(tracks []models.Track) []trackResponse {
 	out := make([]trackResponse, 0, len(tracks))
 	for _, track := range tracks {

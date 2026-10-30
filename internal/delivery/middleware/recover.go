@@ -5,8 +5,8 @@ import (
 	"net/http"
 	"runtime"
 
-	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/apimessage"
-	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/pkg/response"
+	"2026_2_Na_Vse_200/internal/apimessage"
+	"2026_2_Na_Vse_200/pkg/response"
 )
 
 // _stackBufferSize — сколько места отводится под стек в записи о панике.

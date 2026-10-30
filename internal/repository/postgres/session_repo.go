@@ -6,11 +6,10 @@ import (
 	"fmt"
 	"uuid"
 
+	"2026_2_Na_Vse_200/internal/models"
+	"2026_2_Na_Vse_200/internal/usecase/ports"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-
-	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/models"
-	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/repository"
 )
 
 const createSessionQuery = `
@@ -36,7 +35,7 @@ type SessionRepo struct {
 	pool *pgxpool.Pool
 }
 
-var _ repository.SessionRepositoryInterface = (*SessionRepo)(nil)
+var _ ports.SessionRepository = (*SessionRepo)(nil)
 
 // NewSessionRepo создаёт репозиторий поверх уже открытого пула.
 func NewSessionRepo(pool *pgxpool.Pool) *SessionRepo {
@@ -60,7 +59,7 @@ func (r *SessionRepo) GetByID(ctx context.Context, id models.SessionID) (models.
 
 	sessionID, err := uuid.Parse(string(id))
 	if err != nil {
-		return models.Session{}, repository.ErrSessionNotFound
+		return models.Session{}, models.ErrSessionNotFound
 	}
 
 	var (
@@ -72,12 +71,12 @@ func (r *SessionRepo) GetByID(ctx context.Context, id models.SessionID) (models.
 		Scan(&storedID, &account, &session.ExpiresAt, &expired)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return models.Session{}, repository.ErrSessionNotFound
+			return models.Session{}, models.ErrSessionNotFound
 		}
 		return models.Session{}, fmt.Errorf("select auth session by id: %w", err)
 	}
 	if expired {
-		return models.Session{}, repository.ErrSessionExpired
+		return models.Session{}, models.ErrSessionExpired
 	}
 
 	session.ID = models.SessionID(storedID)

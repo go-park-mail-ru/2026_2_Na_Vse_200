@@ -5,8 +5,7 @@ import (
 	"time"
 	"uuid"
 
-	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/models"
-	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/repository"
+	"2026_2_Na_Vse_200/internal/models"
 )
 
 // Эти подмены связывают последовательные HTTP-запросы одного auth-сценария.
@@ -18,7 +17,7 @@ type authUsersFixture struct {
 func (f *authUsersFixture) Create(_ context.Context, user models.User) (models.User, error) {
 	for _, existing := range f.users {
 		if existing.Email == user.Email {
-			return models.User{}, repository.ErrEmailTaken
+			return models.User{}, models.ErrEmailTaken
 		}
 	}
 	user.ID = models.UserID(uuid.New().String())
@@ -32,7 +31,7 @@ func (f *authUsersFixture) GetByID(_ context.Context, id models.UserID) (models.
 			return user, nil
 		}
 	}
-	return models.User{}, repository.ErrUserNotFound
+	return models.User{}, models.ErrUserNotFound
 }
 
 func (f *authUsersFixture) GetByEmail(_ context.Context, email string) (models.User, error) {
@@ -41,7 +40,7 @@ func (f *authUsersFixture) GetByEmail(_ context.Context, email string) (models.U
 			return user, nil
 		}
 	}
-	return models.User{}, repository.ErrUserNotFound
+	return models.User{}, models.ErrUserNotFound
 }
 
 type authSessionsFixture struct {
@@ -57,12 +56,12 @@ func (f *authSessionsFixture) GetByID(_ context.Context, id models.SessionID) (m
 	for _, session := range f.sessions {
 		if session.ID == id {
 			if session.IsExpired(time.Now()) {
-				return models.Session{}, repository.ErrSessionExpired
+				return models.Session{}, models.ErrSessionExpired
 			}
 			return session, nil
 		}
 	}
-	return models.Session{}, repository.ErrSessionNotFound
+	return models.Session{}, models.ErrSessionNotFound
 }
 
 func (f *authSessionsFixture) Delete(_ context.Context, id models.SessionID) error {

@@ -4,26 +4,15 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/apimessage"
-	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/pkg/response"
+	"2026_2_Na_Vse_200/internal/apimessage"
+	"2026_2_Na_Vse_200/pkg/response"
 )
 
 // Причины отказа для лога. Клиенту они не уходят: он видит общий текст,
 // иначе по ответу можно было бы изучать устройство сервиса.
 const (
-	errHashPassword    = "ошибка хеширования пароля"
-	errCreateUser      = "ошибка создания пользователя"
-	errAutoSignIn      = "ошибка автовхода после регистрации"
-	errFindUser        = "ошибка поиска пользователя"
-	errVerifyPassword  = "ошибка проверки пароля"
-	errSignIn          = "ошибка входа пользователя"
-	errReadSession     = "ошибка чтения сессии"
-	errDeleteSession   = "ошибка удаления сессии"
 	errNoSessionCookie = "запрос без cookie сессии"
-	errUnknownEmail    = "вход по незарегистрированному email"
-	errWrongPassword   = "вход с неверным паролем"
 	errSessionRejected = "сессия неизвестна или истекла"
-	errUserGone        = "сессия ссылается на удалённый аккаунт"
 	errReadCatalog     = "ошибка чтения каталога"
 )
 
