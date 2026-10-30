@@ -1,0 +1,65 @@
+name: navse200
+
+x-backend: &backend
+  image: navse200-backend:local
+  build:
+    context: .
+  environment: &database-connection
+    POSTGRES_DSN: postgres://music@db:5432/music?sslmode=disable
+    PGPASSWORD: ${DOCKER_POSTGRES_PASSWORD:-music_local_dev}
+
+services:
+  db:
+    image: postgres:18-alpine
+    environment:
+      POSTGRES_USER: music
+      POSTGRES_DB: music
+      POSTGRES_PASSWORD: ${DOCKER_POSTGRES_PASSWORD:-music_local_dev}
+    ports:
+      - "127.0.0.1:${DOCKER_POSTGRES_PORT:-5433}:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+      start_period: 10s
+    restart: unless-stopped
+
+  migrate:
+    <<: *backend
+    entrypoint: ["/app/migrate"]
+    command: ["up"]
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
+  server:
+    <<: *backend
+    environment:
+      <<: *database-connection
+      APP_ADDR: ":8080"
+      APP_ALLOWED_ORIGIN: ${APP_ALLOWED_ORIGIN:-}
+      APP_COOKIE_SECURE: ${APP_COOKIE_SECURE:-false}
+      APP_SESSION_TTL: ${APP_SESSION_TTL:-24h}
+      APP_SHUTDOWN_TIMEOUT: ${APP_SHUTDOWN_TIMEOUT:-10s}
+    ports:
+      - "127.0.0.1:${DOCKER_HTTP_PORT:-8080}:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "--quiet", "http://127.0.0.1:8080/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+    stop_grace_period: 15s
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
