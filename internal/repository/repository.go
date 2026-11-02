@@ -47,3 +47,55 @@ type CatalogRepositoryInterface interface {
 	// HomeAlbums возвращает не более limit альбомов, новые первыми.
 	HomeAlbums(ctx context.Context, limit int) ([]models.Album, error)
 }
+
+// ProfileRepositoryInterface редактирует публичные поля профиля аккаунта.
+type ProfileRepositoryInterface interface {
+	UpdateProfile(ctx context.Context, id models.UserID, email, displayName string, avatarFileID *models.MediaFileID) (models.User, error)
+}
+
+// MediaRepositoryInterface сохраняет и читает метаданные медиафайлов.
+// Содержимое файла сохраняется отдельным файловым слоем.
+type MediaRepositoryInterface interface {
+	Create(ctx context.Context, file models.MediaFile) (models.MediaFile, error)
+	GetByID(ctx context.Context, id models.MediaFileID) (models.MediaFile, error)
+}
+
+// CatalogWriteRepositoryInterface создаёт и изменяет записи музыкального каталога.
+type CatalogWriteRepositoryInterface interface {
+	CreateArtist(ctx context.Context, artist models.Artist) (models.Artist, error)
+	UpdateArtist(ctx context.Context, artist models.Artist) (models.Artist, error)
+	CreateAlbum(ctx context.Context, album models.Album) (models.Album, error)
+	UpdateAlbum(ctx context.Context, album models.Album) (models.Album, error)
+	CreateTrack(ctx context.Context, track models.Track) (models.Track, error)
+	CreateTrackWithAudio(ctx context.Context, track models.Track, audio models.MediaFile) (models.Track, error)
+	UpdateTrack(ctx context.Context, track models.Track) (models.Track, error)
+}
+
+// PlaylistRepositoryInterface управляет плейлистами и их составом.
+type PlaylistRepositoryInterface interface {
+	Create(ctx context.Context, playlist models.Playlist) (models.Playlist, error)
+	GetVisible(ctx context.Context, id models.PlaylistID, viewerID models.UserID) (models.Playlist, error)
+	ListByOwner(ctx context.Context, ownerID models.UserID, limit, offset int) ([]models.Playlist, error)
+	Update(ctx context.Context, playlist models.Playlist, expectedRevision int64) (models.Playlist, error)
+	Delete(ctx context.Context, id models.PlaylistID, ownerID models.UserID) error
+}
+
+// FavoriteRepositoryInterface управляет избранными треками аккаунта.
+type FavoriteRepositoryInterface interface {
+	Add(ctx context.Context, accountID models.UserID, trackID models.TrackID) error
+	Remove(ctx context.Context, accountID models.UserID, trackID models.TrackID) error
+	List(ctx context.Context, accountID models.UserID, limit, offset int) ([]models.TrackID, error)
+}
+
+// ListeningHistoryRepositoryInterface записывает и читает историю прослушиваний.
+type ListeningHistoryRepositoryInterface interface {
+	Record(ctx context.Context, event models.ListeningEvent) (models.ListeningEvent, error)
+	ListByAccount(ctx context.Context, accountID models.UserID, limit, offset int) ([]models.ListeningEvent, error)
+}
+
+// ChartRepositoryInterface формирует сохранённые чарты из истории прослушиваний.
+type ChartRepositoryInterface interface {
+	CreateFromHistory(ctx context.Context, chart models.Chart, limit int) (models.Chart, error)
+	GetByID(ctx context.Context, id models.ChartID) (models.Chart, error)
+	List(ctx context.Context, limit, offset int) ([]models.Chart, error)
+}

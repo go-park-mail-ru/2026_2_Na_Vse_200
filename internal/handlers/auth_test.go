@@ -20,17 +20,16 @@ import (
 	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/middleware"
 	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/models"
 	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/repository"
-	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/repository/memory"
 )
 
 // testConfig — настройки, при которых выданная сессия живёт дольше теста.
 var testConfig = config.Config{SessionTTL: time.Hour}
 
-// newAuthHandler собирает обработчики с настоящими хранилищами в памяти.
+// newAuthHandler собирает обработчики с локальными тестовыми подменами.
 func newAuthHandler() http.Handler {
 	api := New(&testConfig, &Deps{
-		Users:    memory.NewUserRepo(),
-		Sessions: memory.NewSessionRepo(),
+		Users:    &authUsersFixture{},
+		Sessions: &authSessionsFixture{},
 		Hasher:   auth.NewBcryptHasherWithCost(auth.MinCost),
 	})
 	return middleware.Chain(api.Routes(), middleware.WithJSONErrors)
@@ -238,7 +237,7 @@ func TestSignupStorageFailure(t *testing.T) {
 
 	api := New(&testConfig, &Deps{
 		Users:    failingUserRepo{},
-		Sessions: memory.NewSessionRepo(),
+		Sessions: &authSessionsFixture{},
 		Hasher:   auth.NewBcryptHasherWithCost(auth.MinCost),
 	})
 	handler := middleware.Chain(api.Routes(), middleware.WithJSONErrors)
@@ -272,19 +271,19 @@ func (failingSessionRepo) Create(ctx context.Context, session models.Session) er
 // newHandlerWithSessions собирает обработчики с подменённым хранилищем сессий.
 func newHandlerWithSessions(sessions repository.SessionRepositoryInterface) http.Handler {
 	api := New(&testConfig, &Deps{
-		Users:    memory.NewUserRepo(),
+		Users:    &authUsersFixture{},
 		Sessions: sessions,
 		Hasher:   auth.NewBcryptHasherWithCost(auth.MinCost),
 	})
 	return middleware.Chain(api.Routes(), middleware.WithJSONErrors)
 }
 
-// Аккаунт создан, значит регистрация удалась — даже если автовход не вышел.
+// При сбое создания сессии сервер возвращает 500, а сохранённый аккаунт остаётся.
 func TestSignupSessionFailure(t *testing.T) {
 	log.SetOutput(io.Discard)
 	defer log.SetOutput(os.Stderr)
 
-	users := memory.NewUserRepo()
+	users := &authUsersFixture{}
 	api := New(&testConfig, &Deps{
 		Users:    users,
 		Sessions: failingSessionRepo{},
@@ -307,8 +306,8 @@ func TestSignupSessionFailure(t *testing.T) {
 		t.Error("выставлена cookie, хотя сессия не сохранилась")
 	}
 
-	// Аккаунт остаётся созданным: откатывать его нечем — пользователи и сессии
-	// живут в разных хранилищах, общей транзакции у них нет.
+	// По текущему контракту сохранение аккаунта и создание сессии — независимые
+	// операции: отказ автовхода не отменяет создание аккаунта.
 	if _, err := users.GetByEmail(context.Background(), "andrey@example.com"); err != nil {
 		t.Errorf("аккаунт не найден после отказа: %v", err)
 	}
@@ -448,7 +447,7 @@ func TestLoginSessionFailure(t *testing.T) {
 
 	// Аккаунт заводим напрямую: через ручку не выйдет, регистрация тоже
 	// упрётся в недоступное хранилище сессий.
-	users := memory.NewUserRepo()
+	users := &authUsersFixture{}
 	if _, err := users.Create(context.Background(), models.User{
 		Email:        "andrey@example.com",
 		PasswordHash: hash,
@@ -475,9 +474,9 @@ func TestLoginSessionFailure(t *testing.T) {
 // Выданная при регистрации cookie должна указывать на настоящую сессию
 // этого же пользователя, иначе автовход есть только на бумаге.
 func TestSignupCreatesUsableSession(t *testing.T) {
-	sessions := memory.NewSessionRepo()
+	sessions := &authSessionsFixture{}
 	api := New(&testConfig, &Deps{
-		Users:    memory.NewUserRepo(),
+		Users:    &authUsersFixture{},
 		Sessions: sessions,
 		Hasher:   auth.NewBcryptHasherWithCost(auth.MinCost),
 	})
@@ -568,9 +567,9 @@ func TestSessionLifecycle(t *testing.T) {
 // Отсутствующая, неизвестная, истёкшая сессия и удалённый пользователь
 // обязаны отвечать одинаково: разница подсказывала бы, что идентификатор угадан.
 func TestMeUnauthorizedCases(t *testing.T) {
-	sessions := memory.NewSessionRepo()
+	sessions := &authSessionsFixture{}
 	api := New(&testConfig, &Deps{
-		Users:    memory.NewUserRepo(),
+		Users:    &authUsersFixture{},
 		Sessions: sessions,
 		Hasher:   auth.NewBcryptHasherWithCost(auth.MinCost),
 	})
@@ -681,9 +680,7 @@ func TestSessionStorageFailure(t *testing.T) {
 	}
 }
 
-// При фронтенде на отдельном адресе cookie обязана уходить с SameSite=None,
-// иначе браузер не приложит её к кросс-доменному запросу. None он принимает
-// только вместе с Secure — обе настройки проверяем разом.
+// При заданном origin и HTTPS-конфигурации cookie получает SameSite=None и Secure.
 func TestSessionCookieCrossOrigin(t *testing.T) {
 	cfg := config.Config{
 		SessionTTL:    time.Hour,
@@ -692,8 +689,8 @@ func TestSessionCookieCrossOrigin(t *testing.T) {
 	}
 
 	api := New(&cfg, &Deps{
-		Users:    memory.NewUserRepo(),
-		Sessions: memory.NewSessionRepo(),
+		Users:    &authUsersFixture{},
+		Sessions: &authSessionsFixture{},
 		Hasher:   auth.NewBcryptHasherWithCost(auth.MinCost),
 	})
 	handler := middleware.Chain(api.Routes(), middleware.WithJSONErrors)

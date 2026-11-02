@@ -112,7 +112,7 @@ func NormalizeEmail(email string) string {
 }
 
 // checkEmail сообщает, годится ли адрес.
-// Проверка по RFC 5322 не делается: адрес подтверждается письмом.
+// Проверяется базовый формат; подтверждение адреса письмом пока не реализовано.
 func checkEmail(email string) error {
 	if email == "" {
 		return ErrEmailRequired

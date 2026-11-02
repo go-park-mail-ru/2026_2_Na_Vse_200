@@ -6,7 +6,7 @@ import (
 )
 
 func TestLoadDefaults(t *testing.T) {
-	// Пустое окружение: сервис должен подниматься локально без настройки.
+	// Проверяем значения по умолчанию; обязательный DSN проверяется при запуске сервера.
 	t.Setenv("APP_ADDR", "")
 	t.Setenv("APP_ALLOWED_ORIGIN", "")
 	t.Setenv("APP_COOKIE_SECURE", "")
