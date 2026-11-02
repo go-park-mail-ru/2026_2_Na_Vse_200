@@ -37,7 +37,7 @@ func (r *ArtistRepo) GetByID(ctx context.Context, id models.ArtistID) (models.Ar
 	return artist, nil
 }
 
-// Сначала ограничиваем список треков, затем присоединяем всех их исполнителей.
+// Лимит применяется до присоединения исполнителей, чтобы вернуть целые карточки треков.
 func (r *ArtistRepo) Tracks(ctx context.Context, id models.ArtistID, limit, offset int) ([]models.Track, error) {
 	const query = `
  WITH selected_tracks AS (

@@ -6,13 +6,12 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"2026_2_Na_Vse_200/internal/apimessage"
 	"2026_2_Na_Vse_200/internal/config"
 	"2026_2_Na_Vse_200/internal/delivery/middleware"
-	"2026_2_Na_Vse_200/pkg/response"
+	"2026_2_Na_Vse_200/internal/delivery/response"
+	"2026_2_Na_Vse_200/internal/models"
 )
 
-// newTestHandler собирает маршруты с подменой текстовых ошибок на JSON.
 func newTestHandler() http.Handler {
 	api := New(&config.Config{}, &Deps{})
 	return middleware.Chain(api.Routes(), middleware.WithJSONErrors)
@@ -51,21 +50,21 @@ func TestRoutesErrors(t *testing.T) {
 			method:   http.MethodGet,
 			path:     "/api/v1/nope",
 			wantCode: http.StatusNotFound,
-			wantErr:  apimessage.CodeNotFound,
+			wantErr:  models.CodeNotFound,
 		},
 		{
 			name:     "корень сайта больше не обрабатывается",
 			method:   http.MethodGet,
 			path:     "/",
 			wantCode: http.StatusNotFound,
-			wantErr:  apimessage.CodeNotFound,
+			wantErr:  models.CodeNotFound,
 		},
 		{
 			name:     "чужой метод на существующем адресе",
 			method:   http.MethodPost,
 			path:     "/health",
 			wantCode: http.StatusMethodNotAllowed,
-			wantErr:  apimessage.CodeMethodNotAllowed,
+			wantErr:  models.CodeMethodNotAllowed,
 		},
 	}
 
@@ -82,7 +81,6 @@ func TestRoutesErrors(t *testing.T) {
 				t.Errorf("%s %s: статус = %d, ожидался %d", tt.method, tt.path, w.Code, tt.wantCode)
 			}
 
-			// Ответ должен быть JSON, а не текстом ServeMux.
 			gotType := w.Header().Get("Content-Type")
 			wantType := "application/json; charset=utf-8"
 			if gotType != wantType {
@@ -101,7 +99,6 @@ func TestRoutesErrors(t *testing.T) {
 	}
 }
 
-// ServeMux ставит Allow до подмены тела — проверяем, что он не потерялся.
 func TestMethodNotAllowedKeepsAllowHeader(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/health", nil)
 	w := httptest.NewRecorder()
@@ -113,7 +110,6 @@ func TestMethodNotAllowedKeepsAllowHeader(t *testing.T) {
 	}
 }
 
-// decodeError разбирает тело ответа как ошибку единого формата API.
 func decodeError(t *testing.T, w *httptest.ResponseRecorder) response.ErrorResponse {
 	t.Helper()
 

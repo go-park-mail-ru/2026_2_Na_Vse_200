@@ -94,21 +94,22 @@ docker compose logs migrate
 
 Compose запускает PostgreSQL, затем миграции и сервер. Успешно завершившийся контейнер `migrate` со статусом `Exited (0)` — нормальный результат. Сервер не стартует, если миграции завершились ошибкой. API доступно на `http://localhost:8080`; порт API и порт PostgreSQL можно изменить через `DOCKER_HTTP_PORT` и `DOCKER_POSTGRES_PORT`. Для локальной разработки используется пароль `DOCKER_POSTGRES_PASSWORD` (по умолчанию `music_local_dev`).
 
-### Миграции и сервер на компьютере
+### Команды миграций в Docker
 
-Нужны Go версии из `go.mod` и доступная PostgreSQL-база. Установите в `.env` переменные подключения; пример для PostgreSQL из Compose:
-
-```dotenv
-POSTGRES_DSN=postgres://music@localhost:5433/music?sslmode=disable
-PGPASSWORD=music_local_dev
-```
-
-Затем выполните в PowerShell:
+При запуске всей системы миграции выполняются автоматически перед сервером.
+Чтобы отдельно применить миграции или посмотреть версию, выполните из корня проекта:
 
 ```powershell
-.\scripts\run.ps1 go run ./cmd/migrate up
-.\scripts\run.ps1 go run ./cmd/migrate version
-.\scripts\run.ps1
+docker compose run --rm migrate up
+docker compose run --rm migrate version
 ```
 
-В Bash/Git Bash используйте `./scripts/run.sh` с теми же аргументами. Для миграций доступны команды `up`, `version` и `down <положительное число шагов>`. Пароль можно передавать через `PGPASSWORD`; не сохраняйте секреты в репозитории.
+Для отката заданного числа миграций команда принимает down и положительное
+число шагов. Перед откатом проверьте соответствующие SQL-файлы: они могут
+удалять таблицы и данные.
+
+```powershell
+docker compose run --rm migrate down 1
+```
+
+Сервис migrate получает подключение к БД из compose.yaml.

@@ -1,4 +1,3 @@
-// Package catalog implements catalog queries independently of HTTP.
 package catalog
 
 import (

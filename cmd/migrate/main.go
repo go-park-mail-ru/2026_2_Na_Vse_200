@@ -1,4 +1,3 @@
-// Команда migrate применяет SQL-миграции к базе из POSTGRES_DSN.
 package main
 
 import (
@@ -62,14 +61,13 @@ func run(args []string) (resultErr error) {
 	}
 	cfg, err := pgx.ParseConfig(dsn)
 	if err != nil {
-		// Parse errors may contain the connection string, including its password.
+		// Ошибка разбора DSN может содержать пароль, поэтому её текст не возвращается.
 		return errors.New("POSTGRES_DSN has invalid syntax")
 	}
 	if cfg.ConnectTimeout == 0 {
 		cfg.ConnectTimeout = 5 * time.Second
 	}
 
-	// database/sql здесь использует только драйвер pgx/v5, необходимый адаптеру migrate.
 	db := stdlib.OpenDB(*cfg)
 	defer db.Close()
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)

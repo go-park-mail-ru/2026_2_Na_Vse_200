@@ -55,7 +55,7 @@ func NewCatalogRepo(pool *pgxpool.Pool) *CatalogRepo {
 	return &CatalogRepo{pool: pool}
 }
 
-// HomeArtists возвращает не более limit исполнителей, новые первыми.
+// HomeArtists возвращает исполнителей, начиная с новых.
 func (r *CatalogRepo) HomeArtists(ctx context.Context, limit int) ([]models.Artist, error) {
 	artists := make([]models.Artist, 0)
 	if limit <= 0 {
@@ -88,7 +88,7 @@ func (r *CatalogRepo) HomeArtists(ctx context.Context, limit int) ([]models.Arti
 	return artists, nil
 }
 
-// HomeTracks возвращает не более limit опубликованных треков с исполнителями.
+// HomeTracks возвращает опубликованные треки с исполнителями, начиная с новых.
 func (r *CatalogRepo) HomeTracks(ctx context.Context, limit int) ([]models.Track, error) {
 	tracks := make([]models.Track, 0)
 	if limit <= 0 {
@@ -141,7 +141,7 @@ func readTracks(ctx context.Context, pool *pgxpool.Pool, query string, args ...a
 	return tracks, nil
 }
 
-// HomeAlbums возвращает не более limit альбомов с датой релиза и исполнителями.
+// HomeAlbums возвращает альбомы с исполнителями, начиная с новых.
 func (r *CatalogRepo) HomeAlbums(ctx context.Context, limit int) ([]models.Album, error) {
 	albums := make([]models.Album, 0)
 	if limit <= 0 {

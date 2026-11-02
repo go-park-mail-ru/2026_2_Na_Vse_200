@@ -85,8 +85,7 @@ func TestSignupPassword(t *testing.T) {
 		{name: "без цифр", password: "muzykamuzyka", valid: false},
 		{name: "без букв", password: "202620262026", valid: false},
 		{name: "длиннее 72 байт", password: strings.Repeat("a1", 40), valid: false},
-		// Шесть кириллических букв — это 11 байт: по длине в байтах пароль
-		// прошёл бы, хотя символов меньше восьми.
+		// Пароль короче восьми символов должен отклоняться независимо от длины в байтах.
 		{name: "шесть кириллических символов", password: "парол1", valid: false},
 		{name: "восемь кириллических символов", password: "пароль12", valid: true},
 	}
@@ -147,7 +146,6 @@ func TestSignupDisplayName(t *testing.T) {
 	}
 }
 
-// Все ошибки приходят разом, а не по одной.
 func TestSignupReportsAllErrorsAtOnce(t *testing.T) {
 	result := Signup(SignupInput{
 		Email:       "нет-собаки",

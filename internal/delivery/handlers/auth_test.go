@@ -14,7 +14,6 @@ import (
 	"time"
 	"uuid"
 
-	"2026_2_Na_Vse_200/internal/apimessage"
 	"2026_2_Na_Vse_200/internal/auth"
 	"2026_2_Na_Vse_200/internal/config"
 	"2026_2_Na_Vse_200/internal/delivery/middleware"
@@ -22,10 +21,8 @@ import (
 	"2026_2_Na_Vse_200/internal/usecase/ports"
 )
 
-// testConfig — настройки, при которых выданная сессия живёт дольше теста.
 var testConfig = config.Config{SessionTTL: time.Hour}
 
-// newAuthHandler собирает обработчики с локальными тестовыми подменами.
 func newAuthHandler() http.Handler {
 	api := newRepositoryTestAPI(&testConfig, &repositoryTestDeps{
 		Users:    &authUsersFixture{},
@@ -35,7 +32,6 @@ func newAuthHandler() http.Handler {
 	return middleware.Chain(api.Routes(), middleware.WithJSONErrors)
 }
 
-// sessionCookie возвращает cookie сессии из ответа.
 func sessionCookie(t *testing.T, w *httptest.ResponseRecorder) *http.Cookie {
 	t.Helper()
 
@@ -49,7 +45,6 @@ func sessionCookie(t *testing.T, w *httptest.ResponseRecorder) *http.Cookie {
 	return nil
 }
 
-// postJSON отправляет запрос с телом и возвращает ответ.
 func postJSON(t *testing.T, handler http.Handler, path, body string) *httptest.ResponseRecorder {
 	t.Helper()
 
@@ -106,7 +101,6 @@ func TestSignupSuccess(t *testing.T) {
 	}
 }
 
-// Ни пароль, ни его хеш не должны уехать клиенту.
 func TestSignupResponseHasNoPassword(t *testing.T) {
 	handler := newAuthHandler()
 
@@ -133,33 +127,33 @@ func TestSignupErrors(t *testing.T) {
 			name:     "тело не разобралось",
 			body:     `{"email": "andrey@example.com"`,
 			wantCode: http.StatusBadRequest,
-			wantErr:  apimessage.CodeInvalidJSON,
+			wantErr:  models.CodeInvalidJSON,
 		},
 		{
 			name:     "пустое тело",
 			body:     ``,
 			wantCode: http.StatusBadRequest,
-			wantErr:  apimessage.CodeInvalidJSON,
+			wantErr:  models.CodeInvalidJSON,
 		},
 		{
 			name:       "нет обязательных полей",
 			body:       `{}`,
 			wantCode:   http.StatusBadRequest,
-			wantErr:    apimessage.CodeValidationFailed,
+			wantErr:    models.CodeValidationFailed,
 			wantFields: []string{"email", "password", "display_name"},
 		},
 		{
 			name:       "короткий пароль",
 			body:       `{"email":"andrey@example.com","password":"123","display_name":"Андрей"}`,
 			wantCode:   http.StatusBadRequest,
-			wantErr:    apimessage.CodeValidationFailed,
+			wantErr:    models.CodeValidationFailed,
 			wantFields: []string{"password"},
 		},
 		{
 			name:       "некорректный email",
 			body:       `{"email":"без-собаки","password":"muzyka2026","display_name":"Андрей"}`,
 			wantCode:   http.StatusBadRequest,
-			wantErr:    apimessage.CodeValidationFailed,
+			wantErr:    models.CodeValidationFailed,
 			wantFields: []string{"email"},
 		},
 	}
@@ -199,12 +193,11 @@ func TestSignupEmailTaken(t *testing.T) {
 	}
 
 	got := decodeError(t, w)
-	if got.Error.Code != apimessage.CodeEmailTaken {
-		t.Errorf("code = %q, ожидался %q", got.Error.Code, apimessage.CodeEmailTaken)
+	if got.Error.Code != models.CodeEmailTaken {
+		t.Errorf("code = %q, ожидался %q", got.Error.Code, models.CodeEmailTaken)
 	}
 }
 
-// Регистрация с тем же email в другом регистре — это тот же аккаунт.
 func TestSignupEmailCaseInsensitive(t *testing.T) {
 	handler := newAuthHandler()
 
@@ -220,7 +213,6 @@ func TestSignupEmailCaseInsensitive(t *testing.T) {
 	}
 }
 
-// failingUserRepo изображает недоступное хранилище.
 type failingUserRepo struct {
 	ports.UserRepository
 }
@@ -250,8 +242,8 @@ func TestSignupStorageFailure(t *testing.T) {
 	}
 
 	got := decodeError(t, w)
-	if got.Error.Code != apimessage.CodeInternal {
-		t.Errorf("code = %q, ожидался %q", got.Error.Code, apimessage.CodeInternal)
+	if got.Error.Code != models.CodeInternal {
+		t.Errorf("code = %q, ожидался %q", got.Error.Code, models.CodeInternal)
 	}
 
 	if strings.Contains(w.Body.String(), "5432") {
@@ -259,7 +251,6 @@ func TestSignupStorageFailure(t *testing.T) {
 	}
 }
 
-// failingSessionRepo изображает недоступное хранилище сессий.
 type failingSessionRepo struct {
 	ports.SessionRepository
 }
@@ -268,7 +259,6 @@ func (failingSessionRepo) Create(ctx context.Context, session models.Session) er
 	return errStorageDown
 }
 
-// newHandlerWithSessions собирает обработчики с подменённым хранилищем сессий.
 func newHandlerWithSessions(sessions ports.SessionRepository) http.Handler {
 	api := newRepositoryTestAPI(&testConfig, &repositoryTestDeps{
 		Users:    &authUsersFixture{},
@@ -278,7 +268,7 @@ func newHandlerWithSessions(sessions ports.SessionRepository) http.Handler {
 	return middleware.Chain(api.Routes(), middleware.WithJSONErrors)
 }
 
-// При сбое создания сессии сервер возвращает 500, а сохранённый аккаунт остаётся.
+// Сбой создания сессии не отменяет уже созданный аккаунт.
 func TestSignupSessionFailure(t *testing.T) {
 	log.SetOutput(io.Discard)
 	defer log.SetOutput(os.Stderr)
@@ -298,16 +288,14 @@ func TestSignupSessionFailure(t *testing.T) {
 		t.Fatalf("статус = %d, ожидался %d, тело: %s", w.Code, http.StatusInternalServerError, w.Body.String())
 	}
 
-	if got := decodeError(t, w); got.Error.Code != apimessage.CodeInternal {
-		t.Errorf("code = %q, ожидался %q", got.Error.Code, apimessage.CodeInternal)
+	if got := decodeError(t, w); got.Error.Code != models.CodeInternal {
+		t.Errorf("code = %q, ожидался %q", got.Error.Code, models.CodeInternal)
 	}
 
 	if len(w.Result().Cookies()) != 0 {
 		t.Error("выставлена cookie, хотя сессия не сохранилась")
 	}
 
-	// По текущему контракту сохранение аккаунта и создание сессии — независимые
-	// операции: отказ автовхода не отменяет создание аккаунта.
 	if _, err := users.GetByEmail(context.Background(), "andrey@example.com"); err != nil {
 		t.Errorf("аккаунт не найден после отказа: %v", err)
 	}
@@ -341,8 +329,6 @@ func TestLoginSuccess(t *testing.T) {
 	}
 }
 
-// Неизвестный email и неверный пароль обязаны отвечать одинаково: иначе
-// по разнице ответов перебирают зарегистрированные адреса.
 func TestLoginInvalidCredentials(t *testing.T) {
 	handler := newAuthHandler()
 
@@ -361,8 +347,8 @@ func TestLoginInvalidCredentials(t *testing.T) {
 			t.Fatalf("статус = %d, ожидался %d, тело: %s", w.Code, http.StatusUnauthorized, w.Body.String())
 		}
 
-		if got := decodeError(t, w); got.Error.Code != apimessage.CodeInvalidCredentials {
-			t.Errorf("code = %q, ожидался %q", got.Error.Code, apimessage.CodeInvalidCredentials)
+		if got := decodeError(t, w); got.Error.Code != models.CodeInvalidCredentials {
+			t.Errorf("code = %q, ожидался %q", got.Error.Code, models.CodeInvalidCredentials)
 		}
 
 		if len(w.Result().Cookies()) != 0 {
@@ -386,18 +372,18 @@ func TestLoginErrors(t *testing.T) {
 		{
 			name:    "тело не разобралось",
 			body:    `{"email": "andrey@example.com"`,
-			wantErr: apimessage.CodeInvalidJSON,
+			wantErr: models.CodeInvalidJSON,
 		},
 		{
 			name:       "нет полей",
 			body:       `{}`,
-			wantErr:    apimessage.CodeValidationFailed,
+			wantErr:    models.CodeValidationFailed,
 			wantFields: []string{"email", "password"},
 		},
 		{
 			name:       "пустой пароль",
 			body:       `{"email":"andrey@example.com","password":""}`,
-			wantErr:    apimessage.CodeValidationFailed,
+			wantErr:    models.CodeValidationFailed,
 			wantFields: []string{"password"},
 		},
 	}
@@ -423,8 +409,7 @@ func TestLoginErrors(t *testing.T) {
 	}
 }
 
-// Короткий пароль на входе — это не ошибка валидации, а неверные данные:
-// правила могли ужесточить уже после регистрации аккаунта.
+// На входе проверяется существующий пароль, а не требования к новым паролям.
 func TestLoginDoesNotApplyPasswordRules(t *testing.T) {
 	w := postJSON(t, newAuthHandler(), "/api/v1/auth/login",
 		`{"email":"andrey@example.com","password":"123"}`)
@@ -434,7 +419,6 @@ func TestLoginDoesNotApplyPasswordRules(t *testing.T) {
 	}
 }
 
-// В отличие от регистрации, вход без сессии смысла не имеет.
 func TestLoginSessionFailure(t *testing.T) {
 	log.SetOutput(io.Discard)
 	defer log.SetOutput(os.Stderr)
@@ -445,8 +429,7 @@ func TestLoginSessionFailure(t *testing.T) {
 		t.Fatalf("хеширование пароля: %v", err)
 	}
 
-	// Аккаунт заводим напрямую: через ручку не выйдет, регистрация тоже
-	// упрётся в недоступное хранилище сессий.
+	// Пользователь создаётся напрямую, поскольку регистрация тоже обращается к хранилищу сессий.
 	users := &authUsersFixture{}
 	if _, err := users.Create(context.Background(), models.User{
 		Email:        "andrey@example.com",
@@ -466,13 +449,11 @@ func TestLoginSessionFailure(t *testing.T) {
 		t.Fatalf("статус = %d, ожидался %d, тело: %s", w.Code, http.StatusInternalServerError, w.Body.String())
 	}
 
-	if got := decodeError(t, w); got.Error.Code != apimessage.CodeInternal {
-		t.Errorf("code = %q, ожидался %q", got.Error.Code, apimessage.CodeInternal)
+	if got := decodeError(t, w); got.Error.Code != models.CodeInternal {
+		t.Errorf("code = %q, ожидался %q", got.Error.Code, models.CodeInternal)
 	}
 }
 
-// Выданная при регистрации cookie должна указывать на настоящую сессию
-// этого же пользователя, иначе автовход есть только на бумаге.
 func TestSignupCreatesUsableSession(t *testing.T) {
 	sessions := &authSessionsFixture{}
 	api := newRepositoryTestAPI(&testConfig, &repositoryTestDeps{
@@ -507,7 +488,6 @@ func TestSignupCreatesUsableSession(t *testing.T) {
 	}
 }
 
-// requestWithCookie отправляет запрос без тела, приложив cookie, если она задана.
 func requestWithCookie(t *testing.T, handler http.Handler, method, path string, cookie *http.Cookie) *httptest.ResponseRecorder {
 	t.Helper()
 
@@ -521,8 +501,6 @@ func requestWithCookie(t *testing.T, handler http.Handler, method, path string, 
 	return w
 }
 
-// Полный сценарий: после регистрации клиент опознаётся по cookie,
-// после выхода — уже нет.
 func TestSessionLifecycle(t *testing.T) {
 	handler := newAuthHandler()
 
@@ -557,15 +535,12 @@ func TestSessionLifecycle(t *testing.T) {
 		t.Errorf("MaxAge = %d, ожидалось отрицательное: cookie должна гаснуть", cleared.MaxAge)
 	}
 
-	// Сессия удалена на сервере, поэтому старая cookie больше не работает.
 	after := requestWithCookie(t, handler, http.MethodGet, "/api/v1/auth/me", cookie)
 	if after.Code != http.StatusUnauthorized {
 		t.Errorf("me после выхода: статус = %d, ожидался %d", after.Code, http.StatusUnauthorized)
 	}
 }
 
-// Отсутствующая, неизвестная, истёкшая сессия и удалённый пользователь
-// обязаны отвечать одинаково: разница подсказывала бы, что идентификатор угадан.
 func TestMeUnauthorizedCases(t *testing.T) {
 	sessions := &authSessionsFixture{}
 	api := newRepositoryTestAPI(&testConfig, &repositoryTestDeps{
@@ -604,8 +579,8 @@ func TestMeUnauthorizedCases(t *testing.T) {
 				t.Fatalf("статус = %d, ожидался %d, тело: %s", w.Code, http.StatusUnauthorized, w.Body.String())
 			}
 
-			if got := decodeError(t, w); got.Error.Code != apimessage.CodeUnauthorized {
-				t.Errorf("code = %q, ожидался %q", got.Error.Code, apimessage.CodeUnauthorized)
+			if got := decodeError(t, w); got.Error.Code != models.CodeUnauthorized {
+				t.Errorf("code = %q, ожидался %q", got.Error.Code, models.CodeUnauthorized)
 			}
 
 			if first == "" {
@@ -617,7 +592,6 @@ func TestMeUnauthorizedCases(t *testing.T) {
 	}
 }
 
-// Выход без cookie и повторный выход дают тот же результат, что и обычный.
 func TestLogoutWithoutSession(t *testing.T) {
 	w := requestWithCookie(t, newAuthHandler(), http.MethodPost, "/api/v1/auth/logout", nil)
 
@@ -630,7 +604,6 @@ func TestLogoutWithoutSession(t *testing.T) {
 	}
 }
 
-// brokenSessionRepo изображает хранилище, не отвечающее на чтение и удаление.
 type brokenSessionRepo struct {
 	ports.SessionRepository
 }
@@ -643,8 +616,7 @@ func (brokenSessionRepo) Delete(ctx context.Context, id models.SessionID) error 
 	return errStorageDown
 }
 
-// Сбой хранилища не маскируется под 401: иначе фронтенд принял бы падение базы
-// за разлогин и молча показал гостевой интерфейс.
+// Ошибка БД должна давать 500, а не ответ об отсутствии авторизации.
 func TestSessionStorageFailure(t *testing.T) {
 	log.SetOutput(io.Discard)
 	defer log.SetOutput(os.Stderr)
@@ -669,8 +641,8 @@ func TestSessionStorageFailure(t *testing.T) {
 				t.Fatalf("статус = %d, ожидался %d, тело: %s", w.Code, http.StatusInternalServerError, w.Body.String())
 			}
 
-			if got := decodeError(t, w); got.Error.Code != apimessage.CodeInternal {
-				t.Errorf("code = %q, ожидался %q", got.Error.Code, apimessage.CodeInternal)
+			if got := decodeError(t, w); got.Error.Code != models.CodeInternal {
+				t.Errorf("code = %q, ожидался %q", got.Error.Code, models.CodeInternal)
 			}
 
 			if strings.Contains(w.Body.String(), "5432") {
@@ -680,7 +652,6 @@ func TestSessionStorageFailure(t *testing.T) {
 	}
 }
 
-// При заданном origin и HTTPS-конфигурации cookie получает SameSite=None и Secure.
 func TestSessionCookieCrossOrigin(t *testing.T) {
 	cfg := config.Config{
 		SessionTTL:    time.Hour,
@@ -709,23 +680,5 @@ func TestSessionCookieCrossOrigin(t *testing.T) {
 
 	if !cookie.Secure {
 		t.Error("cookie без Secure: с SameSite=None браузер её выбросит")
-	}
-}
-
-// Аватар приходит строкой, когда он есть, и null, когда его нет.
-func TestUserResponseAvatar(t *testing.T) {
-	const url = "https://cdn.example.com/avatars/andrey.jpg"
-
-	withAvatar := newUserResponse(models.User{AvatarURL: url})
-	if withAvatar.AvatarURL == nil {
-		t.Fatal("аватар потерялся")
-	}
-
-	if *withAvatar.AvatarURL != url {
-		t.Errorf("аватар = %q, ожидался %q", *withAvatar.AvatarURL, url)
-	}
-
-	if withoutAvatar := newUserResponse(models.User{}); withoutAvatar.AvatarURL != nil {
-		t.Errorf("аватар = %q, ожидался nil", *withoutAvatar.AvatarURL)
 	}
 }

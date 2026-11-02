@@ -30,20 +30,19 @@ const deleteExpiredSessionsQuery = `
 	DELETE FROM auth_session
 	WHERE expires_at <= statement_timestamp()`
 
-// SessionRepo хранит серверные сессии в PostgreSQL.
+// SessionRepo хранит сессии в PostgreSQL.
 type SessionRepo struct {
 	pool *pgxpool.Pool
 }
 
 var _ ports.SessionRepository = (*SessionRepo)(nil)
 
-// NewSessionRepo создаёт репозиторий поверх уже открытого пула.
+// NewSessionRepo создаёт репозиторий сессий.
 func NewSessionRepo(pool *pgxpool.Pool) *SessionRepo {
 	return &SessionRepo{pool: pool}
 }
 
-// Create сохраняет новую сессию. Идентификатор должен быть создан вызывающим кодом.
-// Конфликт идентификатора и другие ошибки БД возвращаются вызывающему коду.
+// Create сохраняет сессию с идентификатором, заданным вызывающим кодом.
 func (r *SessionRepo) Create(ctx context.Context, session models.Session) error {
 	if _, err := r.pool.Exec(ctx, createSessionQuery, string(session.ID), string(session.UserID), session.ExpiresAt); err != nil {
 		return fmt.Errorf("insert auth session: %w", err)
@@ -51,7 +50,7 @@ func (r *SessionRepo) Create(ctx context.Context, session models.Session) error 
 	return nil
 }
 
-// GetByID возвращает действующую сессию. Время истечения проверяет база данных.
+// GetByID возвращает сессию, проверяя срок действия по времени БД.
 func (r *SessionRepo) GetByID(ctx context.Context, id models.SessionID) (models.Session, error) {
 	if err := ctx.Err(); err != nil {
 		return models.Session{}, err
@@ -84,7 +83,7 @@ func (r *SessionRepo) GetByID(ctx context.Context, id models.SessionID) (models.
 	return session, nil
 }
 
-// Delete удаляет сессию. Отсутствующий или некорректный идентификатор допустим.
+// Delete удаляет сессию. Отсутствующий или некорректный ID не считается ошибкой.
 func (r *SessionRepo) Delete(ctx context.Context, id models.SessionID) error {
 	if err := ctx.Err(); err != nil {
 		return err
@@ -101,7 +100,7 @@ func (r *SessionRepo) Delete(ctx context.Context, id models.SessionID) error {
 	return nil
 }
 
-// DeleteExpired удаляет все истёкшие сессии одним SQL-оператором.
+// DeleteExpired удаляет все истёкшие сессии.
 func (r *SessionRepo) DeleteExpired(ctx context.Context) error {
 	if _, err := r.pool.Exec(ctx, deleteExpiredSessionsQuery); err != nil {
 		return fmt.Errorf("delete expired auth sessions: %w", err)

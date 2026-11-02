@@ -11,7 +11,7 @@
 В `internal/repository/postgres/session_repo_test.go` есть интеграционные тесты сессий:
 они запускаются только при заданном `TEST_POSTGRES_DSN`. Без этой переменной они пропускаются.
 У `cmd/server` и `cmd/migrate` пока нет собственных тестовых файлов. Тесты обработчиков
-используют локальные неэкспортируемые подмены из `internal/delivery/http/handlers/repositories_test.go`;
+используют локальные неэкспортируемые подмены из `internal/delivery/handlers/repositories_test.go`;
 они собираются только при тестировании. Работающий сервер использует PostgreSQL.
 
 ## Что проверяется
@@ -26,7 +26,13 @@ PostgreSQL и bcrypt. Проверяются нормализация, вали�
 Тесты каталога проверяют сбор главной страницы и прекращение запросов при ошибке
 любого из трёх чтений. Частичный результат при ошибке не возвращается.
 
-### `internal/delivery/http/handlers`
+### Обработчики HTTP
+
+В корневом пакете internal/delivery/handlers остаются проверки маршрутов и
+HTTP-сценариев через настоящие usecase и тестовые хранилища.
+В auth/response_test.go проверяется преобразование пользователя в ответ,
+в home/mapper_test.go — вспомогательные преобразования данных каталога.
+
 
 Запросы идут через `httptest.NewRequest` и `httptest.NewRecorder`, без поднятия
 сервера и подключения к БД. Неэкспортируемые подмены репозиториев объявлены в
@@ -120,7 +126,7 @@ PostgreSQL. Тесты включаются через `TEST_POSTGRES_DSN` и с
 - Некорректные старые пути отклоняют `up` целиком; несовместимые с прежней моделью
   новые ключи отклоняют `down` целиком. После отказа схема и данные остаются прежними.
 
-### `pkg/validation`
+### `internal/validation`
 
 Табличные тесты на email, пароль и имя: граничные длины, отсутствие `@`, точка
 на краю домена, пароль без цифры, слишком короткий и слишком длинный.
@@ -142,7 +148,7 @@ PostgreSQL. Тесты включаются через `TEST_POSTGRES_DSN` и с
 - хешер с ценой по умолчанию работает. Этот тест один на пакет: на боевой цене
   хеш считается около ста миллисекунд, остальные берут `MinCost`.
 
-### `internal/delivery/http/middleware`
+### `internal/delivery/middleware`
 
 - паника даёт `500` в формате контракта, текст паники клиенту не уходит,
   стек и идентификатор запроса попадают в лог;
@@ -164,7 +170,7 @@ PostgreSQL. Тесты включаются через `TEST_POSTGRES_DSN` и с
 
 `IsExpired` до срока, ровно в срок и после.
 
-### `pkg/response`
+### `internal/delivery/response`
 
 Код состояния, `Content-Type`, формат ошибки с разбором по полям и без него.
 
@@ -204,8 +210,8 @@ go tool cover -html=cover.out
 Отдельный пакет или тест:
 
 ```
-go test ./internal/delivery/http/handlers/ -cover
-go test ./internal/delivery/http/handlers/ -run TestSessionLifecycle -v
+go test ./internal/delivery/handlers/... -cover
+go test ./internal/delivery/handlers/ -run TestSessionLifecycle -v
 ```
 
 `cover.out` в `.gitignore`.

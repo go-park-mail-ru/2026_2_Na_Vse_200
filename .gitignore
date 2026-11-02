@@ -1,4 +1,4 @@
-# Binaries and test artifacts
+# Результаты сборки и тестов.
 *.exe
 *.exe~
 *.dll
@@ -10,11 +10,11 @@ coverage.*
 *.coverprofile
 profile.cov
 
-# Local Go workspace
+# Локальные настройки рабочей области Go.
 go.work
 go.work.sum
 
-# Local environment and editor settings
+# Локальные настройки окружения и редактора.
 .env
 .env.*
 !.env.example

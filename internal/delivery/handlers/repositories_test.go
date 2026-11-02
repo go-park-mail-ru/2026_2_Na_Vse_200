@@ -8,8 +8,6 @@ import (
 	"2026_2_Na_Vse_200/internal/models"
 )
 
-// Эти подмены связывают последовательные HTTP-запросы одного auth-сценария.
-// Они существуют только в тестах обработчиков; поведение PostgreSQL проверяется отдельно.
 type authUsersFixture struct {
 	users []models.User
 }
@@ -74,7 +72,6 @@ func (f *authSessionsFixture) Delete(_ context.Context, id models.SessionID) err
 	return nil
 }
 
-// Одной карточки каждого вида достаточно для проверки преобразования ответа Home.
 type homeCatalogFixture struct{}
 
 func (homeCatalogFixture) HomeTracks(context.Context, int) ([]models.Track, error) {

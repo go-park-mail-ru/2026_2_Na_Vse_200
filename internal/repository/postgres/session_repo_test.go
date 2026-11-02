@@ -19,8 +19,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// TestSessionRepository runs only when explicitly given a PostgreSQL connection.
-// Every run creates its own schema; existing schemas and their data are untouched.
+// Каждый тест создаёт отдельную схему в базе, указанной в TEST_POSTGRES_DSN.
 func TestSessionRepository(t *testing.T) {
 	pool, openPool := sessionTestDatabase(t)
 	repo := postgres.NewSessionRepo(pool)
@@ -75,7 +74,7 @@ func TestSessionRepository(t *testing.T) {
 			t.Fatalf("expired session leaked to caller: %+v", got)
 		}
 
-		// Use the database clock, without sleeps or an application clock offset.
+		// Время задаётся средствами БД, чтобы тест не зависел от расхождения часов.
 		const boundaryQuery = `
 			UPDATE auth_session SET expires_at = statement_timestamp() WHERE id = $1::uuid`
 		if _, err := pool.Exec(ctx, boundaryQuery, string(session.ID)); err != nil {
@@ -235,7 +234,7 @@ func sessionTestDatabase(t *testing.T) (*pgxpool.Pool, func(*testing.T) *pgxpool
 		cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cleanupCancel()
 		defer admin.Close(cleanupCtx)
-		// quotedSchema is generated above and never comes from the connection string.
+
 		if _, err := admin.Exec(cleanupCtx, "DROP SCHEMA "+quotedSchema+" CASCADE"); err != nil {
 			t.Errorf("drop isolated test schema %s: %v", schema, err)
 		}

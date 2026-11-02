@@ -5,9 +5,7 @@ import (
 	"strings"
 )
 
-// WithCORS разрешает браузерные запросы с адреса фронтенда.
-// Пустой origin отключает обёртку. Звёздочка в Allow-Origin несовместима
-// с Allow-Credentials, поэтому адрес указывается точный.
+// WithCORS разрешает запросы с указанного origin; пустое значение отключает обёртку.
 func WithCORS(allowedOrigin, allowedMethods, allowedHeaders string) Middleware {
 	return func(next http.Handler) http.Handler {
 		if allowedOrigin == "" {
@@ -22,7 +20,6 @@ func WithCORS(allowedOrigin, allowedMethods, allowedHeaders string) Middleware {
 				w.Header().Set("Access-Control-Allow-Headers", allowedHeaders)
 			}
 
-			// Preflight-запрос браузера перед основным.
 			if r.Method == http.MethodOptions {
 				w.WriteHeader(http.StatusNoContent)
 				return

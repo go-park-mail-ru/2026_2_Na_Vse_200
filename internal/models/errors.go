@@ -2,8 +2,7 @@ package models
 
 import "errors"
 
-// Общие ошибки предметной области, независимые от HTTP и PostgreSQL.
-// Проверяются через errors.Is: реализация вправе обернуть их контекстом.
+// Ошибки предметной области проверяются через errors.Is.
 var (
 	ErrMediaFileNotFound = errors.New("media file not found")
 	ErrArtistNotFound    = errors.New("artist not found")

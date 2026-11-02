@@ -10,21 +10,17 @@ import (
 	"os"
 	"strings"
 	"testing"
-	"time"
 
-	"2026_2_Na_Vse_200/internal/apimessage"
 	"2026_2_Na_Vse_200/internal/delivery/middleware"
 	"2026_2_Na_Vse_200/internal/models"
 	"2026_2_Na_Vse_200/internal/usecase/ports"
 )
 
-// newHomeHandler собирает обработчики с переданным репозиторием каталога.
 func newHomeHandler(catalog ports.CatalogRepository) http.Handler {
 	api := newRepositoryTestAPI(&testConfig, &repositoryTestDeps{Catalog: catalog})
 	return middleware.Chain(api.Routes(), middleware.WithJSONErrors)
 }
 
-// getHome запрашивает главную и возвращает ответ.
 func getHome(t *testing.T, handler http.Handler) *httptest.ResponseRecorder {
 	t.Helper()
 
@@ -64,8 +60,6 @@ func TestHomeSuccess(t *testing.T) {
 	}
 }
 
-// Карточка трека должна приходить собранной: без исполнителя и длительности
-// фронтенду нечего показывать в списке.
 func TestHomeTrackCardIsComplete(t *testing.T) {
 	w := getHome(t, newHomeHandler(homeCatalogFixture{}))
 
@@ -97,7 +91,6 @@ func TestHomeTrackCardIsComplete(t *testing.T) {
 	}
 }
 
-// emptyCatalogRepo отдаёт пустой каталог, причём срезами nil.
 type emptyCatalogRepo struct{}
 
 func (emptyCatalogRepo) HomeTracks(context.Context, int) ([]models.Track, error) {
@@ -112,8 +105,7 @@ func (emptyCatalogRepo) HomeAlbums(context.Context, int) ([]models.Album, error)
 	return nil, nil
 }
 
-// Пустой раздел обязан приходить как [], а не null: контракт требует массив,
-// а json.Marshal превращает nil-срез именно в null.
+// Пустой список должен передаваться как [], а не null.
 func TestHomeEmptyCatalogReturnsArrays(t *testing.T) {
 	w := getHome(t, newHomeHandler(emptyCatalogRepo{}))
 
@@ -133,7 +125,6 @@ func TestHomeEmptyCatalogReturnsArrays(t *testing.T) {
 	}
 }
 
-// brokenCatalogRepo изображает недоступное хранилище каталога.
 type brokenCatalogRepo struct{}
 
 func (brokenCatalogRepo) HomeTracks(context.Context, int) ([]models.Track, error) {
@@ -158,8 +149,8 @@ func TestHomeStorageFailure(t *testing.T) {
 		t.Fatalf("статус = %d, ожидался %d, тело: %s", w.Code, http.StatusInternalServerError, w.Body.String())
 	}
 
-	if got := decodeError(t, w); got.Error.Code != apimessage.CodeInternal {
-		t.Errorf("code = %q, ожидался %q", got.Error.Code, apimessage.CodeInternal)
+	if got := decodeError(t, w); got.Error.Code != models.CodeInternal {
+		t.Errorf("code = %q, ожидался %q", got.Error.Code, models.CodeInternal)
 	}
 
 	if strings.Contains(w.Body.String(), "5432") {
@@ -167,7 +158,6 @@ func TestHomeStorageFailure(t *testing.T) {
 	}
 }
 
-// Главная отдаётся только по GET.
 func TestHomeMethodNotAllowed(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/home", nil)
 	w := httptest.NewRecorder()
@@ -176,41 +166,5 @@ func TestHomeMethodNotAllowed(t *testing.T) {
 
 	if w.Code != http.StatusMethodNotAllowed {
 		t.Errorf("статус = %d, ожидался %d", w.Code, http.StatusMethodNotAllowed)
-	}
-}
-
-func TestOptionalString(t *testing.T) {
-	if got := optionalString(""); got != nil {
-		t.Errorf("для пустой строки вернулось %q, ожидался nil", *got)
-	}
-
-	const url = "https://cdn.example.com/covers/1001.jpg"
-	got := optionalString(url)
-	if got == nil {
-		t.Fatal("для непустой строки вернулся nil")
-	}
-
-	if *got != url {
-		t.Errorf("значение = %q, ожидалось %q", *got, url)
-	}
-}
-
-func TestFormatReleaseDate(t *testing.T) {
-	if got := formatReleaseDate(nil); got != nil {
-		t.Errorf("для неизвестной даты вернулось %q, ожидался nil", *got)
-	}
-
-	// Время берём не в UTC: формат обязан приводить дату к UTC, иначе на стенде
-	// в другом часовом поясе дата уехала бы на сутки.
-	moscow := time.FixedZone("MSK", 3*60*60)
-	date := time.Date(2024, 8, 1, 1, 30, 0, 0, moscow)
-
-	got := formatReleaseDate(&date)
-	if got == nil {
-		t.Fatal("для известной даты вернулся nil")
-	}
-
-	if *got != "2024-07-31" {
-		t.Errorf("дата = %q, ожидалась %q", *got, "2024-07-31")
 	}
 }

@@ -1,4 +1,3 @@
-// Команда server поднимает HTTP API музыкального сервиса.
 package main
 
 import (
@@ -117,7 +116,6 @@ func main() {
 }
 
 // cleanupExpiredSessions удаляет истёкшие сессии при запуске и раз в час.
-// Проверка авторизации отклоняет их независимо от выполнения очистки.
 func cleanupExpiredSessions(ctx context.Context, logger *slog.Logger, sessions *postgres.SessionRepo) {
 	ticker := time.NewTicker(time.Hour)
 	defer ticker.Stop()

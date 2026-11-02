@@ -10,7 +10,6 @@ import (
 	"2026_2_Na_Vse_200/internal/usecase/ports"
 )
 
-// Existing HTTP regression tests exercise the real application with storage fixtures.
 type repositoryTestDeps struct {
 	Users    ports.UserRepository
 	Sessions ports.SessionRepository

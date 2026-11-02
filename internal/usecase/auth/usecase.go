@@ -1,4 +1,3 @@
-// Package auth implements authentication independently of HTTP and storage.
 package auth
 
 import (
@@ -9,7 +8,7 @@ import (
 
 	"2026_2_Na_Vse_200/internal/models"
 	"2026_2_Na_Vse_200/internal/usecase/ports"
-	"2026_2_Na_Vse_200/pkg/validation"
+	"2026_2_Na_Vse_200/internal/validation"
 )
 
 var (
@@ -37,7 +36,7 @@ type Result struct {
 	Session models.Session
 }
 
-// Usecase coordinates repositories and password/session adapters.
+// Usecase выполняет сценарии авторизации через переданные зависимости.
 type Usecase struct {
 	users        ports.UserRepository
 	sessions     ports.SessionRepository

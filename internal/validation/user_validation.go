@@ -1,5 +1,3 @@
-// Package validation проверяет данные, пришедшие от клиента.
-// Причины отказа объявлены в errors.go.
 package validation
 
 import (
@@ -12,7 +10,7 @@ const (
 	_emailMinLen = 3
 	_emailMaxLen = 254
 
-	// Минимум считается в символах, максимум — в байтах: столько принимает bcrypt.
+	// Минимальная длина считается в символах, предел bcrypt — в байтах.
 	_passwordMinRunes = 8
 	_passwordMaxBytes = 72
 
@@ -20,15 +18,14 @@ const (
 	_displayNameMaxLen = 50
 )
 
-// SignupInput — данные формы регистрации от клиента.
+// SignupInput содержит данные регистрации.
 type SignupInput struct {
 	Email       string
 	Password    string
 	DisplayName string
 }
 
-// SignupResult — результат проверки: нормализованные поля и причина отказа
-// по каждому непрошедшему полю. Пустой Fields означает, что данные в порядке.
+// SignupResult содержит нормализованные данные и ошибки полей.
 type SignupResult struct {
 	Email       string
 	DisplayName string
@@ -41,8 +38,7 @@ func (r SignupResult) Valid() bool {
 	return len(r.Fields) == 0
 }
 
-// Signup проверяет и нормализует данные регистрации in.
-// Проверяются все поля сразу, а не до первой ошибки.
+// Signup нормализует данные регистрации и проверяет все поля за один вызов.
 func Signup(in SignupInput) SignupResult {
 	result := SignupResult{
 		Email:       NormalizeEmail(in.Email),
@@ -66,13 +62,13 @@ func Signup(in SignupInput) SignupResult {
 	return result
 }
 
-// LoginInput — данные формы входа от клиента.
+// LoginInput содержит данные входа.
 type LoginInput struct {
 	Email    string
 	Password string
 }
 
-// LoginResult — результат проверки: нормализованный email и причины отказа по полям.
+// LoginResult содержит нормализованные данные входа и ошибки полей.
 type LoginResult struct {
 	Email    string
 	Password string
@@ -84,9 +80,8 @@ func (r LoginResult) Valid() bool {
 	return len(r.Fields) == 0
 }
 
-// Login проверяет, что поля входа заполнены, и нормализует email.
-// Правила длины и состава пароля здесь не применяются: аккаунт мог быть заведён
-// до их ужесточения, да и отказ по ним подсказывал бы требования к паролю.
+// Login нормализует email и проверяет заполненность полей.
+// Требования к составу пароля применяются только при регистрации.
 func Login(in LoginInput) LoginResult {
 	result := LoginResult{
 		Email:    NormalizeEmail(in.Email),
@@ -105,14 +100,11 @@ func Login(in LoginInput) LoginResult {
 	return result
 }
 
-// NormalizeEmail приводит адрес к виду, в котором он хранится и ищется:
-// без пробелов по краям и в нижнем регистре.
+// NormalizeEmail удаляет пробелы по краям и переводит email в нижний регистр.
 func NormalizeEmail(email string) string {
 	return strings.ToLower(strings.TrimSpace(email))
 }
 
-// checkEmail сообщает, годится ли адрес.
-// Проверяется базовый формат; подтверждение адреса письмом пока не реализовано.
 func checkEmail(email string) error {
 	if email == "" {
 		return ErrEmailRequired
@@ -135,7 +127,6 @@ func checkEmail(email string) error {
 		return ErrEmailInvalid
 	}
 
-	// Точка в домене обязательна и не может стоять с краю.
 	dot := strings.Index(domain, ".")
 	if dot <= 0 || dot == len(domain)-1 {
 		return ErrEmailInvalid
@@ -144,20 +135,17 @@ func checkEmail(email string) error {
 	return nil
 }
 
-// checkPassword сообщает, годится ли пароль.
 func checkPassword(password string) error {
 	if password == "" {
 		return ErrPasswordRequired
 	}
 
-	// Символы, а не байты: иначе пароль из шести кириллических букв
-	// прошёл бы как достаточно длинный.
+	// Длина в байтах не отражает число символов в пароле.
 	if utf8.RuneCountInString(password) < _passwordMinRunes {
 		return ErrPasswordShort
 	}
 
-	// Предел bcrypt задан в байтах, поэтому в символах он разный:
-	// называть число пользователю было бы враньём.
+	// Предел bcrypt проверяется в байтах независимо от алфавита.
 	if len(password) > _passwordMaxBytes {
 		return ErrPasswordLong
 	}
@@ -179,13 +167,11 @@ func checkPassword(password string) error {
 	return nil
 }
 
-// checkDisplayName сообщает, годится ли имя.
 func checkDisplayName(name string) error {
 	if name == "" {
 		return ErrDisplayNameRequired
 	}
 
-	// Считаем символы, а не байты: кириллица занимает по два байта.
 	length := utf8.RuneCountInString(name)
 	if length < _displayNameMinLen || length > _displayNameMaxLen {
 		return ErrDisplayNameLength

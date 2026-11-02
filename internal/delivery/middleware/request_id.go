@@ -9,15 +9,14 @@ import (
 type ctxKey int
 
 const (
-	// HeaderRequestID — имя заголовка, в котором идентификатор приходит и уходит.
+	// HeaderRequestID задаёт имя заголовка с идентификатором запроса.
 	HeaderRequestID = "X-Request-ID"
-	// _requestIDKey — под этим ключом идентификатор лежит в контексте.
-	// Свой тип не даёт чужому пакету перезаписать значение.
+
 	_requestIDKey ctxKey = 0
 )
 
-// WithRequestID кладёт идентификатор запроса в контекст и в заголовок ответа.
-// Присланный клиентом идентификатор переиспользуется, если это валидный UUID.
+// WithRequestID сохраняет ID запроса в контексте и заголовке ответа.
+// ID клиента используется только при корректном формате UUID.
 func WithRequestID(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		id := r.Header.Get(HeaderRequestID)
@@ -32,7 +31,7 @@ func WithRequestID(next http.Handler) http.Handler {
 	})
 }
 
-// RequestIDFromContext возвращает идентификатор запроса из ctx.
+// RequestIDFromContext возвращает ID запроса или пустую строку.
 func RequestIDFromContext(ctx context.Context) string {
 	id, ok := ctx.Value(_requestIDKey).(string)
 	if !ok {

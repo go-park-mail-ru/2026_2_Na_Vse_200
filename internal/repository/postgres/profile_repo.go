@@ -10,7 +10,6 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-// Профиль использует тот же UserRepo и таблицу account.
 var _ ports.ProfileRepository = (*UserRepo)(nil)
 
 func (r *UserRepo) UpdateProfile(ctx context.Context, id models.UserID, email, displayName string) (models.User, error) {

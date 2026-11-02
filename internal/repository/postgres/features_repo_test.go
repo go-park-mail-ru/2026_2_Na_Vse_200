@@ -9,7 +9,6 @@ import (
 	"2026_2_Na_Vse_200/internal/repository/postgres"
 )
 
-// Использует отдельную схему через TEST_POSTGRES_DSN, как тесты сессий.
 func TestProfileAvatar(t *testing.T) {
 	pool, _ := sessionTestDatabase(t)
 	ctx := context.Background()

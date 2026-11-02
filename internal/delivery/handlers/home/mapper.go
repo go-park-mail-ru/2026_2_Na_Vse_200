@@ -1,58 +1,11 @@
-package handlers
+package home
 
 import (
-	"net/http"
 	"time"
 
 	"2026_2_Na_Vse_200/internal/models"
-	"2026_2_Na_Vse_200/pkg/response"
 )
 
-type homeResponse struct {
-	Tracks  []trackResponse  `json:"tracks"`
-	Artists []artistResponse `json:"artists"`
-	Albums  []albumResponse  `json:"albums"`
-}
-
-type trackResponse struct {
-	ID         string              `json:"id"`
-	Title      string              `json:"title"`
-	DurationMS int                 `json:"duration_ms"`
-	CoverURL   *string             `json:"cover_url"`
-	Artists    []artistRefResponse `json:"artists"`
-}
-
-type artistResponse struct {
-	ID       string  `json:"id"`
-	Name     string  `json:"name"`
-	ImageURL *string `json:"image_url"`
-}
-
-type albumResponse struct {
-	ID          string              `json:"id"`
-	Title       string              `json:"title"`
-	ReleaseDate *string             `json:"release_date"`
-	CoverURL    *string             `json:"cover_url"`
-	Artists     []artistRefResponse `json:"artists"`
-}
-
-type artistRefResponse struct {
-	ID   string `json:"id"`
-	Name string `json:"name"`
-}
-
-func (a *API) Home(w http.ResponseWriter, r *http.Request) {
-	result, err := a.deps.Catalog.Home(r.Context())
-	if err != nil {
-		writeInternalError(w, errReadCatalog, err)
-		return
-	}
-	response.WriteJSON(w, http.StatusOK, homeResponse{
-		Tracks:  newTrackResponses(result.Tracks),
-		Artists: newArtistResponses(result.Artists),
-		Albums:  newAlbumResponses(result.Albums),
-	})
-}
 func newTrackResponses(tracks []models.Track) []trackResponse {
 	out := make([]trackResponse, 0, len(tracks))
 	for _, track := range tracks {
@@ -104,7 +57,6 @@ func newArtistRefResponses(artists []models.ArtistRef) []artistRefResponse {
 	return out
 }
 
-// optionalString возвращает указатель на value или nil, если строка пустая.
 func optionalString(value string) *string {
 	if value == "" {
 		return nil
@@ -112,7 +64,6 @@ func optionalString(value string) *string {
 	return &value
 }
 
-// formatReleaseDate форматирует дату в YYYY-MM-DD или возвращает nil.
 func formatReleaseDate(value *time.Time) *string {
 	if value == nil {
 		return nil

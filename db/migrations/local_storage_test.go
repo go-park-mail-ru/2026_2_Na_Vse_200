@@ -164,7 +164,7 @@ func localStorageDatabase(t *testing.T) (*pgx.Conn, context.Context) {
 		defer cleanupCancel()
 		defer conn.Close(cleanupCtx)
 		_, _ = conn.Exec(cleanupCtx, "ROLLBACK")
-		// The identifier is generated above, never supplied by a caller.
+
 		if _, err := conn.Exec(cleanupCtx, "DROP SCHEMA "+schema+" CASCADE"); err != nil {
 			t.Errorf("drop isolated test schema: %v", err)
 		}
@@ -178,8 +178,7 @@ func localStorageDatabase(t *testing.T) (*pgx.Conn, context.Context) {
 	return conn, ctx
 }
 
-// The SQL files own BEGIN/COMMIT. On failure, roll back on the same connection
-// before examining the old schema or retrying a migration.
+// SQL-файлы управляют транзакциями. После ошибки нужен откат на том же соединении.
 func localStorageMigration(t *testing.T, conn *pgx.Conn, ctx context.Context, file string) error {
 	t.Helper()
 	sql, err := migrations.Files.ReadFile(file)

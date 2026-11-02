@@ -25,7 +25,7 @@ func TestWriteJSON(t *testing.T) {
 		t.Errorf("WriteJSON: Content-Type = %q, ожидался %q", gotType, wantType)
 	}
 
-	// Тело разбираем, а не сравниваем строкой: порядок полей и пробелы не гарантированы.
+	// Сравниваются данные JSON, а не порядок полей и пробелы.
 	var body map[string]string
 	if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
 		t.Fatalf("WriteJSON: тело не разобралось как JSON: %v, тело: %s", err, w.Body.String())
@@ -85,7 +85,6 @@ func TestWriteFieldsError(t *testing.T) {
 	}
 }
 
-// decode разбирает тело ответа как ошибку единого формата API.
 func decode(t *testing.T, w *httptest.ResponseRecorder) ErrorResponse {
 	t.Helper()
 
@@ -96,15 +95,13 @@ func decode(t *testing.T, w *httptest.ResponseRecorder) ErrorResponse {
 	return got
 }
 
-// Данные, которые не сериализуются, не должны оставить клиента с половиной
-// ответа: тело собирается целиком до отправки заголовков.
+// Ошибка сериализации должна обнаруживаться до отправки заголовков.
 func TestWriteJSONUnserializable(t *testing.T) {
 	log.SetOutput(io.Discard)
 	defer log.SetOutput(os.Stderr)
 
 	w := httptest.NewRecorder()
 
-	// Канал не имеет представления в JSON, Marshal на нём падает.
 	WriteJSON(w, http.StatusOK, map[string]any{"ch": make(chan int)})
 
 	if w.Code != http.StatusInternalServerError {

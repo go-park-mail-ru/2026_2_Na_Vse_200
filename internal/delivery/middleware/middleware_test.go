@@ -10,17 +10,15 @@ import (
 	"strings"
 	"testing"
 
-	"2026_2_Na_Vse_200/internal/apimessage"
-	"2026_2_Na_Vse_200/pkg/response"
+	"2026_2_Na_Vse_200/internal/delivery/response"
+	"2026_2_Na_Vse_200/internal/models"
 )
 
-// testLogger пишет лог в буфер.
 func testLogger() (*slog.Logger, *bytes.Buffer) {
 	var buf bytes.Buffer
 	return slog.New(slog.NewJSONHandler(&buf, nil)), &buf
 }
 
-// decodeLog разбирает последнюю строку лога как набор полей.
 func decodeLog(t *testing.T, buf *bytes.Buffer) map[string]any {
 	t.Helper()
 
@@ -36,7 +34,6 @@ func decodeLog(t *testing.T, buf *bytes.Buffer) map[string]any {
 	return fields
 }
 
-// decodeError разбирает тело ответа как ошибку единого формата API.
 func decodeError(t *testing.T, w *httptest.ResponseRecorder) response.ErrorResponse {
 	t.Helper()
 
@@ -128,7 +125,7 @@ func TestWithLogging(t *testing.T) {
 	if fields["status"] != float64(http.StatusCreated) {
 		t.Errorf("status = %v, ожидался %d", fields["status"], http.StatusCreated)
 	}
-	// В url должна попасть и строка запроса.
+
 	if url, _ := fields["url"].(string); !strings.Contains(url, "utm=test") {
 		t.Errorf("url = %v, ожидалась строка запроса целиком", fields["url"])
 	}
@@ -187,7 +184,6 @@ func TestRealIP(t *testing.T) {
 	}
 }
 
-// Паника не должна ронять процесс: клиент получает 500, подробности — в лог.
 func TestWithRecover(t *testing.T) {
 	logger, buf := testLogger()
 
@@ -198,15 +194,14 @@ func TestWithRecover(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/health", nil)
 	w := httptest.NewRecorder()
 
-	// Порядок как в main: recover снаружи всех остальных обёрток.
 	Chain(panicking, WithRecover(logger), WithRequestID).ServeHTTP(w, req)
 
 	if w.Code != http.StatusInternalServerError {
 		t.Fatalf("статус = %d, ожидался %d", w.Code, http.StatusInternalServerError)
 	}
 
-	if got := decodeError(t, w); got.Error.Code != apimessage.CodeInternal {
-		t.Errorf("code = %q, ожидался %q", got.Error.Code, apimessage.CodeInternal)
+	if got := decodeError(t, w); got.Error.Code != models.CodeInternal {
+		t.Errorf("code = %q, ожидался %q", got.Error.Code, models.CodeInternal)
 	}
 
 	if body := w.Body.String(); strings.Contains(body, "что-то пошло не так") {
@@ -286,7 +281,6 @@ func TestWithCORS(t *testing.T) {
 	})
 }
 
-// ServeMux отвечает текстом "404 page not found" — обёртка подменяет его на JSON.
 func TestWithJSONErrors(t *testing.T) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health", func(w http.ResponseWriter, r *http.Request) {
@@ -306,14 +300,14 @@ func TestWithJSONErrors(t *testing.T) {
 			method:   http.MethodGet,
 			path:     "/api/v1/nope",
 			wantCode: http.StatusNotFound,
-			wantErr:  apimessage.CodeNotFound,
+			wantErr:  models.CodeNotFound,
 		},
 		{
 			name:     "чужой метод",
 			method:   http.MethodPost,
 			path:     "/health",
 			wantCode: http.StatusMethodNotAllowed,
-			wantErr:  apimessage.CodeMethodNotAllowed,
+			wantErr:  models.CodeMethodNotAllowed,
 		},
 	}
 
@@ -339,7 +333,6 @@ func TestWithJSONErrors(t *testing.T) {
 	}
 }
 
-// Успешный ответ обёртка не трогает.
 func TestWithJSONErrorsPassesSuccess(t *testing.T) {
 	ok := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		response.WriteJSON(w, http.StatusOK, map[string]string{"status": "ok"})
@@ -359,7 +352,6 @@ func TestWithJSONErrorsPassesSuccess(t *testing.T) {
 	}
 }
 
-// Первая обёртка в списке должна оказаться самой внешней.
 func TestChainOrder(t *testing.T) {
 	var order []string
 
@@ -393,8 +385,6 @@ func TestChainOrder(t *testing.T) {
 	}
 }
 
-// Обработчик вправе написать тело, не вызвав WriteHeader явно: тогда
-// стандартная библиотека подставляет 200, и лог должен показать именно его.
 func TestWithLoggingStatusWithoutWriteHeader(t *testing.T) {
 	logger, buf := testLogger()
 
@@ -415,8 +405,6 @@ func TestWithLoggingStatusWithoutWriteHeader(t *testing.T) {
 	}
 }
 
-// Идентификатора в контексте может не быть: обёртка стоит не первой или
-// обработчик позвали напрямую из теста.
 func TestRequestIDFromContextWithoutValue(t *testing.T) {
 	if got := RequestIDFromContext(context.Background()); got != "" {
 		t.Errorf("идентификатор = %q, ожидалась пустая строка", got)

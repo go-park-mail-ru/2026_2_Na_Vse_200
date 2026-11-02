@@ -8,8 +8,7 @@ import (
 	"time"
 )
 
-// WithLogging пишет структурированную запись на каждый обработанный запрос.
-// handledBy отвечает, кто обработал запрос, и попадает в одноимённое поле лога.
+// WithLogging записывает параметры запроса, статус и время обработки.
 func WithLogging(logger *slog.Logger, handledBy string) Middleware {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -42,15 +41,15 @@ func WithLogging(logger *slog.Logger, handledBy string) Middleware {
 	}
 }
 
-// RealIP определяет адрес клиента с учётом заголовков прокси.
-// Заголовки подделываются клиентом, поэтому годятся только для логов.
+// RealIP определяет адрес клиента для логов.
+// Заголовки прокси могут быть подделаны и не подходят для проверки доступа.
 func RealIP(r *http.Request) string {
 	if ip := strings.TrimSpace(r.Header.Get("X-Real-IP")); ip != "" {
 		return ip
 	}
 
 	if forwarded := r.Header.Get("X-Forwarded-For"); forwarded != "" {
-		// В цепочке адресов исходный клиент идёт первым.
+
 		client, _, _ := strings.Cut(forwarded, ",")
 		if client = strings.TrimSpace(client); client != "" {
 			return client

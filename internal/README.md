@@ -17,7 +17,7 @@ docker compose ps -a
 
 Откройте [http://localhost:8080/health](http://localhost:8080/health). Compose запускает PostgreSQL, ждёт его готовности, применяет миграции и затем запускает API. Сервис `migrate` после успеха завершается с кодом `0`; `db` и `server` продолжают работать.
 
-Для первого локального запуска `.env` создавать не обязательно. Существующий `.env` не перезаписывайте: контейнеры получают только явно выбранные настройки из `compose.yaml`. Пароль разработки по умолчанию — `music_local_dev`; его настройка и подключение SQLTools описаны в [инструкции БД](../db/README.md#запуск-через-docker-compose).
+Для первого локального запуска `.env` создавать не обязательно. Существующий `.env` не перезаписывайте: контейнеры получают только явно выбранные настройки из `compose.yaml`. Пароль разработки по умолчанию — `music_local_dev`; его настройка и подключение SQLTools описаны в [инструкции БД](../db/README.md#вся-система-в-docker-compose).
 
 API доступен на `localhost:8080`, отдельная база Docker — на `localhost:5433`. Уже установленная база на порту `5432` остаётся отдельной. Внутри Compose Go подключается к сервису `db:5432`; локальный `POSTGRES_DSN` из `.env` для этого не используется. Настройки `DOCKER_HTTP_PORT` и `DOCKER_POSTGRES_PORT` меняют внешние порты.
 
@@ -30,42 +30,6 @@ docker compose down
 ```
 
 `down` останавливает контейнеры и сохраняет базу в именованном volume. После изменения кода или SQL-миграций повторите `docker compose up --build -d`: команда пересобирает образ и запускает миграции. Обычный `restart` этого не делает.
-
-## Запуск Go на компьютере
-
-Нужен Go версии из `go.mod`. PostgreSQL можно запустить [в Docker](../db/README.md#go-на-компьютере-postgresql-в-docker) или использовать [отдельную локальную установку](../db/README.md#развёртывание-отдельной-базы-без-docker). Перед первым запуском примените все SQL-миграции, включая `000004_create_auth_session` и `000005_media_local_storage`. Аккаунты, сессии и музыкальный каталог используют PostgreSQL; без `POSTGRES_DSN` сервер не запустится.
-
-Если `.env` ещё нет, создайте его по `.env.example`: значения в шаблоне рассчитаны на БД Docker, доступную с компьютера на `localhost:5433`. Если файл уже существует, добавьте настройки базы в него, не перезаписывая остальные значения. В отличие от полного запуска через Compose, команды Go требуют `POSTGRES_DSN` в этом файле или окружении.
-
-PowerShell из корня проекта:
-
-```powershell
-.\scripts\run.ps1 go run ./cmd/migrate up
-.\scripts\run.ps1
-```
-
-Bash/Git Bash:
-
-```bash
-./scripts/run.sh go run ./cmd/migrate up
-./scripts/run.sh
-```
-
-Если переменные уже заданы в окружении, сервер можно запустить напрямую:
-
-```
-go run ./cmd/server
-```
-
-Миграции при старте сервера автоматически не выполняются. Не применяйте начальные миграции вслепую к базе, таблицы которой ранее создавались вручную; для разработки используйте новую пустую базу либо отдельно согласованный baseline.
-
-Сервер поднимается на http://localhost:8080. Проверка:
-
-```
-curl http://localhost:8080/health      # {"status":"ok"}
-```
-
-Остановка — Ctrl+C: сервер дожидается текущих запросов и только потом завершается.
 
 ## Конфигурация
 
@@ -91,27 +55,21 @@ Cookie будет иметь `SameSite=Lax`. При заданном origin и `
 
 Шаблон `.env.example` содержит только пример настроек без секретов. Свои значения держите локально в `.env` (он в `.gitignore`), на стенде — в переменных окружения сервера, а для сборки и деплоя их место в GitHub Secrets. Токены внешних сервисов для запуска БД и сервера не нужны.
 
-### Скрипт запуска
+### Настройки Docker Compose
 
-`scripts/run.ps1` для PowerShell и `scripts/run.sh` для Bash подхватывают локальную `.env` и запускают указанную команду; без аргументов запускают сервер.
+Compose читает .env из корня проекта и подставляет значения в compose.yaml.
+Для первого запуска достаточно значений по умолчанию. Существующий .env
+сохраняйте; доступные настройки перечислены в .env.example.
 
-PowerShell-скрипт предупреждает о пустом `POSTGRES_DSN` при обычном запуске сервера или команды миграций. Он не создаёт настройки и не запускает БД автоматически; исходная команда и её код возврата сохраняются.
+Сервер и миграции внутри контейнеров подключаются к db:5432.
+POSTGRES_DSN и PGPASSWORD для них задаёт compose.yaml.
+Внешние порты меняются через DOCKER_HTTP_PORT и DOCKER_POSTGRES_PORT.
+
+Для другого файла настроек используйте:
 
 ```powershell
-.\scripts\run.ps1
-.\scripts\run.ps1 go run ./cmd/migrate version
-.\scripts\run.ps1 go run ./cmd/migrate down 1
-.\scripts\run.ps1 go test ./...
+docker compose --env-file .env.stand up --build -d
 ```
-
-```bash
-./scripts/run.sh
-./scripts/run.sh go run ./cmd/migrate version
-./scripts/run.sh go test ./...
-ENV_FILE=.env.stand ./scripts/run.sh
-```
-
-Если `.env` отсутствует, обязательный `POSTGRES_DSN` нужно передать через окружение. На Windows Bash-скрипт запускается из Git Bash.
 
 ## Структура
 
@@ -122,20 +80,22 @@ cmd/server/                 точка входа: конфигурация, л�
 cmd/migrate/                команды применения и отката SQL-миграций через pgx
 db/migrations/             SQL-схема и история её изменений
 db/normalized/             модель данных и ER-диаграмма
-internal/apimessage/        коды ошибок и тексты для пользователя
 internal/auth/              хеширование и проверка паролей
 internal/config/            настройки из переменных окружения
-internal/delivery/http/handlers/          HTTP-обработчики
-internal/delivery/http/handlers/repositories_test.go локальные неэкспортируемые подмены для unit-тестов
-internal/delivery/http/middleware/        обвязка: request_id, recover, логирование, CORS, JSON-ошибки
-internal/models/            доменные сущности
+internal/delivery/handlers/routes.go сборка маршрутов
+internal/delivery/handlers/auth/     авторизация, cookie, запросы и ответы
+internal/delivery/handlers/home/     главная страница, ответы и преобразования
+internal/delivery/handlers/health/   проверка доступности сервиса
+internal/delivery/handlers/repositories_test.go локальные неэкспортируемые подмены для unit-тестов
+internal/delivery/middleware/        обвязка: request_id, recover, логирование, CORS, JSON-ошибки
+internal/models/            доменные сущности, коды ошибок и тексты для пользователя
 internal/usecase/auth/      регистрация, вход, текущий пользователь, выход
 internal/usecase/catalog/   сбор данных главной страницы
 internal/usecase/ports/     контракты хранилищ и хеширования для приложения
 internal/models/errors.go  общие ошибки предметной области
 internal/repository/postgres/ аккаунты, сессии и каталог в PostgreSQL
-pkg/response/               запись JSON-ответов
-pkg/validation/             проверки данных от клиента
+internal/delivery/response/               запись JSON-ответов
+internal/validation/             проверки данных от клиента
 ```
 
 ## Границы архитектуры

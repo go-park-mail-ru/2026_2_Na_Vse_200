@@ -1,4 +1,3 @@
-// репозиторий пользователей в postgres
 package postgres
 
 import (
@@ -13,20 +12,19 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-// UserRepo хранит аккаунты в таблице account
+// UserRepo хранит пользователей в таблице account.
 type UserRepo struct {
 	pool *pgxpool.Pool
 }
 
 var _ ports.UserRepository = (*UserRepo)(nil)
 
-// NewUserRepo создаёт репозиторий поверх уже открытого пула
+// NewUserRepo создаёт репозиторий пользователей.
 func NewUserRepo(pool *pgxpool.Pool) *UserRepo {
 	return &UserRepo{pool: pool}
 }
 
-// Create вставляет аккаунт. id и created_at проставляет база.
-// Повтор email — ErrEmailTaken.
+// Create сохраняет аккаунт. ID и время создания задаёт база данных.
 func (r *UserRepo) Create(ctx context.Context, user models.User) (models.User, error) {
 	const query = `
 		INSERT INTO account (email, password_hash, display_name, avatar_file_id)
@@ -54,7 +52,7 @@ func (r *UserRepo) Create(ctx context.Context, user models.User) (models.User, e
 	return user, nil
 }
 
-// GetByID возвращает пользователя или ErrUserNotFound
+// GetByID возвращает пользователя или models.ErrUserNotFound.
 func (r *UserRepo) GetByID(ctx context.Context, id models.UserID) (models.User, error) {
 	const query = `
 		SELECT id, email, password_hash, display_name, avatar_file_id::text, created_at
@@ -71,8 +69,7 @@ func (r *UserRepo) GetByID(ctx context.Context, id models.UserID) (models.User, 
 	return user, nil
 }
 
-// GetByEmail возвращает пользователя вместе с хешем пароля или ErrUserNotFound.
-// Email ожидается в нижнем регистре.
+// GetByEmail ищет пользователя по нормализованному email и возвращает его с хешем пароля.
 func (r *UserRepo) GetByEmail(ctx context.Context, email string) (models.User, error) {
 	const query = `
 		SELECT id, email, password_hash, display_name, avatar_file_id::text, created_at
@@ -89,7 +86,6 @@ func (r *UserRepo) GetByEmail(ctx context.Context, email string) (models.User, e
 	return user, nil
 }
 
-// scanUser читает строку таблицы account в models.User.
 func scanUser(row pgx.Row) (models.User, error) {
 	var (
 		user         models.User
@@ -109,13 +105,11 @@ func scanUser(row pgx.Row) (models.User, error) {
 	return user, nil
 }
 
-// isEmailConflict отличает занятый email от других нарушений уникальности.
 func isEmailConflict(err error) bool {
 	var pgErr *pgconn.PgError
 	return errors.As(err, &pgErr) && pgErr.Code == "23505" && pgErr.ConstraintName == "account_email_uk"
 }
 
-// проверка на неверный ID
 func isInvalidID(err error) bool {
 	var pgErr *pgconn.PgError
 	return errors.As(err, &pgErr) && pgErr.Code == "22P02"

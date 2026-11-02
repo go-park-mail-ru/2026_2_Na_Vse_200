@@ -6,7 +6,7 @@ import (
 )
 
 func TestLoadDefaults(t *testing.T) {
-	// Проверяем значения по умолчанию; обязательный DSN проверяется при запуске сервера.
+
 	t.Setenv("APP_ADDR", "")
 	t.Setenv("APP_ALLOWED_ORIGIN", "")
 	t.Setenv("APP_COOKIE_SECURE", "")
@@ -94,8 +94,6 @@ func TestLoadInvalidValues(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			t.Setenv(tt.key, tt.value)
 
-			// Опечатка в настройке должна ронять старт с понятной ошибкой,
-			// а не тихо подставлять значение по умолчанию.
 			if _, err := Load(); err == nil {
 				t.Errorf("Load с %s=%q: ошибки нет, а ожидалась", tt.key, tt.value)
 			}

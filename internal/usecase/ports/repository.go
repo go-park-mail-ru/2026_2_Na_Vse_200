@@ -1,5 +1,3 @@
-// Package ports объявляет интерфейсы доступа к данным.
-// Общие ошибки контрактов объявлены в internal/models/errors.go.
 package ports
 
 import (
@@ -10,16 +8,14 @@ import (
 
 // UserRepository хранит аккаунты.
 type UserRepository interface {
-	// Create сохраняет пользователя с уже посчитанным PasswordHash
-	// и возвращает его с проставленными ID и CreatedAt.
-	// Занятый email — ErrEmailTaken.
+	// Create сохраняет пользователя с готовым хешем пароля и возвращает ID и время создания.
+	// Занятый email обозначается models.ErrEmailTaken.
 	Create(ctx context.Context, user models.User) (models.User, error)
 
-	// GetByID возвращает пользователя или ErrUserNotFound.
+	// GetByID возвращает пользователя или models.ErrUserNotFound.
 	GetByID(ctx context.Context, id models.UserID) (models.User, error)
 
-	// GetByEmail возвращает пользователя вместе с PasswordHash или ErrUserNotFound.
-	// Email ожидается в нижнем регистре.
+	// GetByEmail ищет пользователя по нормализованному email и возвращает его с хешем пароля.
 	GetByEmail(ctx context.Context, email string) (models.User, error)
 }
 
@@ -27,24 +23,21 @@ type UserRepository interface {
 type SessionRepository interface {
 	Create(ctx context.Context, session models.Session) error
 
-	// GetByID возвращает сессию, ErrSessionNotFound или ErrSessionExpired.
 	GetByID(ctx context.Context, id models.SessionID) (models.Session, error)
 
-	// Delete удаляет сессию. Удаление несуществующей ошибкой не считается.
+	// Delete удаляет сессию. Отсутствующий или некорректный ID не считается ошибкой.
 	Delete(ctx context.Context, id models.SessionID) error
 }
 
-// CatalogRepository читает каталог для главной страницы.
-// Методы возвращают готовые карточки: длительность и исполнители уже собраны.
+// CatalogRepository читает карточки каталога для главной страницы.
 type CatalogRepository interface {
-	// HomeTracks возвращает не более limit опубликованных треков, новые первыми.
-	// Пустой каталог — пустой срез, а не ошибка.
+	// HomeTracks возвращает опубликованные треки с исполнителями, начиная с новых.
 	HomeTracks(ctx context.Context, limit int) ([]models.Track, error)
 
-	// HomeArtists возвращает не более limit исполнителей, новые первыми.
+	// HomeArtists возвращает исполнителей, начиная с новых.
 	HomeArtists(ctx context.Context, limit int) ([]models.Artist, error)
 
-	// HomeAlbums возвращает не более limit альбомов, новые первыми.
+	// HomeAlbums возвращает альбомы с исполнителями, начиная с новых.
 	HomeAlbums(ctx context.Context, limit int) ([]models.Album, error)
 }
 

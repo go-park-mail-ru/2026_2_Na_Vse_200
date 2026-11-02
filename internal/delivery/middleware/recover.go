@@ -5,24 +5,20 @@ import (
 	"net/http"
 	"runtime"
 
-	"2026_2_Na_Vse_200/internal/apimessage"
-	"2026_2_Na_Vse_200/pkg/response"
+	"2026_2_Na_Vse_200/internal/delivery/response"
+	"2026_2_Na_Vse_200/internal/models"
 )
 
-// _stackBufferSize — сколько места отводится под стек в записи о панике.
 const _stackBufferSize = 4 << 10
 
-// WithRecover перехватывает панику: клиент получает 500 в формате контракта,
-// стек и идентификатор запроса остаются в логе.
-//
-// Идентификатор берётся из заголовка ответа, а не из контекста: обёртка стоит
-// снаружи всех остальных, и контекст с идентификатором сюда не доходит.
+// WithRecover перехватывает панику и возвращает ответ 500.
+// ID запроса берётся из заголовка ответа: контекст внутренних обёрток здесь недоступен.
 func WithRecover(logger *slog.Logger) Middleware {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			defer func() {
 				if rec := recover(); rec != nil {
-					// Буфер ограничен: полный стек всех горутин может занять мегабайты.
+					// Размер стека ограничен, чтобы не записывать в лог слишком большой объём данных.
 					stackTrace := make([]byte, _stackBufferSize)
 					stackTrace = stackTrace[:runtime.Stack(stackTrace, true)]
 
@@ -35,7 +31,7 @@ func WithRecover(logger *slog.Logger) Middleware {
 					)
 
 					response.WriteError(w, http.StatusInternalServerError,
-						apimessage.CodeInternal, apimessage.MsgInternal)
+						models.CodeInternal, models.MsgInternal)
 				}
 			}()
 
