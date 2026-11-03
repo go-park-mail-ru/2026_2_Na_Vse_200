@@ -429,7 +429,6 @@ func TestLoginSessionFailure(t *testing.T) {
 		t.Fatalf("хеширование пароля: %v", err)
 	}
 
-	// Пользователь создаётся напрямую, поскольку регистрация тоже обращается к хранилищу сессий.
 	users := &authUsersFixture{}
 	if _, err := users.Create(context.Background(), models.User{
 		Email:        "andrey@example.com",

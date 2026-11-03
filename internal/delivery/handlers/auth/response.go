@@ -15,7 +15,7 @@ func newUserResponse(user models.User) userResponse {
 		Email:       user.Email,
 		DisplayName: user.DisplayName,
 	}
-	// Отсутствующий аватар передаётся как null.
+
 	if user.AvatarURL != "" {
 		avatar := user.AvatarURL
 		resp.AvatarURL = &avatar

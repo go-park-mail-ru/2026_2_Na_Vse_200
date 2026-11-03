@@ -85,7 +85,7 @@ func TestSignupPassword(t *testing.T) {
 		{name: "без цифр", password: "muzykamuzyka", valid: false},
 		{name: "без букв", password: "202620262026", valid: false},
 		{name: "длиннее 72 байт", password: strings.Repeat("a1", 40), valid: false},
-		// Пароль короче восьми символов должен отклоняться независимо от длины в байтах.
+
 		{name: "шесть кириллических символов", password: "парол1", valid: false},
 		{name: "восемь кириллических символов", password: "пароль12", valid: true},
 	}

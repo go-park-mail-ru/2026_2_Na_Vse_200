@@ -18,7 +18,7 @@ func WithRecover(logger *slog.Logger) Middleware {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			defer func() {
 				if rec := recover(); rec != nil {
-					// Размер стека ограничен, чтобы не записывать в лог слишком большой объём данных.
+
 					stackTrace := make([]byte, _stackBufferSize)
 					stackTrace = stackTrace[:runtime.Stack(stackTrace, true)]
 

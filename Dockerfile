@@ -10,8 +10,7 @@ RUN go mod download
 COPY cmd ./cmd
 COPY internal ./internal
 COPY db/migrations ./db/migrations
-RUN go build -trimpath -ldflags="-s -w" -o /out/server ./cmd/server \
-    && go build -trimpath -ldflags="-s -w" -o /out/migrate ./cmd/migrate
+RUN go build -trimpath -ldflags="-s -w" -o /out/app ./cmd/app
 
 FROM alpine:3.24 AS runtime
 RUN apk add --no-cache ca-certificates \
@@ -19,8 +18,9 @@ RUN apk add --no-cache ca-certificates \
     && adduser -S -G app app
 
 WORKDIR /app
-COPY --from=build /out/server /out/migrate ./
+COPY --from=build /out/app ./
 USER app:app
 
 EXPOSE 8080
-CMD ["/app/server"]
+ENTRYPOINT ["/app/app"]
+CMD ["server"]

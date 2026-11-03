@@ -31,6 +31,27 @@ docker compose down
 
 `down` останавливает контейнеры и сохраняет базу в именованном volume. После изменения кода или SQL-миграций повторите `docker compose up --build -d`: команда пересобирает образ и запускает миграции. Обычный `restart` этого не делает.
 
+## Команды приложения
+
+В проекте одна точка входа cmd/app/main.go. Собранная программа app принимает
+команду server для запуска HTTP-сервера или migrate для работы с миграциями.
+
+```text
+app server
+app migrate up
+app migrate version
+app migrate down 1
+```
+
+Для локального запуска через Go используются go run ./cmd/app server
+и go run ./cmd/app migrate up. Настройки должны быть заданы в окружении;
+Go-программа сама .env не загружает. В Docker это делает конфигурация Compose.
+
+Dockerfile собирает один бинарный файл /app/app. Сервис server передаёт
+ему команду server, сервис migrate — migrate up. Сохраняется короткий вызов
+docker compose run --rm migrate version: entrypoint этого сервиса уже содержит
+команду migrate.
+
 ## Конфигурация
 
 Настройки читаются из переменных окружения. `POSTGRES_DSN` обязателен; остальные значения по умолчанию рассчитаны на локальный запуск.
@@ -74,10 +95,11 @@ docker compose --env-file .env.stand up --build -d
 ## Структура
 
 ```
-Dockerfile                  сборка Linux-образа сервера и команды миграций
+Dockerfile                  сборка Linux-образа с единой программой app
 compose.yaml                PostgreSQL, миграции, API и постоянный volume
-cmd/server/                 точка входа: конфигурация, логгер, обвязка, запуск
-cmd/migrate/                команды применения и отката SQL-миграций через pgx
+cmd/app/                    точка входа: команды server и migrate
+internal/app/               подключение к БД, сборка зависимостей и запуск сервера
+internal/migration/         разбор команды, подключение к БД и транзакции миграций
 db/migrations/             SQL-схема и история её изменений
 db/normalized/             модель данных и ER-диаграмма
 internal/auth/              хеширование и проверка паролей
@@ -110,7 +132,7 @@ Go-зависимости направлены к внутренним слоя�
   в общие ошибки моделей;
 - `handlers` зависит от интерфейсов сценариев, читает JSON, устанавливает cookie
   и переводит результаты и ошибки в HTTP-ответы;
-- `cmd/server/main.go` создаёт PostgreSQL-репозитории, bcrypt-адаптер и usecase,
+- `internal/app/app.go` создаёт PostgreSQL-репозитории, bcrypt-адаптер и usecase,
   затем передаёт сценарии обработчикам.
 
 Время, генератор идентификаторов и TTL передаются в usecase авторизации извне.

@@ -74,7 +74,6 @@ func TestSessionRepository(t *testing.T) {
 			t.Fatalf("expired session leaked to caller: %+v", got)
 		}
 
-		// Время задаётся средствами БД, чтобы тест не зависел от расхождения часов.
 		const boundaryQuery = `
 			UPDATE auth_session SET expires_at = statement_timestamp() WHERE id = $1::uuid`
 		if _, err := pool.Exec(ctx, boundaryQuery, string(session.ID)); err != nil {

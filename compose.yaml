@@ -29,7 +29,7 @@ services:
 
   migrate:
     <<: *backend
-    entrypoint: ["/app/migrate"]
+    entrypoint: ["/app/app", "migrate"]
     command: ["up"]
     depends_on:
       db:
@@ -38,6 +38,7 @@ services:
 
   server:
     <<: *backend
+    command: ["server"]
     environment:
       <<: *database-connection
       APP_ADDR: ":8080"

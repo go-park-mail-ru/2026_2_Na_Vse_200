@@ -26,7 +26,6 @@ func TestFormatReleaseDate(t *testing.T) {
 		t.Errorf("для неизвестной даты вернулось %q, ожидался nil", *got)
 	}
 
-	// Смещение проверяет преобразование даты релиза в UTC.
 	moscow := time.FixedZone("MSK", 3*60*60)
 	date := time.Date(2024, 8, 1, 1, 30, 0, 0, moscow)
 

@@ -140,12 +140,10 @@ func checkPassword(password string) error {
 		return ErrPasswordRequired
 	}
 
-	// Длина в байтах не отражает число символов в пароле.
 	if utf8.RuneCountInString(password) < _passwordMinRunes {
 		return ErrPasswordShort
 	}
 
-	// Предел bcrypt проверяется в байтах независимо от алфавита.
 	if len(password) > _passwordMaxBytes {
 		return ErrPasswordLong
 	}

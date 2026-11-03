@@ -25,7 +25,6 @@ func TestWriteJSON(t *testing.T) {
 		t.Errorf("WriteJSON: Content-Type = %q, ожидался %q", gotType, wantType)
 	}
 
-	// Сравниваются данные JSON, а не порядок полей и пробелы.
 	var body map[string]string
 	if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
 		t.Fatalf("WriteJSON: тело не разобралось как JSON: %v, тело: %s", err, w.Body.String())
