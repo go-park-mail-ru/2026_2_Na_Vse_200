@@ -34,7 +34,7 @@ func TestHashAndVerify(t *testing.T) {
 	}
 }
 
-// cost зашит в сам хеш, поэтому проверять можно любым хешером.
+// Стоимость bcrypt хранится в хеше, а не берётся из настроек проверяющего хешера.
 func TestVerifyOtherCost(t *testing.T) {
 	const pass = "muzyka2026"
 
@@ -67,7 +67,6 @@ func TestHashTooLong(t *testing.T) {
 	}
 }
 
-// Битый хеш в хранилище - это ошибка
 func TestVerifyBrokenHash(t *testing.T) {
 	h := NewBcryptHasherWithCost(MinCost)
 
@@ -90,8 +89,7 @@ func TestVerifyBrokenHash(t *testing.T) {
 	}
 }
 
-// Хешер с ценой по умолчанию проверяем один раз: на этой цене один хеш
-// считается около ста миллисекунд, поэтому остальные тесты берут MinCost.
+// Минимальная стоимость bcrypt сокращает время тестов; значение по умолчанию проверяется отдельно.
 func TestNewBcryptHasher(t *testing.T) {
 	h := NewBcryptHasher()
 
