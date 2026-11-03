@@ -1,4 +1,3 @@
-// Package auth считает и проверяет хеши паролей и выдаёт идентификаторы сессий.
 package auth
 
 import (
@@ -9,24 +8,16 @@ import (
 )
 
 const (
-	// MinCost — минимальная цена bcrypt.
+	// MinCost задаёт минимальную стоимость bcrypt.
 	MinCost = bcrypt.MinCost
-	// MaxPasswordBytes — предел bcrypt: всё после 72 байт он отбрасывает.
+	// MaxPasswordBytes задаёт максимальную длину пароля в байтах для bcrypt.
 	MaxPasswordBytes = 72
 )
 
-// ErrPasswordTooLong возвращается, когда пароль длиннее MaxPasswordBytes.
-// Отличается от внутренних ошибок: виноват клиент, а не сервис.
+// ErrPasswordTooLong означает превышение предела длины пароля для bcrypt.
 var ErrPasswordTooLong = errors.New("password too long")
 
-// Hasher считает и проверяет хеш пароля.
-type Hasher interface {
-	Hash(password string) (string, error)
-	Verify(password, hash string) (bool, error)
-}
-
-// BcryptHasher реализует Hasher поверх bcrypt.
-// Соль и цена хранятся внутри строки хеша.
+// BcryptHasher вычисляет и проверяет хеши bcrypt.
 type BcryptHasher struct {
 	cost int
 }
@@ -41,8 +32,7 @@ func NewBcryptHasherWithCost(cost int) BcryptHasher {
 	return BcryptHasher{cost: cost}
 }
 
-// Hash считает хеш пароля. Пароль длиннее MaxPasswordBytes не принимается:
-// обрезать нельзя, иначе проверялось бы только его начало.
+// Hash возвращает хеш пароля. Пароли длиннее MaxPasswordBytes отклоняются.
 func (h BcryptHasher) Hash(password string) (string, error) {
 	if len(password) > MaxPasswordBytes {
 		return "", ErrPasswordTooLong
@@ -55,7 +45,7 @@ func (h BcryptHasher) Hash(password string) (string, error) {
 	return string(hash), nil
 }
 
-// Verify сообщает, соответствует ли пароль хешу.
+// Verify возвращает false для неверного пароля и ошибку для некорректного хеша.
 func (h BcryptHasher) Verify(password, hash string) (bool, error) {
 	err := bcrypt.CompareHashAndPassword([]byte(hash), []byte(password))
 

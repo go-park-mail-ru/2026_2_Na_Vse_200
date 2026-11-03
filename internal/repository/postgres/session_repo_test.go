@@ -11,18 +11,15 @@ import (
 	"time"
 	"uuid"
 
+	"2026_2_Na_Vse_200/db/migrations"
+	"2026_2_Na_Vse_200/internal/models"
+	"2026_2_Na_Vse_200/internal/repository/postgres"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
-
-	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/db/migrations"
-	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/models"
-	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/repository"
-	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/repository/postgres"
 )
 
-// TestSessionRepository runs only when explicitly given a PostgreSQL connection.
-// Every run creates its own schema; existing schemas and their data are untouched.
+// Каждый тест создаёт отдельную схему в базе, указанной в TEST_POSTGRES_DSN.
 func TestSessionRepository(t *testing.T) {
 	pool, openPool := sessionTestDatabase(t)
 	repo := postgres.NewSessionRepo(pool)
@@ -51,7 +48,7 @@ func TestSessionRepository(t *testing.T) {
 	t.Run("unknown and malformed IDs", func(t *testing.T) {
 		for _, id := range []models.SessionID{models.SessionID(uuid.New().String()), "invalid-session", ""} {
 			got, err := repo.GetByID(ctx, id)
-			if !errors.Is(err, repository.ErrSessionNotFound) {
+			if !errors.Is(err, models.ErrSessionNotFound) {
 				t.Errorf("GetByID(%q): %v, want ErrSessionNotFound", id, err)
 			}
 			if got != (models.Session{}) {
@@ -70,20 +67,19 @@ func TestSessionRepository(t *testing.T) {
 			t.Fatalf("Create expired session: %v", err)
 		}
 		got, err := repo.GetByID(ctx, session.ID)
-		if !errors.Is(err, repository.ErrSessionExpired) {
+		if !errors.Is(err, models.ErrSessionExpired) {
 			t.Fatalf("GetByID expired: %v, want ErrSessionExpired", err)
 		}
 		if got != (models.Session{}) {
 			t.Fatalf("expired session leaked to caller: %+v", got)
 		}
 
-		// Use the database clock, without sleeps or an application clock offset.
 		const boundaryQuery = `
 			UPDATE auth_session SET expires_at = statement_timestamp() WHERE id = $1::uuid`
 		if _, err := pool.Exec(ctx, boundaryQuery, string(session.ID)); err != nil {
 			t.Fatalf("set expiry to database time: %v", err)
 		}
-		if _, err := repo.GetByID(ctx, session.ID); !errors.Is(err, repository.ErrSessionExpired) {
+		if _, err := repo.GetByID(ctx, session.ID); !errors.Is(err, models.ErrSessionExpired) {
 			t.Fatalf("session whose deadline has been reached: %v, want ErrSessionExpired", err)
 		}
 	})
@@ -97,7 +93,7 @@ func TestSessionRepository(t *testing.T) {
 		if err := repo.Delete(ctx, session.ID); err != nil {
 			t.Fatalf("Delete: %v", err)
 		}
-		if _, err := repo.GetByID(ctx, session.ID); !errors.Is(err, repository.ErrSessionNotFound) {
+		if _, err := repo.GetByID(ctx, session.ID); !errors.Is(err, models.ErrSessionNotFound) {
 			t.Fatalf("GetByID after logout: %v, want ErrSessionNotFound", err)
 		}
 		if err := repo.Delete(ctx, session.ID); err != nil {
@@ -120,7 +116,7 @@ func TestSessionRepository(t *testing.T) {
 		if _, err := repo.GetByID(ctx, active.ID); err != nil {
 			t.Fatalf("active session must survive cleanup: %v", err)
 		}
-		if _, err := repo.GetByID(ctx, expired.ID); !errors.Is(err, repository.ErrSessionNotFound) {
+		if _, err := repo.GetByID(ctx, expired.ID); !errors.Is(err, models.ErrSessionNotFound) {
 			t.Fatalf("cleaned session: %v, want ErrSessionNotFound", err)
 		}
 		if err := repo.DeleteExpired(ctx); err != nil {
@@ -166,7 +162,7 @@ func TestSessionRepository(t *testing.T) {
 		if _, err := pool.Exec(ctx, deleteAccountQuery, string(owner.ID)); err != nil {
 			t.Fatalf("delete account: %v", err)
 		}
-		if _, err := repo.GetByID(ctx, session.ID); !errors.Is(err, repository.ErrSessionNotFound) {
+		if _, err := repo.GetByID(ctx, session.ID); !errors.Is(err, models.ErrSessionNotFound) {
 			t.Fatalf("session after account deletion: %v, want ErrSessionNotFound", err)
 		}
 	})
@@ -207,7 +203,7 @@ func TestSessionRepository(t *testing.T) {
 		}
 		for _, check := range checks {
 			err := check.run()
-			if err == nil || errors.Is(err, repository.ErrSessionNotFound) || errors.Is(err, repository.ErrSessionExpired) {
+			if err == nil || errors.Is(err, models.ErrSessionNotFound) || errors.Is(err, models.ErrSessionExpired) {
 				t.Errorf("%s must preserve the database failure, got %v", check.name, err)
 			}
 		}
@@ -237,7 +233,7 @@ func sessionTestDatabase(t *testing.T) (*pgxpool.Pool, func(*testing.T) *pgxpool
 		cleanupCtx, cleanupCancel := context.WithTimeout(context.Background(), 10*time.Second)
 		defer cleanupCancel()
 		defer admin.Close(cleanupCtx)
-		// quotedSchema is generated above and never comes from the connection string.
+
 		if _, err := admin.Exec(cleanupCtx, "DROP SCHEMA "+quotedSchema+" CASCADE"); err != nil {
 			t.Errorf("drop isolated test schema %s: %v", schema, err)
 		}

@@ -6,11 +6,10 @@ import (
 	"fmt"
 	"uuid"
 
+	"2026_2_Na_Vse_200/internal/models"
+	"2026_2_Na_Vse_200/internal/usecase/ports"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-
-	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/models"
-	"github.com/go-park-mail-ru/2026_2_Na_Vse_200/internal/repository"
 )
 
 const createSessionQuery = `
@@ -31,20 +30,19 @@ const deleteExpiredSessionsQuery = `
 	DELETE FROM auth_session
 	WHERE expires_at <= statement_timestamp()`
 
-// SessionRepo хранит серверные сессии в PostgreSQL.
+// SessionRepo хранит сессии в PostgreSQL.
 type SessionRepo struct {
 	pool *pgxpool.Pool
 }
 
-var _ repository.SessionRepositoryInterface = (*SessionRepo)(nil)
+var _ ports.SessionRepository = (*SessionRepo)(nil)
 
-// NewSessionRepo создаёт репозиторий поверх уже открытого пула.
+// NewSessionRepo создаёт репозиторий сессий.
 func NewSessionRepo(pool *pgxpool.Pool) *SessionRepo {
 	return &SessionRepo{pool: pool}
 }
 
-// Create сохраняет новую сессию. Идентификатор должен быть создан вызывающим кодом.
-// Конфликт идентификатора и другие ошибки БД возвращаются вызывающему коду.
+// Create сохраняет сессию с идентификатором, заданным вызывающим кодом.
 func (r *SessionRepo) Create(ctx context.Context, session models.Session) error {
 	if _, err := r.pool.Exec(ctx, createSessionQuery, string(session.ID), string(session.UserID), session.ExpiresAt); err != nil {
 		return fmt.Errorf("insert auth session: %w", err)
@@ -52,7 +50,7 @@ func (r *SessionRepo) Create(ctx context.Context, session models.Session) error 
 	return nil
 }
 
-// GetByID возвращает действующую сессию. Время истечения проверяет база данных.
+// GetByID возвращает сессию, проверяя срок действия по времени БД.
 func (r *SessionRepo) GetByID(ctx context.Context, id models.SessionID) (models.Session, error) {
 	if err := ctx.Err(); err != nil {
 		return models.Session{}, err
@@ -60,7 +58,7 @@ func (r *SessionRepo) GetByID(ctx context.Context, id models.SessionID) (models.
 
 	sessionID, err := uuid.Parse(string(id))
 	if err != nil {
-		return models.Session{}, repository.ErrSessionNotFound
+		return models.Session{}, models.ErrSessionNotFound
 	}
 
 	var (
@@ -72,12 +70,12 @@ func (r *SessionRepo) GetByID(ctx context.Context, id models.SessionID) (models.
 		Scan(&storedID, &account, &session.ExpiresAt, &expired)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return models.Session{}, repository.ErrSessionNotFound
+			return models.Session{}, models.ErrSessionNotFound
 		}
 		return models.Session{}, fmt.Errorf("select auth session by id: %w", err)
 	}
 	if expired {
-		return models.Session{}, repository.ErrSessionExpired
+		return models.Session{}, models.ErrSessionExpired
 	}
 
 	session.ID = models.SessionID(storedID)
@@ -85,7 +83,7 @@ func (r *SessionRepo) GetByID(ctx context.Context, id models.SessionID) (models.
 	return session, nil
 }
 
-// Delete удаляет сессию. Отсутствующий или некорректный идентификатор допустим.
+// Delete удаляет сессию. Отсутствующий или некорректный ID не считается ошибкой.
 func (r *SessionRepo) Delete(ctx context.Context, id models.SessionID) error {
 	if err := ctx.Err(); err != nil {
 		return err
@@ -102,7 +100,7 @@ func (r *SessionRepo) Delete(ctx context.Context, id models.SessionID) error {
 	return nil
 }
 
-// DeleteExpired удаляет все истёкшие сессии одним SQL-оператором.
+// DeleteExpired удаляет все истёкшие сессии.
 func (r *SessionRepo) DeleteExpired(ctx context.Context) error {
 	if _, err := r.pool.Exec(ctx, deleteExpiredSessionsQuery); err != nil {
 		return fmt.Errorf("delete expired auth sessions: %w", err)

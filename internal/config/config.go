@@ -1,5 +1,3 @@
-// Package config читает настройки сервиса из переменных окружения.
-// Сервер использует локальные значения по умолчанию и обязательный POSTGRES_DSN.
 package config
 
 import (
@@ -10,20 +8,19 @@ import (
 	"time"
 )
 
-// Config — настройки, собранные при старте.
+// Config содержит настройки приложения.
 type Config struct {
-	Addr            string        // адрес прослушивания, например ":8080"
-	AllowedOrigin   string        // адрес фронтенда для CORS; пусто — общий с ним origin
-	AllowedMethods  string        // методы, разрешённые кросс-доменному запросу
-	AllowedHeaders  string        // заголовки, разрешённые кросс-доменному запросу
-	CookieSecure    bool          // флаг Secure у сессионной cookie, по http:// false
-	SessionTTL      time.Duration // срок жизни сессии и cookie
-	ShutdownTimeout time.Duration // сколько ждём завершения запросов при остановке
-	PostgreSQLDSN   string        // строка подключения к PostgreSQL
+	Addr            string
+	AllowedOrigin   string // Пустое значение означает отсутствие отдельного origin для фронтенда.
+	AllowedMethods  string
+	AllowedHeaders  string
+	CookieSecure    bool
+	SessionTTL      time.Duration
+	ShutdownTimeout time.Duration
+	PostgreSQLDSN   string
 }
 
-// Load собирает конфигурацию из окружения. Заданное, но неразбираемое значение —
-// ошибка, а не повод взять значение по умолчанию.
+// Load читает настройки из окружения и возвращает ошибку при неверном формате значения.
 func Load() (cfg Config, err error) {
 	cfg = Config{
 		Addr:           getEnv("APP_ADDR", ":8080"),
@@ -72,7 +69,6 @@ func getBool(key string, fallback bool) (bool, error) {
 	return value, nil
 }
 
-// getDuration разбирает значения вида 24h, 30m, 10s.
 func getDuration(key string, fallback time.Duration) (time.Duration, error) {
 	raw := getEnv(key, "")
 	if raw == "" {

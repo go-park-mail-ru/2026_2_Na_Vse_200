@@ -1,4 +1,4 @@
-module github.com/go-park-mail-ru/2026_2_Na_Vse_200
+module 2026_2_Na_Vse_200
 
 go 1.27.1
 
