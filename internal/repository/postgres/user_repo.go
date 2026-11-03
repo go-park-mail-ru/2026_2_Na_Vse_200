@@ -12,9 +12,13 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+type rowQuerier interface {
+	QueryRow(context.Context, string, ...any) pgx.Row
+}
+
 // UserRepo хранит пользователей в таблице account.
 type UserRepo struct {
-	pool *pgxpool.Pool
+	pool rowQuerier
 }
 
 var _ ports.UserRepository = (*UserRepo)(nil)
