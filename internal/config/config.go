@@ -18,6 +18,7 @@ type Config struct {
 	SessionTTL      time.Duration
 	ShutdownTimeout time.Duration
 	PostgreSQLDSN   string
+	MediaRoot       string
 }
 
 // Load читает настройки из окружения и возвращает ошибку при неверном формате значения.
@@ -25,9 +26,10 @@ func Load() (cfg Config, err error) {
 	cfg = Config{
 		Addr:           getEnv("APP_ADDR", ":8080"),
 		AllowedOrigin:  getEnv("APP_ALLOWED_ORIGIN", ""),
-		AllowedMethods: getEnv("APP_ALLOWED_METHODS", "GET, POST, OPTIONS"),
+		AllowedMethods: getEnv("APP_ALLOWED_METHODS", "GET, POST, PATCH, OPTIONS"),
 		AllowedHeaders: getEnv("APP_ALLOWED_HEADERS", "Content-Type"),
 		PostgreSQLDSN:  getEnv("POSTGRES_DSN", ""),
+		MediaRoot:      getEnv("MEDIA_ROOT", "data/media"),
 	}
 
 	cfg.CookieSecure, err = getBool("APP_COOKIE_SECURE", false)

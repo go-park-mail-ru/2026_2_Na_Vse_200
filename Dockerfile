@@ -15,7 +15,9 @@ RUN go build -trimpath -ldflags="-s -w" -o /out/app ./cmd/app
 FROM alpine:3.24 AS runtime
 RUN apk add --no-cache ca-certificates \
     && addgroup -S app \
-    && adduser -S -G app app
+    && adduser -S -G app app \
+    && mkdir -p /data/media \
+    && chown -R app:app /data/media
 
 WORKDIR /app
 COPY --from=build /out/app ./
