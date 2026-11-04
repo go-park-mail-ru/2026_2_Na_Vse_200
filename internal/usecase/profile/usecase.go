@@ -15,7 +15,7 @@ import (
 )
 
 const (
-	MaxAvatarBytes = 2 << 20
+	MaxAvatarBytes = 2_097_152
 	avatarURLPath  = "/api/v1/media/"
 )
 
