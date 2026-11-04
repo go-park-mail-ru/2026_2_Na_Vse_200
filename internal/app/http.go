@@ -11,8 +11,10 @@ import (
 	"2026_2_Na_Vse_200/internal/auth"
 	"2026_2_Na_Vse_200/internal/config"
 	"2026_2_Na_Vse_200/internal/delivery/handlers"
+	"2026_2_Na_Vse_200/internal/delivery/handlers/media"
 	"2026_2_Na_Vse_200/internal/delivery/middleware"
 	"2026_2_Na_Vse_200/internal/repository/postgres"
+	"2026_2_Na_Vse_200/internal/storage"
 	artistusecase "2026_2_Na_Vse_200/internal/usecase/artist"
 	authusecase "2026_2_Na_Vse_200/internal/usecase/auth"
 	catalogusecase "2026_2_Na_Vse_200/internal/usecase/catalog"
@@ -20,13 +22,20 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-func newHandler(cfg config.Config, pool *pgxpool.Pool, sessions *postgres.SessionRepo, logger *slog.Logger) http.Handler {
+func newHandler(cfg config.Config, pool *pgxpool.Pool, sessions *postgres.SessionRepo, logger *slog.Logger) (http.Handler, error) {
+	blobs, err := storage.NewLocal(cfg.MediaRoot)
+	if err != nil {
+		return nil, err
+	}
+
 	users := postgres.NewUserRepo(pool)
+	mediaRepo := postgres.NewMediaRepo(pool)
 	api := handlers.New(&cfg, &handlers.Deps{
 		Auth:     authusecase.New(users, sessions, auth.NewBcryptHasher(), auth.NewSessionID, time.Now, cfg.SessionTTL),
 		Catalog:  catalogusecase.New(postgres.NewCatalogRepo(pool)),
-		Profile:  profileusecase.New(users),
+		Profile:  profileusecase.New(users, users, mediaRepo, blobs),
 		Artist:   artistusecase.New(postgres.NewArtistRepo(pool)),
+		Media:    media.New(mediaRepo, blobs),
 		Sessions: sessions,
 	})
 	return middleware.Chain(
@@ -36,7 +45,7 @@ func newHandler(cfg config.Config, pool *pgxpool.Pool, sessions *postgres.Sessio
 		middleware.WithLogging(logger, "monolith/middleware"),
 		middleware.WithCORS(cfg.AllowedOrigin, cfg.AllowedMethods, cfg.AllowedHeaders),
 		middleware.WithJSONErrors,
-	)
+	), nil
 }
 
 func newServer(addr string, handler http.Handler) *http.Server {
@@ -44,8 +53,8 @@ func newServer(addr string, handler http.Handler) *http.Server {
 		Addr:              addr,
 		Handler:           handler,
 		ReadHeaderTimeout: 3 * time.Second,
-		ReadTimeout:       5 * time.Second,
-		WriteTimeout:      5 * time.Second,
+		ReadTimeout:       15 * time.Second,
+		WriteTimeout:      15 * time.Second,
 		IdleTimeout:       60 * time.Second,
 	}
 }

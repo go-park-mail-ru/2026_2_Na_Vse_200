@@ -1,9 +1,12 @@
 package handlers
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"mime/multipart"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 	"time"
@@ -37,6 +40,14 @@ func (r *countingUsers) GetByID(ctx context.Context, id models.UserID) (models.U
 
 func (r *countingUsers) GetByEmail(ctx context.Context, email string) (models.User, error) {
 	return r.inner.GetByEmail(ctx, email)
+}
+
+func (r *countingUsers) UpdateProfile(ctx context.Context, id models.UserID, email, displayName string) (models.User, error) {
+	return r.inner.UpdateProfile(ctx, id, email, displayName)
+}
+
+func (r *countingUsers) SetAvatar(ctx context.Context, id models.UserID, fileID models.MediaFileID) (models.User, error) {
+	return r.inner.SetAvatar(ctx, id, fileID)
 }
 
 func newProfileFixture(t *testing.T) (http.Handler, *http.Cookie, userResponse, *countingUsers) {
@@ -143,5 +154,64 @@ func TestProfileInvalidID(t *testing.T) {
 	}
 	if got := decodeError(t, w); got.Error.Code != models.CodeNotFound {
 		t.Errorf("code = %q, ожидался %q", got.Error.Code, models.CodeNotFound)
+	}
+}
+
+func TestProfileUpdate(t *testing.T) {
+	handler, cookie, user, _ := newProfileFixture(t)
+
+	req := httptest.NewRequest(http.MethodPatch, "/api/v1/users/"+user.ID, strings.NewReader(
+		`{"email":"new@example.com","display_name":"Новое имя"}`,
+	))
+	req.Header.Set("Content-Type", "application/json")
+	req.AddCookie(cookie)
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("статус = %d, тело: %s", w.Code, w.Body.String())
+	}
+	var got profileResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil {
+		t.Fatalf("json: %v", err)
+	}
+	if got.Email != "new@example.com" || got.DisplayName != "Новое имя" {
+		t.Fatalf("got=%+v", got)
+	}
+}
+
+func TestProfileUploadAvatar(t *testing.T) {
+	handler, cookie, user, _ := newProfileFixture(t)
+
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+	part, err := writer.CreateFormFile("avatar", "avatar.png")
+	if err != nil {
+		t.Fatal(err)
+	}
+	png := []byte{0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A}
+	png = append(png, bytes.Repeat([]byte{1}, 64)...)
+	if _, err := part.Write(png); err != nil {
+		t.Fatal(err)
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/users/"+user.ID+"/avatar", &body)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	req.AddCookie(cookie)
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("статус = %d, тело: %s", w.Code, w.Body.String())
+	}
+	var got profileResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil {
+		t.Fatalf("json: %v", err)
+	}
+	if got.AvatarURL == nil || !strings.HasPrefix(*got.AvatarURL, "/api/v1/media/") {
+		t.Fatalf("avatar_url=%v", got.AvatarURL)
 	}
 }

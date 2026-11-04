@@ -42,6 +42,32 @@ func (f *authUsersFixture) GetByEmail(_ context.Context, email string) (models.U
 	return models.User{}, models.ErrUserNotFound
 }
 
+func (f *authUsersFixture) UpdateProfile(_ context.Context, id models.UserID, email, displayName string) (models.User, error) {
+	for i, user := range f.users {
+		if user.Email == email && user.ID != id {
+			return models.User{}, models.ErrEmailTaken
+		}
+		if user.ID == id {
+			user.Email = email
+			user.DisplayName = displayName
+			f.users[i] = user
+			return user, nil
+		}
+	}
+	return models.User{}, models.ErrUserNotFound
+}
+
+func (f *authUsersFixture) SetAvatar(_ context.Context, id models.UserID, fileID models.MediaFileID) (models.User, error) {
+	for i, user := range f.users {
+		if user.ID == id {
+			user.AvatarFileID = &fileID
+			f.users[i] = user
+			return user, nil
+		}
+	}
+	return models.User{}, models.ErrUserNotFound
+}
+
 type authSessionsFixture struct {
 	sessions []models.Session
 }
