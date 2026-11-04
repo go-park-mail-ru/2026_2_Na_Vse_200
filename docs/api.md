@@ -454,7 +454,45 @@ curl -i -b cookies.txt http://localhost:8080/api/v1/users/<чужой id> # 403
 curl -i http://localhost:8080/api/v1/users/<id>                      # 401
 ```
 
-### 6.8 `GET /api/v1/artists/{id}` — страница исполнителя
+### 6.8 `PATCH /api/v1/users/{id}` — изменение профиля
+
+Только владелец. Тело JSON:
+
+```json
+{
+  "email": "andrey@example.com",
+  "display_name": "Андрей"
+}
+```
+
+Правила полей как при регистрации. Ответ `200 OK` — объект `Profile`.
+
+Ошибки: те же, что у `GET /users/{id}`, плюс `400 validation_failed` и `409 email_taken`.
+
+### 6.9 `POST /api/v1/users/{id}/avatar` — загрузка аватара
+
+Только владелец. `multipart/form-data`, поле `avatar`.
+Допустимы JPEG, PNG и WebP, размер не больше 2 МБ.
+Тип определяется по содержимому файла, не по расширению.
+
+Ответ `200 OK` — объект `Profile` с заполненным `avatar_url`
+вида `/api/v1/media/<file_id>`.
+
+Ошибки: те же проверки владельца, плюс `400 validation_failed` при пустом
+или неподходящем файле.
+
+```
+curl -i -b cookies.txt -X POST http://localhost:8080/api/v1/users/<id>/avatar \
+  -F avatar=@photo.png
+```
+
+### 6.10 `GET /api/v1/media/{id}` — файл медиа
+
+Публичная выдача байтов по `media_file.id`. Используется для `avatar_url`.
+
+Ошибки: `404 not_found`, если id не UUID, метаданные или файл на диске отсутствуют.
+
+### 6.11 `GET /api/v1/artists/{id}` — страница исполнителя
 
 Публичная ручка: работает и для гостя, и для вошедшего пользователя.
 `{id}` — UUID исполнителя.
@@ -511,7 +549,7 @@ curl -i -b cookies.txt -X POST http://localhost:8080/api/v1/auth/logout
 | `user.id` | `account.id` |
 | `user.email` | `account.email` (уникальный) |
 | `user.display_name` | `account.display_name` |
-| `user.avatar_url` | связь `account.avatar_file_id` → `media_file.storage_key`; построение URL не реализовано, сейчас `null` |
+| `user.avatar_url` | при наличии `account.avatar_file_id` — `/api/v1/media/<file_id>`; файл лежит в `MEDIA_ROOT` по `media_file.storage_key` |
 | cookie `session_id` | `auth_session.id` → `auth_session.account_id` → `account.id`; срок — `auth_session.expires_at` |
 | `track.duration_ms` | `media_file.duration_ms` через `track.audio_file_id` |
 | `track.cover_url` | связь `track.cover_file_id` → `media_file.storage_key`; построение URL не реализовано, сейчас `null` |
