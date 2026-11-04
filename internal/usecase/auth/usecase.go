@@ -96,19 +96,30 @@ func (u *Usecase) Login(ctx context.Context, in LoginInput) (Result, error) {
 	return u.signIn(ctx, user)
 }
 
-func (u *Usecase) Me(ctx context.Context, id models.SessionID) (models.User, error) {
+func (u *Usecase) SessionByID(ctx context.Context, id models.SessionID) (models.Session, error) {
 	if id == "" {
-		return models.User{}, ErrUnauthorized
+		return models.Session{}, models.ErrSessionNotFound
 	}
 	session, err := u.sessions.GetByID(ctx, id)
+	if errors.Is(err, models.ErrSessionNotFound) || errors.Is(err, models.ErrSessionExpired) {
+		return models.Session{}, err
+	}
+	if err != nil {
+		return models.Session{}, fmt.Errorf("read session: %w", err)
+	}
+	if session.IsExpired(u.now()) {
+		return models.Session{}, models.ErrSessionExpired
+	}
+	return session, nil
+}
+
+func (u *Usecase) Me(ctx context.Context, id models.SessionID) (models.User, error) {
+	session, err := u.SessionByID(ctx, id)
 	if errors.Is(err, models.ErrSessionNotFound) || errors.Is(err, models.ErrSessionExpired) {
 		return models.User{}, ErrUnauthorized
 	}
 	if err != nil {
-		return models.User{}, fmt.Errorf("read session: %w", err)
-	}
-	if session.IsExpired(u.now()) {
-		return models.User{}, ErrUnauthorized
+		return models.User{}, err
 	}
 	user, err := u.users.GetByID(ctx, session.UserID)
 	if errors.Is(err, models.ErrUserNotFound) {

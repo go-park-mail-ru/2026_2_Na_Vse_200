@@ -13,6 +13,7 @@ func TestLoadDefaults(t *testing.T) {
 	t.Setenv("APP_SESSION_TTL", "")
 	t.Setenv("APP_SHUTDOWN_TIMEOUT", "")
 	t.Setenv("POSTGRES_DSN", "")
+	t.Setenv("MEDIA_ROOT", "")
 
 	cfg, err := Load()
 	if err != nil {
@@ -21,6 +22,10 @@ func TestLoadDefaults(t *testing.T) {
 
 	if cfg.Addr != ":8080" {
 		t.Errorf("Addr = %q, ожидался %q", cfg.Addr, ":8080")
+	}
+
+	if cfg.MediaRoot != "data/media" {
+		t.Errorf("MediaRoot = %q, ожидался %q", cfg.MediaRoot, "data/media")
 	}
 
 	if cfg.SessionTTL != 24*time.Hour {
