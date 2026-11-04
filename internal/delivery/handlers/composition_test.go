@@ -103,7 +103,7 @@ func newRepositoryTestAPI(cfg *config.Config, deps *repositoryTestDeps) *API {
 		Catalog:  catalogusecase.New(deps.Catalog),
 		Profile:  profileusecase.New(deps.Users, profiles, mediaRepo, blobs),
 		Artist:   artistusecase.New(artists),
-		Media:    media.New(mediaRepo, blobs),
+		Media:    media.NewMediaHandler(mediaRepo, blobs),
 		Sessions: deps.Sessions,
 	})
 }

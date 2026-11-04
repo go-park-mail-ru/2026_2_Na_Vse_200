@@ -1,7 +1,9 @@
 package profile
 
 import (
+	"fmt"
 	"time"
+	"uuid"
 
 	"2026_2_Na_Vse_200/internal/models"
 )
@@ -14,9 +16,13 @@ type profileResponse struct {
 	CreatedAt   time.Time `json:"created_at"`
 }
 
-func newProfileResponse(user models.User) profileResponse {
+func newProfileResponse(user models.User) (profileResponse, error) {
+	id, err := idToString(string(user.ID))
+	if err != nil {
+		return profileResponse{}, fmt.Errorf("user id: %w", err)
+	}
 	resp := profileResponse{
-		ID:          string(user.ID),
+		ID:          id,
 		Email:       user.Email,
 		DisplayName: user.DisplayName,
 		CreatedAt:   user.CreatedAt.UTC(),
@@ -25,5 +31,13 @@ func newProfileResponse(user models.User) profileResponse {
 		avatar := user.AvatarURL
 		resp.AvatarURL = &avatar
 	}
-	return resp
+	return resp, nil
+}
+
+func idToString(raw string) (string, error) {
+	id, err := uuid.Parse(raw)
+	if err != nil {
+		return "", err
+	}
+	return id.String(), nil
 }

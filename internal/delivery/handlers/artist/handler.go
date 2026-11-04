@@ -12,19 +12,19 @@ import (
 	artistusecase "2026_2_Na_Vse_200/internal/usecase/artist"
 )
 
-type Usecase interface {
+type ArtistUsecase interface {
 	Page(ctx context.Context, id models.ArtistID) (artistusecase.Page, error)
 }
 
-type Handler struct {
-	usecase Usecase
+type ArtistHandler struct {
+	usecase ArtistUsecase
 }
 
-func New(usecase Usecase) *Handler {
-	return &Handler{usecase: usecase}
+func NewArtistHandler(usecase ArtistUsecase) *ArtistHandler {
+	return &ArtistHandler{usecase: usecase}
 }
 
-func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
+func (h *ArtistHandler) Get(w http.ResponseWriter, r *http.Request) {
 	id, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {
 		response.WriteError(w, http.StatusNotFound, models.CodeNotFound, models.MsgNotFound)
@@ -42,5 +42,11 @@ func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response.WriteJSON(w, http.StatusOK, newPageResponse(page))
+	body, err := newPageResponse(page)
+	if err != nil {
+		log.Printf("сборка ответа исполнителя: %v", err)
+		response.WriteError(w, http.StatusInternalServerError, models.CodeInternal, models.MsgInternal)
+		return
+	}
+	response.WriteJSON(w, http.StatusOK, body)
 }

@@ -17,26 +17,26 @@ import (
 )
 
 const (
-	maxBodySize   = 1 << 20
-	maxAvatarForm = profileusecase.MaxAvatarBytes + (1 << 20)
+	maxBodySize   = 1_048_576
+	maxAvatarForm = profileusecase.MaxAvatarBytes + 1_048_576
 	avatarField   = "avatar"
 )
 
-type Usecase interface {
+type ProfileUsecase interface {
 	Get(ctx context.Context, sessionUserID, requestedID models.UserID) (models.User, error)
 	Update(ctx context.Context, sessionUserID, requestedID models.UserID, in profileusecase.UpdateInput) (models.User, error)
 	UploadAvatar(ctx context.Context, sessionUserID, requestedID models.UserID, mimeType string, size int64, body io.Reader) (models.User, error)
 }
 
-type Handler struct {
-	usecase Usecase
+type ProfileHandler struct {
+	usecase ProfileUsecase
 }
 
-func New(usecase Usecase) *Handler {
-	return &Handler{usecase: usecase}
+func NewProfileHandler(usecase ProfileUsecase) *ProfileHandler {
+	return &ProfileHandler{usecase: usecase}
 }
 
-func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
+func (h *ProfileHandler) Get(w http.ResponseWriter, r *http.Request) {
 	session, requestedID, ok := ownerRequest(w, r)
 	if !ok {
 		return
@@ -46,10 +46,16 @@ func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
 	if !writeProfileError(w, err, "чтение профиля") {
 		return
 	}
-	response.WriteJSON(w, http.StatusOK, newProfileResponse(user))
+	body, err := newProfileResponse(user)
+	if err != nil {
+		log.Printf("сборка ответа профиля: %v", err)
+		response.WriteError(w, http.StatusInternalServerError, models.CodeInternal, models.MsgInternal)
+		return
+	}
+	response.WriteJSON(w, http.StatusOK, body)
 }
 
-func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
+func (h *ProfileHandler) Update(w http.ResponseWriter, r *http.Request) {
 	session, requestedID, ok := ownerRequest(w, r)
 	if !ok {
 		return
@@ -69,10 +75,16 @@ func (h *Handler) Update(w http.ResponseWriter, r *http.Request) {
 	if !writeProfileError(w, err, "обновление профиля") {
 		return
 	}
-	response.WriteJSON(w, http.StatusOK, newProfileResponse(user))
+	body, err := newProfileResponse(user)
+	if err != nil {
+		log.Printf("сборка ответа профиля: %v", err)
+		response.WriteError(w, http.StatusInternalServerError, models.CodeInternal, models.MsgInternal)
+		return
+	}
+	response.WriteJSON(w, http.StatusOK, body)
 }
 
-func (h *Handler) UploadAvatar(w http.ResponseWriter, r *http.Request) {
+func (h *ProfileHandler) UploadAvatar(w http.ResponseWriter, r *http.Request) {
 	session, requestedID, ok := ownerRequest(w, r)
 	if !ok {
 		return
@@ -115,7 +127,13 @@ func (h *Handler) UploadAvatar(w http.ResponseWriter, r *http.Request) {
 	if !writeProfileError(w, err, "загрузка аватара") {
 		return
 	}
-	response.WriteJSON(w, http.StatusOK, newProfileResponse(user))
+	body, err := newProfileResponse(user)
+	if err != nil {
+		log.Printf("сборка ответа профиля: %v", err)
+		response.WriteError(w, http.StatusInternalServerError, models.CodeInternal, models.MsgInternal)
+		return
+	}
+	response.WriteJSON(w, http.StatusOK, body)
 }
 
 type updateRequest struct {

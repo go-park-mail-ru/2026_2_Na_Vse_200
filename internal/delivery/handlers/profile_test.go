@@ -160,7 +160,7 @@ func TestProfileInvalidID(t *testing.T) {
 func TestProfileUpdate(t *testing.T) {
 	handler, cookie, user, _ := newProfileFixture(t)
 
-	req := httptest.NewRequest(http.MethodPatch, "/api/v1/users/"+user.ID, strings.NewReader(
+	req := httptest.NewRequest(http.MethodPut, "/api/v1/users/"+user.ID, strings.NewReader(
 		`{"email":"new@example.com","display_name":"Новое имя"}`,
 	))
 	req.Header.Set("Content-Type", "application/json")

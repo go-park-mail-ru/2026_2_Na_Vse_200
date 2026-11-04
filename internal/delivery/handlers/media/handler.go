@@ -17,16 +17,16 @@ type BlobStore interface {
 	Open(key string) (*os.File, error)
 }
 
-type Handler struct {
+type MediaHandler struct {
 	media ports.MediaRepository
 	blobs BlobStore
 }
 
-func New(media ports.MediaRepository, blobs BlobStore) *Handler {
-	return &Handler{media: media, blobs: blobs}
+func NewMediaHandler(media ports.MediaRepository, blobs BlobStore) *MediaHandler {
+	return &MediaHandler{media: media, blobs: blobs}
 }
 
-func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
+func (h *MediaHandler) Get(w http.ResponseWriter, r *http.Request) {
 	id, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {
 		response.WriteError(w, http.StatusNotFound, models.CodeNotFound, models.MsgNotFound)

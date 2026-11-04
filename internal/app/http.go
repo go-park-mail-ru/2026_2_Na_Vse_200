@@ -35,7 +35,7 @@ func newHandler(cfg config.Config, pool *pgxpool.Pool, sessions *postgres.Sessio
 		Catalog:  catalogusecase.New(postgres.NewCatalogRepo(pool)),
 		Profile:  profileusecase.New(users, users, mediaRepo, blobs),
 		Artist:   artistusecase.New(postgres.NewArtistRepo(pool)),
-		Media:    media.New(mediaRepo, blobs),
+		Media:    media.NewMediaHandler(mediaRepo, blobs),
 		Sessions: sessions,
 	})
 	return middleware.Chain(

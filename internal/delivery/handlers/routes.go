@@ -19,18 +19,18 @@ const sessionCookieName = "session_id"
 type Deps struct {
 	Auth     auth.Usecase
 	Catalog  home.CatalogUsecase
-	Profile  profile.Usecase
-	Artist   artist.Usecase
-	Media    *media.Handler
+	Profile  profile.ProfileUsecase
+	Artist   artist.ArtistUsecase
+	Media    *media.MediaHandler
 	Sessions ports.SessionRepository
 }
 
 type API struct {
 	auth     *auth.Handler
 	home     *home.Handler
-	profile  *profile.Handler
-	artist   *artist.Handler
-	media    *media.Handler
+	profile  *profile.ProfileHandler
+	artist   *artist.ArtistHandler
+	media    *media.MediaHandler
 	sessions ports.SessionRepository
 }
 
@@ -38,8 +38,8 @@ func New(cfg *config.Config, deps *Deps) *API {
 	return &API{
 		auth:     auth.New(cfg, deps.Auth),
 		home:     home.New(deps.Catalog),
-		profile:  profile.New(deps.Profile),
-		artist:   artist.New(deps.Artist),
+		profile:  profile.NewProfileHandler(deps.Profile),
+		artist:   artist.NewArtistHandler(deps.Artist),
 		media:    deps.Media,
 		sessions: deps.Sessions,
 	}
@@ -56,7 +56,7 @@ func (a *API) Routes() http.Handler {
 
 	authUser := middleware.WithAuth(sessionCookieName, a.sessions)
 	mux.Handle("GET /api/v1/users/{id}", authUser(http.HandlerFunc(a.profile.Get)))
-	mux.Handle("PATCH /api/v1/users/{id}", authUser(http.HandlerFunc(a.profile.Update)))
+	mux.Handle("PUT /api/v1/users/{id}", authUser(http.HandlerFunc(a.profile.Update)))
 	mux.Handle("POST /api/v1/users/{id}/avatar", authUser(http.HandlerFunc(a.profile.UploadAvatar)))
 	mux.HandleFunc("GET /api/v1/artists/{id}", a.artist.Get)
 	if a.media != nil {
