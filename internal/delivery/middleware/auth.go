@@ -8,12 +8,14 @@ import (
 
 	"2026_2_Na_Vse_200/internal/delivery/response"
 	"2026_2_Na_Vse_200/internal/models"
-	"2026_2_Na_Vse_200/internal/usecase/ports"
 )
 
 type sessionContextKey struct{}
 
-func WithAuth(cookieName string, sessions ports.SessionRepository) Middleware {
+// SessionByIDFunc получает сессию через usecase авторизации.
+type SessionByIDFunc func(ctx context.Context, id models.SessionID) (models.Session, error)
+
+func WithAuth(cookieName string, sessionByID SessionByIDFunc) Middleware {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			cookie, err := r.Cookie(cookieName)
@@ -22,7 +24,7 @@ func WithAuth(cookieName string, sessions ports.SessionRepository) Middleware {
 				return
 			}
 
-			session, err := sessions.GetByID(r.Context(), models.SessionID(cookie.Value))
+			session, err := sessionByID(r.Context(), models.SessionID(cookie.Value))
 			switch {
 			case errors.Is(err, models.ErrSessionNotFound), errors.Is(err, models.ErrSessionExpired):
 				response.WriteError(w, http.StatusUnauthorized, models.CodeUnauthorized, models.MsgUnauthorized)

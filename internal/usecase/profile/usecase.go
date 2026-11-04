@@ -19,45 +19,35 @@ const (
 	avatarURLPath  = "/api/v1/media/"
 )
 
-var (
-	ErrForbidden     = errors.New("forbidden")
-	ErrUnauthorized  = errors.New("unauthorized")
-	ErrInvalidAvatar = errors.New("invalid avatar")
-)
-
-type ValidationError struct{ Fields map[string]string }
-
-func (e *ValidationError) Error() string { return "validation failed" }
-
-type UpdateInput struct {
+type ProfileUpdateInput struct {
 	Email       string
 	DisplayName string
 }
 
-type BlobStore interface {
+type ProfileBlobStore interface {
 	Save(key string, r io.Reader) error
 	Remove(key string) error
 }
 
-type Usecase struct {
+type ProfileUsecase struct {
 	users    ports.UserRepository
 	profiles ports.ProfileRepository
 	media    ports.MediaRepository
-	blobs    BlobStore
+	blobs    ProfileBlobStore
 }
 
-func New(users ports.UserRepository, profiles ports.ProfileRepository, media ports.MediaRepository, blobs BlobStore) *Usecase {
-	return &Usecase{users: users, profiles: profiles, media: media, blobs: blobs}
+func NewProfileUsecase(users ports.UserRepository, profiles ports.ProfileRepository, media ports.MediaRepository, blobs ProfileBlobStore) *ProfileUsecase {
+	return &ProfileUsecase{users: users, profiles: profiles, media: media, blobs: blobs}
 }
 
-func (u *Usecase) Get(ctx context.Context, sessionUserID, requestedID models.UserID) (models.User, error) {
+func (u *ProfileUsecase) Get(ctx context.Context, sessionUserID, requestedID models.UserID) (models.User, error) {
 	if err := ensureOwner(sessionUserID, requestedID); err != nil {
 		return models.User{}, err
 	}
 
 	user, err := u.users.GetByID(ctx, sessionUserID)
 	if errors.Is(err, models.ErrUserNotFound) {
-		return models.User{}, ErrUnauthorized
+		return models.User{}, models.ErrUnauthorized
 	}
 	if err != nil {
 		return models.User{}, fmt.Errorf("find user: %w", err)
@@ -65,14 +55,14 @@ func (u *Usecase) Get(ctx context.Context, sessionUserID, requestedID models.Use
 	return withAvatarURL(user), nil
 }
 
-func (u *Usecase) Update(ctx context.Context, sessionUserID, requestedID models.UserID, in UpdateInput) (models.User, error) {
+func (u *ProfileUsecase) Update(ctx context.Context, sessionUserID, requestedID models.UserID, in ProfileUpdateInput) (models.User, error) {
 	if err := ensureOwner(sessionUserID, requestedID); err != nil {
 		return models.User{}, err
 	}
 
 	form := validation.ProfileUpdate(validation.ProfileUpdateInput(in))
-	if !form.Valid() {
-		return models.User{}, &ValidationError{Fields: form.Fields}
+	if len(form.Fields) > 0 {
+		return models.User{}, &models.ValidationError{Fields: form.Fields}
 	}
 
 	user, err := u.profiles.UpdateProfile(ctx, sessionUserID, form.Email, form.DisplayName)
@@ -80,7 +70,7 @@ func (u *Usecase) Update(ctx context.Context, sessionUserID, requestedID models.
 		return models.User{}, models.ErrEmailTaken
 	}
 	if errors.Is(err, models.ErrUserNotFound) {
-		return models.User{}, ErrUnauthorized
+		return models.User{}, models.ErrUnauthorized
 	}
 	if err != nil {
 		return models.User{}, fmt.Errorf("update profile: %w", err)
@@ -88,12 +78,12 @@ func (u *Usecase) Update(ctx context.Context, sessionUserID, requestedID models.
 	return withAvatarURL(user), nil
 }
 
-func (u *Usecase) UploadAvatar(ctx context.Context, sessionUserID, requestedID models.UserID, mimeType string, size int64, body io.Reader) (models.User, error) {
+func (u *ProfileUsecase) UploadAvatar(ctx context.Context, sessionUserID, requestedID models.UserID, mimeType string, size int64, body io.Reader) (models.User, error) {
 	if err := ensureOwner(sessionUserID, requestedID); err != nil {
 		return models.User{}, err
 	}
 	if size <= 0 || size > MaxAvatarBytes {
-		return models.User{}, ErrInvalidAvatar
+		return models.User{}, models.ErrInvalidAvatar
 	}
 
 	ext, err := avatarExtension(mimeType)
@@ -119,7 +109,7 @@ func (u *Usecase) UploadAvatar(ctx context.Context, sessionUserID, requestedID m
 	user, err := u.profiles.SetAvatar(ctx, sessionUserID, file.ID)
 	if errors.Is(err, models.ErrUserNotFound) {
 		_ = u.blobs.Remove(key)
-		return models.User{}, ErrUnauthorized
+		return models.User{}, models.ErrUnauthorized
 	}
 	if err != nil {
 		_ = u.blobs.Remove(key)
@@ -130,7 +120,7 @@ func (u *Usecase) UploadAvatar(ctx context.Context, sessionUserID, requestedID m
 
 func ensureOwner(sessionUserID, requestedID models.UserID) error {
 	if sessionUserID != requestedID {
-		return ErrForbidden
+		return models.ErrForbidden
 	}
 	return nil
 }
@@ -151,14 +141,14 @@ func avatarExtension(mimeType string) (string, error) {
 	case "image/webp":
 		return "webp", nil
 	default:
-		return "", ErrInvalidAvatar
+		return "", models.ErrInvalidAvatar
 	}
 }
 
 func DetectAvatarMIME(header []byte) (string, error) {
 	mimeType := http.DetectContentType(header)
 	if _, err := avatarExtension(mimeType); err != nil {
-		return "", ErrInvalidAvatar
+		return "", models.ErrInvalidAvatar
 	}
 	return mimeType, nil
 }

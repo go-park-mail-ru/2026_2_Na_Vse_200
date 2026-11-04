@@ -49,7 +49,7 @@ func TestPage(t *testing.T) {
 		albums: []models.Album{{ID: "album-1", Title: "Группа крови"}},
 	}
 
-	page, err := New(repo).Page(context.Background(), id)
+	page, err := NewArtistUsecase(repo).Page(context.Background(), id)
 	if err != nil {
 		t.Fatalf("err = %v", err)
 	}
@@ -63,7 +63,7 @@ func TestPageErrors(t *testing.T) {
 	for _, fail := range []string{"get", "tracks", "albums"} {
 		t.Run(fail, func(t *testing.T) {
 			repo := &artistRepoStub{fail: fail, err: failure, artist: models.Artist{ID: "a"}}
-			_, err := New(repo).Page(context.Background(), "a")
+			_, err := NewArtistUsecase(repo).Page(context.Background(), "a")
 			if !errors.Is(err, failure) {
 				t.Fatalf("err = %v", err)
 			}

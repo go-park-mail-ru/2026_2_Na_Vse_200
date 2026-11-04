@@ -99,11 +99,10 @@ func newRepositoryTestAPI(cfg *config.Config, deps *repositoryTestDeps) *API {
 	}
 
 	return New(cfg, &Deps{
-		Auth:     authusecase.New(deps.Users, deps.Sessions, deps.Hasher, auth.NewSessionID, time.Now, cfg.SessionTTL),
-		Catalog:  catalogusecase.New(deps.Catalog),
-		Profile:  profileusecase.New(deps.Users, profiles, mediaRepo, blobs),
-		Artist:   artistusecase.New(artists),
-		Media:    media.NewMediaHandler(mediaRepo, blobs),
-		Sessions: deps.Sessions,
+		Auth:    authusecase.New(deps.Users, deps.Sessions, deps.Hasher, auth.NewSessionID, time.Now, cfg.SessionTTL),
+		Catalog: catalogusecase.New(deps.Catalog),
+		Profile: profileusecase.NewProfileUsecase(deps.Users, profiles, mediaRepo, blobs),
+		Artist:  artistusecase.NewArtistUsecase(artists),
+		Media:   media.NewMediaHandler(mediaRepo, blobs),
 	})
 }

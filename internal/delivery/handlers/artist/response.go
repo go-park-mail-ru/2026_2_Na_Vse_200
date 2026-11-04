@@ -39,7 +39,7 @@ type artistRefResponse struct {
 	Name string `json:"name"`
 }
 
-func newPageResponse(page artistusecase.Page) (pageResponse, error) {
+func newPageResponse(page artistusecase.ArtistPage) (pageResponse, error) {
 	id, err := idToString(string(page.Artist.ID))
 	if err != nil {
 		return pageResponse{}, fmt.Errorf("artist id: %w", err)

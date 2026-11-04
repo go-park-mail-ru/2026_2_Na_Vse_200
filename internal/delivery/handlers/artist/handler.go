@@ -13,7 +13,7 @@ import (
 )
 
 type ArtistUsecase interface {
-	Page(ctx context.Context, id models.ArtistID) (artistusecase.Page, error)
+	Page(ctx context.Context, id models.ArtistID) (artistusecase.ArtistPage, error)
 }
 
 type ArtistHandler struct {

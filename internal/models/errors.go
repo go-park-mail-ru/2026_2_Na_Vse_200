@@ -11,4 +11,11 @@ var (
 	ErrEmailTaken        = errors.New("email already taken")
 	ErrSessionNotFound   = errors.New("session not found")
 	ErrSessionExpired    = errors.New("session expired")
+	ErrForbidden         = errors.New("forbidden")
+	ErrUnauthorized      = errors.New("unauthorized")
+	ErrInvalidAvatar     = errors.New("invalid avatar")
 )
+
+type ValidationError struct{ Fields map[string]string }
+
+func (e *ValidationError) Error() string { return "validation failed" }

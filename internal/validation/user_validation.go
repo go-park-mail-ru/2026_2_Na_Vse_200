@@ -75,10 +75,6 @@ type ProfileUpdateResult struct {
 	Fields      map[string]string
 }
 
-func (r ProfileUpdateResult) Valid() bool {
-	return len(r.Fields) == 0
-}
-
 func ProfileUpdate(in ProfileUpdateInput) ProfileUpdateResult {
 	result := ProfileUpdateResult{
 		Email:       NormalizeEmail(in.Email),

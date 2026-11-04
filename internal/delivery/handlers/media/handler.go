@@ -13,16 +13,16 @@ import (
 	"2026_2_Na_Vse_200/internal/usecase/ports"
 )
 
-type BlobStore interface {
+type MediaBlobStore interface {
 	Open(key string) (*os.File, error)
 }
 
 type MediaHandler struct {
 	media ports.MediaRepository
-	blobs BlobStore
+	blobs MediaBlobStore
 }
 
-func NewMediaHandler(media ports.MediaRepository, blobs BlobStore) *MediaHandler {
+func NewMediaHandler(media ports.MediaRepository, blobs MediaBlobStore) *MediaHandler {
 	return &MediaHandler{media: media, blobs: blobs}
 }
 

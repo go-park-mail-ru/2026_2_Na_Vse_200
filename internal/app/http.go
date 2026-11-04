@@ -31,12 +31,11 @@ func newHandler(cfg config.Config, pool *pgxpool.Pool, sessions *postgres.Sessio
 	users := postgres.NewUserRepo(pool)
 	mediaRepo := postgres.NewMediaRepo(pool)
 	api := handlers.New(&cfg, &handlers.Deps{
-		Auth:     authusecase.New(users, sessions, auth.NewBcryptHasher(), auth.NewSessionID, time.Now, cfg.SessionTTL),
-		Catalog:  catalogusecase.New(postgres.NewCatalogRepo(pool)),
-		Profile:  profileusecase.New(users, users, mediaRepo, blobs),
-		Artist:   artistusecase.New(postgres.NewArtistRepo(pool)),
-		Media:    media.NewMediaHandler(mediaRepo, blobs),
-		Sessions: sessions,
+		Auth:    authusecase.New(users, sessions, auth.NewBcryptHasher(), auth.NewSessionID, time.Now, cfg.SessionTTL),
+		Catalog: catalogusecase.New(postgres.NewCatalogRepo(pool)),
+		Profile: profileusecase.NewProfileUsecase(users, users, mediaRepo, blobs),
+		Artist:  artistusecase.NewArtistUsecase(postgres.NewArtistRepo(pool)),
+		Media:   media.NewMediaHandler(mediaRepo, blobs),
 	})
 	return middleware.Chain(
 		api.Routes(),

@@ -11,19 +11,6 @@ import (
 	"2026_2_Na_Vse_200/internal/models"
 )
 
-type sessionRepoStub struct {
-	session models.Session
-	err     error
-}
-
-func (s sessionRepoStub) Create(context.Context, models.Session) error { return nil }
-func (s sessionRepoStub) Delete(context.Context, models.SessionID) error {
-	return nil
-}
-func (s sessionRepoStub) GetByID(context.Context, models.SessionID) (models.Session, error) {
-	return s.session, s.err
-}
-
 func TestWithAuth(t *testing.T) {
 	valid := models.Session{
 		ID:        "11111111-1111-1111-1111-111111111111",
@@ -34,7 +21,7 @@ func TestWithAuth(t *testing.T) {
 	tests := []struct {
 		name       string
 		cookie     *http.Cookie
-		repo       sessionRepoStub
+		lookup     SessionByIDFunc
 		wantStatus int
 		wantUser   models.UserID
 	}{
@@ -43,27 +30,35 @@ func TestWithAuth(t *testing.T) {
 			wantStatus: http.StatusUnauthorized,
 		},
 		{
-			name:       "сессия неизвестна",
-			cookie:     &http.Cookie{Name: "session_id", Value: "missing"},
-			repo:       sessionRepoStub{err: models.ErrSessionNotFound},
+			name:   "сессия неизвестна",
+			cookie: &http.Cookie{Name: "session_id", Value: "missing"},
+			lookup: func(context.Context, models.SessionID) (models.Session, error) {
+				return models.Session{}, models.ErrSessionNotFound
+			},
 			wantStatus: http.StatusUnauthorized,
 		},
 		{
-			name:       "сессия истекла",
-			cookie:     &http.Cookie{Name: "session_id", Value: "expired"},
-			repo:       sessionRepoStub{err: models.ErrSessionExpired},
+			name:   "сессия истекла",
+			cookie: &http.Cookie{Name: "session_id", Value: "expired"},
+			lookup: func(context.Context, models.SessionID) (models.Session, error) {
+				return models.Session{}, models.ErrSessionExpired
+			},
 			wantStatus: http.StatusUnauthorized,
 		},
 		{
-			name:       "ошибка хранилища",
-			cookie:     &http.Cookie{Name: "session_id", Value: "broken"},
-			repo:       sessionRepoStub{err: errors.New("db down")},
+			name:   "ошибка хранилища",
+			cookie: &http.Cookie{Name: "session_id", Value: "broken"},
+			lookup: func(context.Context, models.SessionID) (models.Session, error) {
+				return models.Session{}, errors.New("db down")
+			},
 			wantStatus: http.StatusInternalServerError,
 		},
 		{
-			name:       "успех",
-			cookie:     &http.Cookie{Name: "session_id", Value: string(valid.ID)},
-			repo:       sessionRepoStub{session: valid},
+			name:   "успех",
+			cookie: &http.Cookie{Name: "session_id", Value: string(valid.ID)},
+			lookup: func(context.Context, models.SessionID) (models.Session, error) {
+				return valid, nil
+			},
 			wantStatus: http.StatusOK,
 			wantUser:   valid.UserID,
 		},
@@ -86,7 +81,7 @@ func TestWithAuth(t *testing.T) {
 				req.AddCookie(tt.cookie)
 			}
 			w := httptest.NewRecorder()
-			WithAuth("session_id", tt.repo)(next).ServeHTTP(w, req)
+			WithAuth("session_id", tt.lookup)(next).ServeHTTP(w, req)
 
 			if w.Code != tt.wantStatus {
 				t.Fatalf("статус = %d, ожидался %d, тело: %s", w.Code, tt.wantStatus, w.Body.String())

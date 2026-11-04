@@ -105,11 +105,11 @@ func TestGet(t *testing.T) {
 	other := models.UserID("22222222-2222-2222-2222-222222222222")
 	avatar := models.MediaFileID("44444444-4444-4444-4444-444444444444")
 	users := &userRepoStub{user: models.User{Email: "andrey@example.com", DisplayName: "Андрей", AvatarFileID: &avatar}}
-	uc := New(users, &profileRepoStub{user: *users}, &mediaRepoStub{}, &blobStub{})
+	uc := NewProfileUsecase(users, &profileRepoStub{user: *users}, &mediaRepoStub{}, &blobStub{})
 
 	t.Run("чужой id", func(t *testing.T) {
 		_, err := uc.Get(context.Background(), owner, other)
-		if !errors.Is(err, ErrForbidden) || users.calls != 0 {
+		if !errors.Is(err, models.ErrForbidden) || users.calls != 0 {
 			t.Fatalf("err=%v calls=%d", err, users.calls)
 		}
 	})
@@ -128,9 +128,9 @@ func TestGet(t *testing.T) {
 func TestUpdate(t *testing.T) {
 	owner := models.UserID("11111111-1111-1111-1111-111111111111")
 	users := &userRepoStub{user: models.User{Email: "old@example.com", DisplayName: "Старое"}}
-	uc := New(users, &profileRepoStub{user: *users}, &mediaRepoStub{}, &blobStub{})
+	uc := NewProfileUsecase(users, &profileRepoStub{user: *users}, &mediaRepoStub{}, &blobStub{})
 
-	got, err := uc.Update(context.Background(), owner, owner, UpdateInput{
+	got, err := uc.Update(context.Background(), owner, owner, ProfileUpdateInput{
 		Email: "Andrey@Example.com", DisplayName: "Андрей",
 	})
 	if err != nil {
@@ -146,7 +146,7 @@ func TestUploadAvatar(t *testing.T) {
 	users := &userRepoStub{user: models.User{Email: "a@b.co", DisplayName: "A"}}
 	media := &mediaRepoStub{}
 	blobs := &blobStub{}
-	uc := New(users, &profileRepoStub{user: *users}, media, blobs)
+	uc := NewProfileUsecase(users, &profileRepoStub{user: *users}, media, blobs)
 
 	pngHeader := append([]byte{
 		0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A,
@@ -172,7 +172,7 @@ func TestDetectAvatarMIME(t *testing.T) {
 	if err != nil || mime != "image/png" {
 		t.Fatalf("mime=%q err=%v", mime, err)
 	}
-	if _, err := DetectAvatarMIME([]byte("not-an-image")); !errors.Is(err, ErrInvalidAvatar) {
+	if _, err := DetectAvatarMIME([]byte("not-an-image")); !errors.Is(err, models.ErrInvalidAvatar) {
 		t.Fatalf("err=%v", err)
 	}
 }

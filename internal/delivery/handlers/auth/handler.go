@@ -13,6 +13,7 @@ type Usecase interface {
 	Login(context.Context, authusecase.LoginInput) (authusecase.Result, error)
 	Me(context.Context, models.SessionID) (models.User, error)
 	Logout(context.Context, models.SessionID) error
+	SessionByID(context.Context, models.SessionID) (models.Session, error)
 }
 
 type Handler struct {
