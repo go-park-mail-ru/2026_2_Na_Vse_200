@@ -12,7 +12,6 @@ type csrfResponse struct {
 	CSRFToken string `json:"csrf_token"`
 }
 
-// CSRF выдаёт новый CSRF-токен (cookie + тело ответа) для double-submit.
 func (a *Handler) CSRF(w http.ResponseWriter, r *http.Request) {
 	token, err := a.issueCSRFCookie(w)
 	if err != nil {
