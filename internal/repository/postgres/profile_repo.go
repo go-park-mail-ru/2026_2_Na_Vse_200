@@ -14,8 +14,8 @@ var _ ports.ProfileRepository = (*UserRepo)(nil)
 
 func (r *UserRepo) UpdateProfile(ctx context.Context, id models.UserID, email, displayName string) (models.User, error) {
 	const query = `
- UPDATE account SET email = $2, display_name = $3
- WHERE id = $1::uuid
+ UPDATE account SET display_name = $3
+ WHERE id = $1::uuid AND email = $2
  RETURNING id::text, email, password_hash, display_name, avatar_file_id::text, created_at`
 	user, err := scanUser(r.pool.QueryRow(ctx, query, string(id), email, displayName))
 	if isEmailConflict(err) {

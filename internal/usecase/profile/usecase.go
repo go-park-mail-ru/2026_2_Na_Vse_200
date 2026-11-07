@@ -64,6 +64,13 @@ func (u *ProfileUsecase) Update(ctx context.Context, sessionUserID, requestedID 
 	if len(form.Fields) > 0 {
 		return models.User{}, &models.ValidationError{Fields: form.Fields}
 	}
+	current, err := u.Get(ctx, sessionUserID, requestedID)
+	if err != nil {
+		return models.User{}, err
+	}
+	if form.Email != current.Email {
+		return models.User{}, &models.ValidationError{Fields: map[string]string{"email": "Используйте смену email с подтверждением текущего пароля"}}
+	}
 
 	user, err := u.profiles.UpdateProfile(ctx, sessionUserID, form.Email, form.DisplayName)
 	if errors.Is(err, models.ErrEmailTaken) {

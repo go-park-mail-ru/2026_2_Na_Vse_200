@@ -15,6 +15,7 @@ import (
 	"2026_2_Na_Vse_200/internal/delivery/middleware"
 	"2026_2_Na_Vse_200/internal/repository/postgres"
 	"2026_2_Na_Vse_200/internal/storage"
+	accountusecase "2026_2_Na_Vse_200/internal/usecase/account"
 	authusecase "2026_2_Na_Vse_200/internal/usecase/auth"
 	catalogusecase "2026_2_Na_Vse_200/internal/usecase/catalog"
 	profileusecase "2026_2_Na_Vse_200/internal/usecase/profile"
@@ -28,6 +29,7 @@ func newHandler(cfg config.Config, pool *pgxpool.Pool, sessions *postgres.Sessio
 	}
 	api := handlers.New(&cfg, &handlers.Deps{
 		Sessions: sessions.GetByID,
+		Account:  accountusecase.New(postgres.NewUserRepo(pool), postgres.NewUserRepo(pool), auth.NewBcryptHasher()),
 		Profile:  profileusecase.NewProfileUsecase(postgres.NewUserRepo(pool), postgres.NewUserRepo(pool), postgres.NewMediaRepo(pool), blobs),
 		Media:    media.New(postgres.NewMediaRepo(pool), postgres.NewTrackRepo(pool), blobs),
 		Auth:     authusecase.New(postgres.NewUserRepo(pool), sessions, auth.NewBcryptHasher(), auth.NewSessionID, time.Now, cfg.SessionTTL),

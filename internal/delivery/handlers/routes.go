@@ -16,6 +16,7 @@ type Deps struct {
 	Auth     auth.Usecase
 	Sessions middleware.SessionByIDFunc
 	Profile  profile.ProfileUsecase
+	Account  profile.AccountUsecase
 	Media    *media.Handler
 	Catalog  home.CatalogUsecase
 	Artist   home.ArtistUsecase
@@ -24,6 +25,7 @@ type Deps struct {
 type API struct {
 	auth    *auth.Handler
 	profile *profile.ProfileHandler
+	account *profile.AccountHandler
 	media   *media.Handler
 	protect middleware.Middleware
 	home    *home.Handler
@@ -34,6 +36,7 @@ func New(cfg *config.Config, deps *Deps) *API {
 	return &API{
 		auth:    auth.New(cfg, deps.Auth),
 		profile: profile.NewProfileHandler(deps.Profile),
+		account: profile.NewAccount(deps.Account, cfg),
 		media:   deps.Media,
 		protect: middleware.WithAuth("session_id", deps.Sessions),
 		home:    home.New(deps.Catalog),
@@ -55,6 +58,9 @@ func (a *API) Routes() http.Handler {
 		mux.HandleFunc("GET /api/v1/tracks/{id}/audio", a.media.Audio)
 	}
 	if a.profile != nil {
+		mux.Handle("PUT /api/v1/users/{id}/email", a.protect(http.HandlerFunc(a.account.ChangeEmail)))
+		mux.Handle("PUT /api/v1/users/{id}/password", a.protect(http.HandlerFunc(a.account.ChangePassword)))
+		mux.Handle("DELETE /api/v1/users/{id}", a.protect(http.HandlerFunc(a.account.Delete)))
 		mux.Handle("GET /api/v1/users/{id}", a.protect(http.HandlerFunc(a.profile.Get)))
 		mux.Handle("PUT /api/v1/users/{id}", a.protect(http.HandlerFunc(a.profile.Update)))
 		mux.Handle("POST /api/v1/users/{id}/avatar", a.protect(http.HandlerFunc(a.profile.UploadAvatar)))

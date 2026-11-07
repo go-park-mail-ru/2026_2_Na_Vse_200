@@ -23,8 +23,8 @@ func TestProfileAvatar(t *testing.T) {
 	if err != nil || got.AvatarFileID == nil || *got.AvatarFileID != avatar.ID {
 		t.Fatalf("set avatar: %+v %v", got, err)
 	}
-	got, err = users.UpdateProfile(ctx, user.ID, "new@example.test", "New name")
-	if err != nil || got.Email != "new@example.test" || got.DisplayName != "New name" || got.AvatarFileID == nil || *got.AvatarFileID != avatar.ID {
+	got, err = users.UpdateProfile(ctx, user.ID, user.Email, "New name")
+	if err != nil || got.Email != user.Email || got.DisplayName != "New name" || got.AvatarFileID == nil || *got.AvatarFileID != avatar.ID {
 		t.Fatalf("update profile: %+v %v", got, err)
 	}
 	got, err = users.GetByID(ctx, user.ID)
@@ -36,8 +36,8 @@ func TestProfileAvatar(t *testing.T) {
 		t.Fatalf("read avatar: %+v %v", file, err)
 	}
 	other := sessionTestUser(t, pool)
-	if _, err := users.UpdateProfile(ctx, user.ID, other.Email, "Name"); !errors.Is(err, models.ErrEmailTaken) {
-		t.Fatalf("email conflict: %v", err)
+	if _, err := users.UpdateProfile(ctx, user.ID, other.Email, "Name"); !errors.Is(err, models.ErrUserNotFound) {
+		t.Fatalf("profile update must not change email: %v", err)
 	}
 	for _, id := range []string{"not-uuid", "00000000-0000-0000-0000-000000000000"} {
 		if _, err := users.UpdateProfile(ctx, models.UserID(id), "missing@example.test", "Name"); !errors.Is(err, models.ErrUserNotFound) {
