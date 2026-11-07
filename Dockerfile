@@ -19,6 +19,7 @@ RUN apk add --no-cache ca-certificates \
 
 WORKDIR /app
 COPY --from=build /out/app ./
+RUN mkdir -p /app/media && chown app:app /app/media
 USER app:app
 
 EXPOSE 8080

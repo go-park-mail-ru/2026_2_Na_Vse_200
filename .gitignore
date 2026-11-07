@@ -20,3 +20,9 @@ go.work.sum
 !.env.example
 .idea/
 .vscode/
+
+# Generated local demo audio.
+/media/audio/demo/
+
+# Uploaded local avatars.
+/media/images/avatars/

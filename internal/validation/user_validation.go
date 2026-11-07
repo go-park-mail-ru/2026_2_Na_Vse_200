@@ -62,6 +62,34 @@ func Signup(in SignupInput) SignupResult {
 	return result
 }
 
+// ProfileUpdateInput содержит данные изменения профиля.
+type ProfileUpdateInput struct {
+	Email       string
+	DisplayName string
+}
+
+// ProfileUpdateResult содержит нормализованные данные и ошибки полей.
+type ProfileUpdateResult struct {
+	Email       string
+	DisplayName string
+	Fields      map[string]string
+}
+
+func ProfileUpdate(in ProfileUpdateInput) ProfileUpdateResult {
+	result := ProfileUpdateResult{
+		Email:       NormalizeEmail(in.Email),
+		DisplayName: strings.TrimSpace(in.DisplayName),
+		Fields:      make(map[string]string),
+	}
+	if err := checkEmail(result.Email); err != nil {
+		result.Fields["email"] = err.Error()
+	}
+	if err := checkDisplayName(result.DisplayName); err != nil {
+		result.Fields["display_name"] = err.Error()
+	}
+	return result
+}
+
 // LoginInput содержит данные входа.
 type LoginInput struct {
 	Email    string

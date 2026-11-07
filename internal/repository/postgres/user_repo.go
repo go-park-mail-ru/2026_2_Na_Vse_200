@@ -99,6 +99,7 @@ func scanUser(row pgx.Row) (models.User, error) {
 
 	user.ID = models.UserID(id)
 	if avatarFileID != nil {
+		user.AvatarURL = "/api/v1/media/" + *avatarFileID
 		fileID := models.MediaFileID(*avatarFileID)
 		user.AvatarFileID = &fileID
 	}
