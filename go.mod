@@ -3,8 +3,10 @@ module 2026_2_Na_Vse_200
 go 1.27.1
 
 require (
+	github.com/DATA-DOG/go-sqlmock v1.5.2
 	github.com/golang-migrate/migrate/v4 v4.20.1
 	github.com/jackc/pgx/v5 v5.11.0
+	go.uber.org/mock v0.6.0
 	golang.org/x/crypto v0.57.0
 )
 

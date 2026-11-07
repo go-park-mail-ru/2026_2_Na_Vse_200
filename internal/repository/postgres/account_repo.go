@@ -10,7 +10,7 @@ import (
 
 // Serialize sensitive changes and verify that the password did not change after bcrypt verification.
 func (r *UserRepo) changeAccount(ctx context.Context, id models.UserID, expectedHash string, change func(pgx.Tx) error) error {
-	tx, err := r.pool.Begin(ctx)
+	tx, err := r.transactions.Begin(ctx)
 	if err != nil {
 		return err
 	}

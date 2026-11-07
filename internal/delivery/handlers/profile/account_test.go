@@ -78,3 +78,35 @@ func TestAccountHTTP(t *testing.T) {
 		})
 	}
 }
+
+func TestAccountChangesRequireCSRF(t *testing.T) {
+	for _, method := range []string{http.MethodPut, http.MethodDelete} {
+		stub := &accountUsecaseStub{}
+		h := NewAccount(stub, &config.Config{})
+		mux := http.NewServeMux()
+		mux.HandleFunc("PUT /users/{id}/email", h.ChangeEmail)
+		mux.HandleFunc("DELETE /users/{id}", h.Delete)
+		protected := middleware.WithCSRF(middleware.WithAuth("session_id", func(context.Context, models.SessionID) (models.Session, error) {
+			return models.Session{UserID: ownerID}, nil
+		})(mux))
+		path := "/users/" + ownerID
+		if method == http.MethodPut {
+			path += "/email"
+		}
+		for _, token := range []string{"", "valid-token"} {
+			r := httptest.NewRequest(method, path, strings.NewReader(`{"current_password":"Old12345","email":"new@example.test"}`))
+			r.AddCookie(&http.Cookie{Name: "session_id", Value: "test"})
+			r.AddCookie(&http.Cookie{Name: "csrf_token", Value: "valid-token"})
+			r.Header.Set("X-CSRF-Token", token)
+			w := httptest.NewRecorder()
+			protected.ServeHTTP(w, r)
+			if token == "" {
+				if w.Code != 403 || stub.calls != 0 {
+					t.Fatalf("CSRF check failed: %d %d", w.Code, stub.calls)
+				}
+			} else if w.Code >= 300 || stub.calls != 1 {
+				t.Fatalf("valid CSRF rejected: %d %s", w.Code, w.Body.String())
+			}
+		}
+	}
+}

@@ -16,6 +16,7 @@ import (
 	"2026_2_Na_Vse_200/internal/repository/postgres"
 	"2026_2_Na_Vse_200/internal/storage"
 	accountusecase "2026_2_Na_Vse_200/internal/usecase/account"
+	artistusecase "2026_2_Na_Vse_200/internal/usecase/artist"
 	authusecase "2026_2_Na_Vse_200/internal/usecase/auth"
 	catalogusecase "2026_2_Na_Vse_200/internal/usecase/catalog"
 	profileusecase "2026_2_Na_Vse_200/internal/usecase/profile"
@@ -27,14 +28,16 @@ func newHandler(cfg config.Config, pool *pgxpool.Pool, sessions *postgres.Sessio
 	if err != nil {
 		return nil, err
 	}
+
+	users := postgres.NewUserRepo(pool)
+	mediaRepo := postgres.NewMediaRepo(pool)
 	api := handlers.New(&cfg, &handlers.Deps{
-		Sessions: sessions.GetByID,
-		Account:  accountusecase.New(postgres.NewUserRepo(pool), postgres.NewUserRepo(pool), auth.NewBcryptHasher()),
-		Profile:  profileusecase.NewProfileUsecase(postgres.NewUserRepo(pool), postgres.NewUserRepo(pool), postgres.NewMediaRepo(pool), blobs),
-		Media:    media.New(postgres.NewMediaRepo(pool), postgres.NewTrackRepo(pool), blobs),
-		Auth:     authusecase.New(postgres.NewUserRepo(pool), sessions, auth.NewBcryptHasher(), auth.NewSessionID, time.Now, cfg.SessionTTL),
-		Catalog:  catalogusecase.New(postgres.NewCatalogRepo(pool)),
-		Artist:   catalogusecase.NewArtist(postgres.NewArtistRepo(pool)),
+		Account: accountusecase.New(users, users, auth.NewBcryptHasher()),
+		Auth:    authusecase.NewAuthUsecase(users, sessions, auth.NewBcryptHasher(), auth.NewSessionID, time.Now, cfg.SessionTTL, logger),
+		Catalog: catalogusecase.New(postgres.NewCatalogRepo(pool), logger),
+		Profile: profileusecase.NewProfileUsecase(users, users, mediaRepo, blobs, logger),
+		Artist:  artistusecase.NewArtistUsecase(postgres.NewArtistRepo(pool), logger),
+		Media:   media.NewMediaHandler(mediaRepo, blobs, postgres.NewTrackRepo(pool)),
 	})
 	return middleware.Chain(
 		api.Routes(),
@@ -42,6 +45,7 @@ func newHandler(cfg config.Config, pool *pgxpool.Pool, sessions *postgres.Sessio
 		middleware.WithRequestID,
 		middleware.WithLogging(logger, "monolith/middleware"),
 		middleware.WithCORS(cfg.AllowedOrigin, cfg.AllowedMethods, cfg.AllowedHeaders),
+		middleware.WithCSRF,
 		middleware.WithJSONErrors,
 	), nil
 }
@@ -51,7 +55,7 @@ func newServer(addr string, handler http.Handler) *http.Server {
 		Addr:              addr,
 		Handler:           handler,
 		ReadHeaderTimeout: 3 * time.Second,
-		ReadTimeout:       5 * time.Second,
+		ReadTimeout:       15 * time.Second,
 		WriteTimeout:      0,
 		IdleTimeout:       60 * time.Second,
 	}

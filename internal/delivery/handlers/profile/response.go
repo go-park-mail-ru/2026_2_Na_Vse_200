@@ -6,6 +6,7 @@ import (
 	"uuid"
 
 	"2026_2_Na_Vse_200/internal/models"
+	"2026_2_Na_Vse_200/internal/security"
 )
 
 type profileResponse struct {
@@ -24,7 +25,7 @@ func newProfileResponse(user models.User) (profileResponse, error) {
 	resp := profileResponse{
 		ID:          id,
 		Email:       user.Email,
-		DisplayName: user.DisplayName,
+		DisplayName: security.EscapeText(user.DisplayName),
 		CreatedAt:   user.CreatedAt.UTC(),
 	}
 	if user.AvatarURL != "" {

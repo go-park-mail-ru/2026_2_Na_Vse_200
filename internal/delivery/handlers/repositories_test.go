@@ -19,6 +19,7 @@ func (f *authUsersFixture) Create(_ context.Context, user models.User) (models.U
 		}
 	}
 	user.ID = models.UserID(uuid.New().String())
+	user.CreatedAt = time.Now().UTC()
 	f.users = append(f.users, user)
 	return user, nil
 }
@@ -35,6 +36,32 @@ func (f *authUsersFixture) GetByID(_ context.Context, id models.UserID) (models.
 func (f *authUsersFixture) GetByEmail(_ context.Context, email string) (models.User, error) {
 	for _, user := range f.users {
 		if user.Email == email {
+			return user, nil
+		}
+	}
+	return models.User{}, models.ErrUserNotFound
+}
+
+func (f *authUsersFixture) UpdateProfile(_ context.Context, id models.UserID, email, displayName string) (models.User, error) {
+	for i, user := range f.users {
+		if user.Email == email && user.ID != id {
+			return models.User{}, models.ErrEmailTaken
+		}
+		if user.ID == id {
+			user.Email = email
+			user.DisplayName = displayName
+			f.users[i] = user
+			return user, nil
+		}
+	}
+	return models.User{}, models.ErrUserNotFound
+}
+
+func (f *authUsersFixture) SetAvatar(_ context.Context, id models.UserID, fileID models.MediaFileID) (models.User, error) {
+	for i, user := range f.users {
+		if user.ID == id {
+			user.AvatarFileID = &fileID
+			f.users[i] = user
 			return user, nil
 		}
 	}
@@ -89,4 +116,41 @@ func (homeCatalogFixture) HomeArtists(context.Context, int) ([]models.Artist, er
 
 func (homeCatalogFixture) HomeAlbums(context.Context, int) ([]models.Album, error) {
 	return []models.Album{{ID: "5e0a94c6-2f18-4b7d-a390-6c81e7f2b405", Title: "Тестовый альбом"}}, nil
+}
+
+type artistRepoStub struct {
+	artist models.Artist
+	tracks []models.Track
+	albums []models.Album
+	err    error
+}
+
+func (s artistRepoStub) GetByID(context.Context, models.ArtistID) (models.Artist, error) {
+	if s.err != nil {
+		return models.Artist{}, s.err
+	}
+	if s.artist.ID == "" {
+		return models.Artist{}, models.ErrArtistNotFound
+	}
+	return s.artist, nil
+}
+
+func (s artistRepoStub) Tracks(context.Context, models.ArtistID, int, int) ([]models.Track, error) {
+	if s.err != nil {
+		return nil, s.err
+	}
+	if s.tracks == nil {
+		return []models.Track{}, nil
+	}
+	return s.tracks, nil
+}
+
+func (s artistRepoStub) Albums(context.Context, models.ArtistID, int, int) ([]models.Album, error) {
+	if s.err != nil {
+		return nil, s.err
+	}
+	if s.albums == nil {
+		return []models.Album{}, nil
+	}
+	return s.albums, nil
 }

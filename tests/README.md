@@ -1,20 +1,69 @@
 # Тесты
 
-Требование РК1 — покрытие не ниже 50%.
+**Общее покрытие тестами — 57,6%** без сгенерированных моков.
+Замер от 03.11.2026, без подключения к PostgreSQL (`TEST_POSTGRES_DSN` не задана).
+
+Требование РК2 — покрытие больше 60% без сгенерированных моков.
 
 Файлы `*_test.go` лежат рядом с проверяемым кодом. Здесь — описание проверок и команды запуска.
 
 ## Покрытие
 
-Покрытие измеряется по текущему коду командами из раздела [«Запуск»](#запуск).
-Фиксированная цифра в документации быстро устаревает после добавления пакетов.
+Покрытие измеряется командами из раздела [«Запуск»](#запуск).
+После изменения кода или тестов процент выше нужно пересчитать.
+В расчёте остаются все рабочие пакеты, включая приложение и PostgreSQL-репозитории.
+Флаг `-coverpkg=./...` учитывает код соседних пакетов, который вызывают HTTP-тесты.
 В `internal/repository/postgres/session_repo_test.go` есть интеграционные тесты сессий:
 они запускаются только при заданном `TEST_POSTGRES_DSN`. Без этой переменной они пропускаются.
 В cmd/app проверяются аргументы команд и справка без подключения к БД; в internal/app — корректная остановка HTTP-сервера. Тесты обработчиков
-используют локальные неэкспортируемые подмены из `internal/delivery/handlers/repositories_test.go`;
-они собираются только при тестировании. Работающий сервер использует PostgreSQL.
+используют локальные подмены из `internal/delivery/handlers/repositories_test.go`
+и сгенерированные gomock-подмены портов. Работающий сервер использует PostgreSQL.
+
+## Генерация моков
+
+В `internal/usecase/ports/repository.go` записаны директивы `//go:generate`
+для пользователей, сессий, каталога и хеширования паролей.
+Версия генератора закреплена: `go.uber.org/mock v0.6.0`.
+
+```powershell
+go generate ./internal/usecase/ports
+```
+
+Команда создаёт `internal/usecase/ports/mocks/mock_repository.go`
+и `internal/usecase/ports/mocks/mock_hasher.go`. Эти файлы вручную не редактируются.
+После изменения интерфейсов нужно повторить генерацию. `go test` и `go build`
+автоматически её не запускают.
+
+`sqlmock` создаёт подмену БД при запуске теста, поэтому директива ему не нужна.
+Адаптеры `sqlDB` и `sqlRow` в SQL-тестах написаны вручную для вызовов pgx.
 
 ## Что проверяется
+
+### Gomock в HTTP-тестах
+
+`internal/delivery/handlers/auth_gomock_test.go` проверяет передачу хеша
+в хранилище, создание сессии при регистрации и отказ во входе без новой сессии
+при неверном пароле.
+
+`internal/delivery/handlers/home_gomock_test.go` проверяет ответ главной страницы
+с заданными данными каталога и прекращение чтения после ошибки репозитория.
+Эти тесты соединяют настоящие HTTP-обработчики и usecase с моками портов.
+
+### `internal/repository/postgres`: sqlmock
+
+`user_repo_sqlmock_test.go` использует `github.com/DATA-DOG/go-sqlmock v1.5.2`
+без подключения к PostgreSQL. Проверяются SQL и аргументы создания пользователя,
+чтение по email, конфликт email, отсутствие строки, ошибка БД, обновление профиля
+и привязка аватара.
+
+Тестовый адаптер передаёт `QueryRow` в `database/sql` и переводит
+`sql.ErrNoRows` в `pgx.ErrNoRows`. Сам `UserRepo` выполняет обычный код,
+а в приложении получает `pgxpool.Pool`. Мок проверяет обращения к БД;
+работоспособность SQL на PostgreSQL проверяется интеграционными тестами.
+
+```powershell
+go test ./internal/repository/postgres -run '^TestUser' -v
+```
 
 ### internal/migration
 
@@ -209,12 +258,13 @@ TEST_POSTGRES_DSN='postgres://postgres:YOUR_PASSWORD@localhost:5432/music_test?s
 работоспособности PostgreSQL. Общие команды `go test ./...` также включают эти проверки,
 если переменная задана.
 
-Общая цифра и разбор по функциям:
+Общая цифра без сгенерированных моков и разбор по функциям (PowerShell):
 
-```
-go test ./... -coverprofile=cover.out
-go tool cover -func=cover.out
-go tool cover -html=cover.out
+```powershell
+go test ./... '-coverpkg=./...' '-coverprofile=cover.out'
+Get-Content cover.out | Where-Object { $_ -notmatch '/mocks/|/mock_[^/]*\.go:' } | Set-Content -Encoding ascii cover.nomocks.out
+go tool cover '-func=cover.nomocks.out'
+go tool cover '-html=cover.nomocks.out'
 ```
 
 Отдельный пакет или тест:

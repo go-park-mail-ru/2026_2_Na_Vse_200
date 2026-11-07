@@ -12,16 +12,23 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
+type rowQuerier interface {
+	QueryRow(context.Context, string, ...any) pgx.Row
+}
+
 // UserRepo хранит пользователей в таблице account.
 type UserRepo struct {
-	pool *pgxpool.Pool
+	pool         rowQuerier
+	transactions interface {
+		Begin(context.Context) (pgx.Tx, error)
+	}
 }
 
 var _ ports.UserRepository = (*UserRepo)(nil)
 
 // NewUserRepo создаёт репозиторий пользователей.
 func NewUserRepo(pool *pgxpool.Pool) *UserRepo {
-	return &UserRepo{pool: pool}
+	return &UserRepo{pool: pool, transactions: pool}
 }
 
 // Create сохраняет аккаунт. ID и время создания задаёт база данных.

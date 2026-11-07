@@ -27,7 +27,7 @@ func Run(ctx context.Context, cfg config.Config) error {
 	sessions := postgres.NewSessionRepo(pool)
 	handler, err := newHandler(cfg, pool, sessions, logger)
 	if err != nil {
-		return fmt.Errorf("initialize media: %w", err)
+		return err
 	}
 	server := newServer(cfg.Addr, handler)
 	cleanupCtx, cancelCleanup := context.WithCancel(ctx)

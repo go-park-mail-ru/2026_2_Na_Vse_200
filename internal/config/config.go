@@ -24,12 +24,12 @@ type Config struct {
 // Load читает настройки из окружения и возвращает ошибку при неверном формате значения.
 func Load() (cfg Config, err error) {
 	cfg = Config{
-		MediaRoot:      getEnv("MEDIA_ROOT", "media"),
 		Addr:           getEnv("APP_ADDR", ":8080"),
 		AllowedOrigin:  getEnv("APP_ALLOWED_ORIGIN", ""),
 		AllowedMethods: getEnv("APP_ALLOWED_METHODS", "GET, POST, PUT, DELETE, OPTIONS"),
-		AllowedHeaders: getEnv("APP_ALLOWED_HEADERS", "Content-Type"),
+		AllowedHeaders: getEnv("APP_ALLOWED_HEADERS", "Content-Type, X-CSRF-Token"),
 		PostgreSQLDSN:  getEnv("POSTGRES_DSN", ""),
+		MediaRoot:      getEnv("MEDIA_ROOT", "data/media"),
 	}
 
 	cfg.CookieSecure, err = getBool("APP_COOKIE_SECURE", false)

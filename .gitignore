@@ -26,3 +26,6 @@ go.work.sum
 
 # Uploaded local avatars.
 /media/images/avatars/
+
+# Local media storage from main.
+data/media/

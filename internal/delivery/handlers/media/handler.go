@@ -8,6 +8,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"uuid"
 )
 
 type Repository interface {
@@ -19,24 +20,38 @@ type Tracks interface {
 type Blobs interface {
 	Open(string) (*os.File, error)
 }
-type Handler struct {
+type MediaHandler struct {
 	media  Repository
 	tracks Tracks
 	blobs  Blobs
 }
 
-func New(media Repository, tracks Tracks, blobs Blobs) *Handler {
-	return &Handler{media, tracks, blobs}
+func NewMediaHandler(media Repository, blobs Blobs, tracks ...Tracks) *MediaHandler {
+	h := &MediaHandler{media: media, blobs: blobs}
+	if len(tracks) > 0 {
+		h.tracks = tracks[0]
+	}
+	return h
 }
-func (h *Handler) Get(w http.ResponseWriter, r *http.Request) {
-	file, err := h.media.GetByID(r.Context(), models.MediaFileID(r.PathValue("id")))
+func (h *MediaHandler) Get(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(r.PathValue("id"))
+	if err != nil {
+		response.WriteError(w, http.StatusNotFound, models.CodeNotFound, models.MsgNotFound)
+		return
+	}
+	file, err := h.media.GetByID(r.Context(), models.MediaFileID(id.String()))
 	h.serve(w, r, file, err)
 }
-func (h *Handler) Audio(w http.ResponseWriter, r *http.Request) {
-	file, err := h.tracks.GetAudio(r.Context(), models.TrackID(r.PathValue("id")))
+func (h *MediaHandler) Audio(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(r.PathValue("id"))
+	if err != nil || h.tracks == nil {
+		response.WriteError(w, http.StatusNotFound, models.CodeNotFound, models.MsgNotFound)
+		return
+	}
+	file, err := h.tracks.GetAudio(r.Context(), models.TrackID(id.String()))
 	h.serve(w, r, file, err)
 }
-func (h *Handler) serve(w http.ResponseWriter, r *http.Request, file models.MediaFile, err error) {
+func (h *MediaHandler) serve(w http.ResponseWriter, r *http.Request, file models.MediaFile, err error) {
 	if errors.Is(err, models.ErrMediaFileNotFound) || errors.Is(err, models.ErrTrackNotFound) {
 		http.NotFound(w, r)
 		return

@@ -25,6 +25,10 @@ func (a *Handler) Signup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a.setSessionCookie(w, string(result.Session.ID))
+	if _, err := a.issueCSRFCookie(w); err != nil {
+		response.WriteError(w, http.StatusInternalServerError, models.CodeInternal, models.MsgInternal)
+		return
+	}
 	response.WriteJSON(w, http.StatusCreated, newUserResponse(result.User))
 }
 
@@ -41,6 +45,10 @@ func (a *Handler) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a.setSessionCookie(w, string(result.Session.ID))
+	if _, err := a.issueCSRFCookie(w); err != nil {
+		response.WriteError(w, http.StatusInternalServerError, models.CodeInternal, models.MsgInternal)
+		return
+	}
 	response.WriteJSON(w, http.StatusOK, newUserResponse(result.User))
 }
 func (a *Handler) sessionIDFromRequest(r *http.Request) (string, error) {
@@ -70,5 +78,6 @@ func (a *Handler) Logout(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	a.clearSessionCookie(w)
+	a.clearCSRFCookie(w)
 	w.WriteHeader(http.StatusNoContent)
 }

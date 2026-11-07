@@ -5,6 +5,13 @@ import (
 	"testing"
 )
 
+func TestUserResponseEscapesDisplayName(t *testing.T) {
+	got := newUserResponse(models.User{DisplayName: `<script>alert(1)</script>`})
+	if got.DisplayName != `&lt;script&gt;alert(1)&lt;/script&gt;` {
+		t.Fatalf("display_name = %q, ожидалось экранирование", got.DisplayName)
+	}
+}
+
 func TestUserResponseAvatar(t *testing.T) {
 	const url = "https://cdn.example.com/avatars/andrey.jpg"
 

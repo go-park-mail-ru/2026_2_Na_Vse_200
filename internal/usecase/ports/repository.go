@@ -6,6 +6,9 @@ import (
 	"2026_2_Na_Vse_200/internal/models"
 )
 
+//go:generate go run go.uber.org/mock/mockgen@v0.6.0 -destination=mocks/mock_repository.go -package=mocks . UserRepository,SessionRepository,CatalogRepository
+//go:generate go run go.uber.org/mock/mockgen@v0.6.0 -destination=mocks/mock_hasher.go -package=mocks . PasswordHasher
+
 // UserRepository хранит аккаунты.
 type UserRepository interface {
 	// Create сохраняет пользователя с готовым хешем пароля и возвращает ID и время создания.
