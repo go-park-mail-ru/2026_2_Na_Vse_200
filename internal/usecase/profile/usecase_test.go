@@ -105,7 +105,7 @@ func TestGet(t *testing.T) {
 	other := models.UserID("22222222-2222-2222-2222-222222222222")
 	avatar := models.MediaFileID("44444444-4444-4444-4444-444444444444")
 	users := &userRepoStub{user: models.User{Email: "andrey@example.com", DisplayName: "Андрей", AvatarFileID: &avatar}}
-	uc := NewProfileUsecase(users, &profileRepoStub{user: *users}, &mediaRepoStub{}, &blobStub{})
+	uc := NewProfileUsecase(users, &profileRepoStub{user: *users}, &mediaRepoStub{}, &blobStub{}, nil)
 
 	t.Run("чужой id", func(t *testing.T) {
 		_, err := uc.Get(context.Background(), owner, other)
@@ -128,7 +128,7 @@ func TestGet(t *testing.T) {
 func TestUpdate(t *testing.T) {
 	owner := models.UserID("11111111-1111-1111-1111-111111111111")
 	users := &userRepoStub{user: models.User{Email: "old@example.com", DisplayName: "Старое"}}
-	uc := NewProfileUsecase(users, &profileRepoStub{user: *users}, &mediaRepoStub{}, &blobStub{})
+	uc := NewProfileUsecase(users, &profileRepoStub{user: *users}, &mediaRepoStub{}, &blobStub{}, nil)
 
 	got, err := uc.Update(context.Background(), owner, owner, ProfileUpdateInput{
 		Email: "Andrey@Example.com", DisplayName: "Андрей",
@@ -146,7 +146,7 @@ func TestUploadAvatar(t *testing.T) {
 	users := &userRepoStub{user: models.User{Email: "a@b.co", DisplayName: "A"}}
 	media := &mediaRepoStub{}
 	blobs := &blobStub{}
-	uc := NewProfileUsecase(users, &profileRepoStub{user: *users}, media, blobs)
+	uc := NewProfileUsecase(users, &profileRepoStub{user: *users}, media, blobs, nil)
 
 	pngHeader := append([]byte{
 		0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A,

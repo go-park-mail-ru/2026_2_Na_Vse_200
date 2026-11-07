@@ -51,7 +51,7 @@ func TestHome(t *testing.T) {
 			ctx := context.WithValue(context.Background(), struct{}{}, "request")
 			failure := errors.New("storage down")
 			repo := &catalogStub{fail: tc.fail, err: failure, ctx: ctx, t: t}
-			result, err := New(repo).Home(ctx)
+			result, err := New(repo, nil).Home(ctx)
 			if !reflect.DeepEqual(repo.calls, tc.calls) {
 				t.Fatalf("calls: %v", repo.calls)
 			}
