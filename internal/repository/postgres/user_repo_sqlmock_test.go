@@ -26,8 +26,8 @@ const findUser = `
 	WHERE email = $1`
 
 const updateUser = `
-	UPDATE account SET email = $2, display_name = $3
-	WHERE id = $1::uuid
+	UPDATE account SET display_name = $3
+	WHERE id = $1::uuid AND email = $2
 	RETURNING id::text, email, password_hash, display_name, avatar_file_id::text, created_at`
 
 const setAvatar = `
@@ -140,6 +140,7 @@ func TestUserGetByEmail(t *testing.T) {
 		PasswordHash: "stored-hash",
 		DisplayName:  "Андрей",
 		AvatarFileID: &avatar,
+		AvatarURL:    "/api/v1/media/" + string(avatar),
 		CreatedAt:    time.Date(2026, 11, 3, 12, 0, 0, 0, time.UTC),
 	}
 	dbErr := errors.New("соединение потеряно")
@@ -190,6 +191,7 @@ func TestUserUpdateProfile(t *testing.T) {
 		PasswordHash: "stored-hash",
 		DisplayName:  "Андрей",
 		AvatarFileID: &avatar,
+		AvatarURL:    "/api/v1/media/" + string(avatar),
 		CreatedAt:    time.Date(2026, 11, 3, 12, 0, 0, 0, time.UTC),
 	}
 	mock.ExpectQuery(updateUser).
@@ -216,6 +218,7 @@ func TestUserSetAvatar(t *testing.T) {
 		PasswordHash: "stored-hash",
 		DisplayName:  "Андрей",
 		AvatarFileID: &avatar,
+		AvatarURL:    "/api/v1/media/" + string(avatar),
 		CreatedAt:    time.Date(2026, 11, 3, 12, 0, 0, 0, time.UTC),
 	}
 	mock.ExpectQuery(setAvatar).

@@ -131,12 +131,12 @@ func TestUpdate(t *testing.T) {
 	uc := NewProfileUsecase(users, &profileRepoStub{user: *users}, &mediaRepoStub{}, &blobStub{}, nil)
 
 	got, err := uc.Update(context.Background(), owner, owner, ProfileUpdateInput{
-		Email: "Andrey@Example.com", DisplayName: "Андрей",
+		Email: "Old@Example.com", DisplayName: "Андрей",
 	})
 	if err != nil {
 		t.Fatalf("err=%v", err)
 	}
-	if got.Email != "andrey@example.com" || got.DisplayName != "Андрей" {
+	if got.Email != "old@example.com" || got.DisplayName != "Андрей" {
 		t.Fatalf("got=%+v", got)
 	}
 }

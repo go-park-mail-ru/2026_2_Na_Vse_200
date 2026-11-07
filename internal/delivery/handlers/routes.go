@@ -19,27 +19,32 @@ type Deps struct {
 	Auth    auth.Usecase
 	Catalog home.CatalogUsecase
 	Profile profile.ProfileUsecase
+	Account profile.AccountUsecase
 	Artist  artist.ArtistUsecase
 	Media   *media.MediaHandler
 }
 
 type API struct {
-	auth    auth.Usecase
-	authH   *auth.Handler
-	home    *home.Handler
-	profile *profile.ProfileHandler
-	artist  *artist.ArtistHandler
-	media   *media.MediaHandler
+	auth           auth.Usecase
+	authH          *auth.Handler
+	home           *home.Handler
+	profile        *profile.ProfileHandler
+	account        *profile.AccountHandler
+	accountEnabled bool
+	artist         *artist.ArtistHandler
+	media          *media.MediaHandler
 }
 
 func New(cfg *config.Config, deps *Deps) *API {
 	return &API{
-		auth:    deps.Auth,
-		authH:   auth.New(cfg, deps.Auth),
-		home:    home.New(deps.Catalog),
-		profile: profile.NewProfileHandler(deps.Profile),
-		artist:  artist.NewArtistHandler(deps.Artist),
-		media:   deps.Media,
+		auth:           deps.Auth,
+		authH:          auth.New(cfg, deps.Auth),
+		home:           home.New(deps.Catalog),
+		profile:        profile.NewProfileHandler(deps.Profile),
+		account:        profile.NewAccountHandler(deps.Account, cfg),
+		accountEnabled: deps.Account != nil,
+		artist:         artist.NewArtistHandler(deps.Artist),
+		media:          deps.Media,
 	}
 }
 
@@ -55,6 +60,11 @@ func (a *API) Routes() http.Handler {
 
 	if a.auth != nil && a.profile != nil {
 		authUser := middleware.WithAuth(sessionCookieName, a.auth.SessionByID)
+		if a.accountEnabled {
+			mux.Handle("PUT /api/v1/users/{id}/email", authUser(http.HandlerFunc(a.account.ChangeEmail)))
+			mux.Handle("PUT /api/v1/users/{id}/password", authUser(http.HandlerFunc(a.account.ChangePassword)))
+			mux.Handle("DELETE /api/v1/users/{id}", authUser(http.HandlerFunc(a.account.Delete)))
+		}
 		mux.Handle("GET /api/v1/users/{id}", authUser(http.HandlerFunc(a.profile.Get)))
 		mux.Handle("PUT /api/v1/users/{id}", authUser(http.HandlerFunc(a.profile.Update)))
 		mux.Handle("POST /api/v1/users/{id}/avatar", authUser(http.HandlerFunc(a.profile.UploadAvatar)))
@@ -64,6 +74,7 @@ func (a *API) Routes() http.Handler {
 	}
 	if a.media != nil {
 		mux.HandleFunc("GET /api/v1/media/{id}", a.media.Get)
+		mux.HandleFunc("GET /api/v1/tracks/{id}/audio", a.media.Audio)
 	}
 	return mux
 }

@@ -18,14 +18,17 @@ type rowQuerier interface {
 
 // UserRepo хранит пользователей в таблице account.
 type UserRepo struct {
-	pool rowQuerier
+	pool         rowQuerier
+	transactions interface {
+		Begin(context.Context) (pgx.Tx, error)
+	}
 }
 
 var _ ports.UserRepository = (*UserRepo)(nil)
 
 // NewUserRepo создаёт репозиторий пользователей.
 func NewUserRepo(pool *pgxpool.Pool) *UserRepo {
-	return &UserRepo{pool: pool}
+	return &UserRepo{pool: pool, transactions: pool}
 }
 
 // Create сохраняет аккаунт. ID и время создания задаёт база данных.
@@ -103,6 +106,7 @@ func scanUser(row pgx.Row) (models.User, error) {
 
 	user.ID = models.UserID(id)
 	if avatarFileID != nil {
+		user.AvatarURL = "/api/v1/media/" + *avatarFileID
 		fileID := models.MediaFileID(*avatarFileID)
 		user.AvatarFileID = &fileID
 	}

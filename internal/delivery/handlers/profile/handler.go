@@ -115,10 +115,12 @@ func (h *ProfileHandler) UploadAvatar(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	r.Body = http.MaxBytesReader(w, r.Body, maxAvatarForm)
 	if err := r.ParseMultipartForm(maxAvatarForm); err != nil {
 		response.WriteError(w, http.StatusBadRequest, models.CodeInvalidJSON, models.MsgInvalidJSON)
 		return
 	}
+	defer r.MultipartForm.RemoveAll()
 	file, _, err := r.FormFile(avatarField)
 	if err != nil {
 		response.WriteFieldsError(w, http.StatusBadRequest, models.CodeValidationFailed, models.MsgValidationFailed, map[string]string{

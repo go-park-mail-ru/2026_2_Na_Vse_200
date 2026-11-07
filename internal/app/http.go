@@ -15,6 +15,7 @@ import (
 	"2026_2_Na_Vse_200/internal/delivery/middleware"
 	"2026_2_Na_Vse_200/internal/repository/postgres"
 	"2026_2_Na_Vse_200/internal/storage"
+	accountusecase "2026_2_Na_Vse_200/internal/usecase/account"
 	artistusecase "2026_2_Na_Vse_200/internal/usecase/artist"
 	authusecase "2026_2_Na_Vse_200/internal/usecase/auth"
 	catalogusecase "2026_2_Na_Vse_200/internal/usecase/catalog"
@@ -31,11 +32,12 @@ func newHandler(cfg config.Config, pool *pgxpool.Pool, sessions *postgres.Sessio
 	users := postgres.NewUserRepo(pool)
 	mediaRepo := postgres.NewMediaRepo(pool)
 	api := handlers.New(&cfg, &handlers.Deps{
+		Account: accountusecase.NewAccountUsecase(users, users, auth.NewBcryptHasher()),
 		Auth:    authusecase.NewAuthUsecase(users, sessions, auth.NewBcryptHasher(), auth.NewSessionID, time.Now, cfg.SessionTTL, logger),
 		Catalog: catalogusecase.New(postgres.NewCatalogRepo(pool), logger),
 		Profile: profileusecase.NewProfileUsecase(users, users, mediaRepo, blobs, logger),
 		Artist:  artistusecase.NewArtistUsecase(postgres.NewArtistRepo(pool), logger),
-		Media:   media.NewMediaHandler(mediaRepo, blobs),
+		Media:   media.NewMediaHandler(mediaRepo, blobs, postgres.NewTrackRepo(pool)),
 	})
 	return middleware.Chain(
 		api.Routes(),
@@ -54,7 +56,7 @@ func newServer(addr string, handler http.Handler) *http.Server {
 		Handler:           handler,
 		ReadHeaderTimeout: 3 * time.Second,
 		ReadTimeout:       15 * time.Second,
-		WriteTimeout:      15 * time.Second,
+		WriteTimeout:      0,
 		IdleTimeout:       60 * time.Second,
 	}
 }

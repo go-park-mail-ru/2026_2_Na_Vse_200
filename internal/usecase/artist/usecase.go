@@ -31,6 +31,13 @@ func NewArtistUsecase(artists ports.ArtistRepository, log *slog.Logger) *ArtistU
 }
 
 func (u *ArtistUsecase) Page(ctx context.Context, id models.ArtistID) (ArtistPage, error) {
+	return u.PageAt(ctx, id, pageLimit, 0)
+}
+
+func (u *ArtistUsecase) PageAt(ctx context.Context, id models.ArtistID, limit, offset int) (ArtistPage, error) {
+	if limit < 1 || limit > 100 || offset < 0 {
+		return ArtistPage{}, fmt.Errorf("invalid pagination")
+	}
 	log := logger.FromContext(ctx, u.log)
 	log.Info("artist.Page: старт", slog.String("artist_id", string(id)))
 
@@ -41,14 +48,14 @@ func (u *ArtistUsecase) Page(ctx context.Context, id models.ArtistID) (ArtistPag
 	}
 	log.Info("artist.Page: исполнитель получен", slog.String("artist_id", string(artist.ID)))
 
-	tracks, err := u.artists.Tracks(ctx, id, pageLimit, 0)
+	tracks, err := u.artists.Tracks(ctx, id, limit, offset)
 	if err != nil {
 		log.Error("artist.Page: чтение треков", slog.Any("error", err), slog.String("artist_id", string(id)))
 		return ArtistPage{}, fmt.Errorf("read artist tracks: %w", err)
 	}
 	log.Info("artist.Page: треки получены", slog.String("artist_id", string(id)), slog.Int("count", len(tracks)))
 
-	albums, err := u.artists.Albums(ctx, id, pageLimit, 0)
+	albums, err := u.artists.Albums(ctx, id, limit, offset)
 	if err != nil {
 		log.Error("artist.Page: чтение альбомов", slog.Any("error", err), slog.String("artist_id", string(id)))
 		return ArtistPage{}, fmt.Errorf("read artist albums: %w", err)

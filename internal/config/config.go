@@ -26,7 +26,7 @@ func Load() (cfg Config, err error) {
 	cfg = Config{
 		Addr:           getEnv("APP_ADDR", ":8080"),
 		AllowedOrigin:  getEnv("APP_ALLOWED_ORIGIN", ""),
-		AllowedMethods: getEnv("APP_ALLOWED_METHODS", "GET, POST, PUT, OPTIONS"),
+		AllowedMethods: getEnv("APP_ALLOWED_METHODS", "GET, POST, PUT, DELETE, OPTIONS"),
 		AllowedHeaders: getEnv("APP_ALLOWED_HEADERS", "Content-Type, X-CSRF-Token"),
 		PostgreSQLDSN:  getEnv("POSTGRES_DSN", ""),
 		MediaRoot:      getEnv("MEDIA_ROOT", "data/media"),
