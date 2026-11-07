@@ -49,7 +49,7 @@ type Usecase struct {
 	log          *slog.Logger
 }
 
-func New(
+func NewAuthUsecase(
 	users ports.UserRepository,
 	sessions ports.SessionRepository,
 	hasher ports.PasswordHasher,
