@@ -43,6 +43,7 @@ func newHandler(cfg config.Config, pool *pgxpool.Pool, sessions *postgres.Sessio
 		middleware.WithRequestID,
 		middleware.WithLogging(logger, "monolith/middleware"),
 		middleware.WithCORS(cfg.AllowedOrigin, cfg.AllowedMethods, cfg.AllowedHeaders),
+		middleware.WithCSRF,
 		middleware.WithJSONErrors,
 	), nil
 }
