@@ -46,6 +46,7 @@ func New(cfg *config.Config, deps *Deps) *API {
 func (a *API) Routes() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health", health.Health)
+	mux.HandleFunc("GET /api/v1/auth/csrf", a.authH.CSRF)
 	mux.HandleFunc("POST /api/v1/auth/signup", a.authH.Signup)
 	mux.HandleFunc("POST /api/v1/auth/login", a.authH.Login)
 	mux.HandleFunc("GET /api/v1/auth/me", a.authH.Me)
