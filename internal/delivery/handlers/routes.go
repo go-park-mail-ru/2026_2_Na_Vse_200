@@ -41,7 +41,7 @@ func New(cfg *config.Config, deps *Deps) *API {
 		authH:          auth.New(cfg, deps.Auth),
 		home:           home.New(deps.Catalog),
 		profile:        profile.NewProfileHandler(deps.Profile),
-		account:        profile.NewAccount(deps.Account, cfg),
+		account:        profile.NewAccountHandler(deps.Account, cfg),
 		accountEnabled: deps.Account != nil,
 		artist:         artist.NewArtistHandler(deps.Artist),
 		media:          deps.Media,

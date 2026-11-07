@@ -16,7 +16,7 @@ type ArtistPage struct {
 
 type ArtistUsecase struct{ artists ports.ArtistRepository }
 
-func NewArtist(artists ports.ArtistRepository) *ArtistUsecase {
+func NewArtistUsecase(artists ports.ArtistRepository) *ArtistUsecase {
 	return &ArtistUsecase{artists: artists}
 }
 

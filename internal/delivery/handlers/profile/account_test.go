@@ -52,7 +52,7 @@ func TestAccountHTTP(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			stub := &accountUsecaseStub{err: tc.err}
-			h := NewAccount(stub, &config.Config{CookieSecure: true})
+			h := NewAccountHandler(stub, &config.Config{CookieSecure: true})
 			mux := http.NewServeMux()
 			mux.HandleFunc("PUT /users/{id}/email", h.ChangeEmail)
 			mux.HandleFunc("PUT /users/{id}/password", h.ChangePassword)
@@ -82,7 +82,7 @@ func TestAccountHTTP(t *testing.T) {
 func TestAccountChangesRequireCSRF(t *testing.T) {
 	for _, method := range []string{http.MethodPut, http.MethodDelete} {
 		stub := &accountUsecaseStub{}
-		h := NewAccount(stub, &config.Config{})
+		h := NewAccountHandler(stub, &config.Config{})
 		mux := http.NewServeMux()
 		mux.HandleFunc("PUT /users/{id}/email", h.ChangeEmail)
 		mux.HandleFunc("DELETE /users/{id}", h.Delete)

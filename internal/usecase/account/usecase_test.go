@@ -51,7 +51,7 @@ func TestAccountChanges(t *testing.T) {
 			t.Run(action+"/"+scenario, func(t *testing.T) {
 				users := &usersStub{user: models.User{ID: "owner", Email: "old@example.test", DisplayName: "Name", PasswordHash: hash}}
 				repo := &accountStub{}
-				u := New(users, repo, hasher)
+				u := NewAccountUsecase(users, repo, hasher)
 				owner, password, value := models.UserID("owner"), "OldPass123", "new@example.test"
 				if action == "password" {
 					value = "NewPass456"

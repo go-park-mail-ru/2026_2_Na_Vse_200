@@ -24,7 +24,7 @@ type AccountHandler struct {
 	cfg     *config.Config
 }
 
-func NewAccount(usecase AccountUsecase, cfg *config.Config) *AccountHandler {
+func NewAccountHandler(usecase AccountUsecase, cfg *config.Config) *AccountHandler {
 	return &AccountHandler{usecase: usecase, cfg: cfg}
 }
 

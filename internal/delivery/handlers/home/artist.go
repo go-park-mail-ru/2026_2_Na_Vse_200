@@ -18,7 +18,7 @@ type ArtistUsecase interface {
 
 type ArtistHandler struct{ artists ArtistUsecase }
 
-func NewArtist(artists ArtistUsecase) *ArtistHandler { return &ArtistHandler{artists: artists} }
+func NewArtistHandler(artists ArtistUsecase) *ArtistHandler { return &ArtistHandler{artists: artists} }
 
 func (h *ArtistHandler) Artist(w http.ResponseWriter, r *http.Request) {
 	limit, offset := 100, 0

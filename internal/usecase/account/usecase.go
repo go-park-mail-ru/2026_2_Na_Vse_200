@@ -22,7 +22,7 @@ type Usecase struct {
 	hasher   ports.PasswordHasher
 }
 
-func New(users ports.UserRepository, accounts Repository, hasher ports.PasswordHasher) *Usecase {
+func NewAccountUsecase(users ports.UserRepository, accounts Repository, hasher ports.PasswordHasher) *Usecase {
 	return &Usecase{users: users, accounts: accounts, hasher: hasher}
 }
 
