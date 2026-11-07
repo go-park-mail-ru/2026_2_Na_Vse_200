@@ -12,5 +12,5 @@ type healthResponse struct {
 
 // Health отвечает на проверку доступности сервиса.
 func Health(w http.ResponseWriter, r *http.Request) {
-	response.WriteJSON(w, http.StatusOK, healthResponse{Status: "ok"})
+	response.WriteJSON(r.Context(), w, http.StatusOK, healthResponse{Status: "ok"})
 }

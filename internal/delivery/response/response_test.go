@@ -1,19 +1,17 @@
 package response
 
 import (
+	"context"
 	"encoding/json"
-	"io"
-	"log"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"testing"
 )
 
 func TestWriteJSON(t *testing.T) {
 	w := httptest.NewRecorder()
 
-	WriteJSON(w, http.StatusCreated, map[string]string{"email": "andrey@example.com"})
+	WriteJSON(context.Background(), w, http.StatusCreated, map[string]string{"email": "andrey@example.com"})
 
 	if w.Code != http.StatusCreated {
 		t.Errorf("WriteJSON: статус = %d, ожидался %d", w.Code, http.StatusCreated)
@@ -38,7 +36,7 @@ func TestWriteJSON(t *testing.T) {
 func TestWriteError(t *testing.T) {
 	w := httptest.NewRecorder()
 
-	WriteError(w, http.StatusConflict, "email_taken", "Пользователь с таким email уже существует")
+	WriteError(context.Background(), w, http.StatusConflict, "email_taken", "Пользователь с таким email уже существует")
 
 	if w.Code != http.StatusConflict {
 		t.Errorf("WriteError: статус = %d, ожидался %d", w.Code, http.StatusConflict)
@@ -61,7 +59,7 @@ func TestWriteError(t *testing.T) {
 func TestWriteFieldsError(t *testing.T) {
 	w := httptest.NewRecorder()
 
-	WriteFieldsError(w, http.StatusBadRequest, "validation_failed", "Проверьте поля", map[string]string{
+	WriteFieldsError(context.Background(), w, http.StatusBadRequest, "validation_failed", "Проверьте поля", map[string]string{
 		"email":    "Некорректный email",
 		"password": "Пароль должен быть не короче 8 символов",
 	})
@@ -96,12 +94,10 @@ func decode(t *testing.T, w *httptest.ResponseRecorder) ErrorResponse {
 
 // Ошибка сериализации должна обнаруживаться до отправки заголовков.
 func TestWriteJSONUnserializable(t *testing.T) {
-	log.SetOutput(io.Discard)
-	defer log.SetOutput(os.Stderr)
 
 	w := httptest.NewRecorder()
 
-	WriteJSON(w, http.StatusOK, map[string]any{"ch": make(chan int)})
+	WriteJSON(context.Background(), w, http.StatusOK, map[string]any{"ch": make(chan int)})
 
 	if w.Code != http.StatusInternalServerError {
 		t.Errorf("статус = %d, ожидался %d", w.Code, http.StatusInternalServerError)

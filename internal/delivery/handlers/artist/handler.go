@@ -3,9 +3,10 @@ package artist
 import (
 	"context"
 	"errors"
-	"log"
 	"net/http"
 	"uuid"
+
+	"github.com/rs/zerolog"
 
 	"2026_2_Na_Vse_200/internal/delivery/response"
 	"2026_2_Na_Vse_200/internal/models"
@@ -27,26 +28,26 @@ func NewArtistHandler(usecase ArtistUsecase) *ArtistHandler {
 func (h *ArtistHandler) Get(w http.ResponseWriter, r *http.Request) {
 	id, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {
-		response.WriteError(w, http.StatusNotFound, models.CodeNotFound, models.MsgNotFound)
+		response.WriteError(r.Context(), w, http.StatusNotFound, models.CodeNotFound, models.MsgNotFound)
 		return
 	}
 
 	page, err := h.usecase.Page(r.Context(), models.ArtistID(id.String()))
 	switch {
 	case errors.Is(err, models.ErrArtistNotFound):
-		response.WriteError(w, http.StatusNotFound, models.CodeNotFound, models.MsgNotFound)
+		response.WriteError(r.Context(), w, http.StatusNotFound, models.CodeNotFound, models.MsgNotFound)
 		return
 	case err != nil:
-		log.Printf("чтение страницы исполнителя: %v", err)
-		response.WriteError(w, http.StatusInternalServerError, models.CodeInternal, models.MsgInternal)
+		zerolog.Ctx(r.Context()).Error().Err(err).Str("operation", "artist.page").Msg("чтение страницы исполнителя")
+		response.WriteError(r.Context(), w, http.StatusInternalServerError, models.CodeInternal, models.MsgInternal)
 		return
 	}
 
 	body, err := newPageResponse(page)
 	if err != nil {
-		log.Printf("сборка ответа исполнителя: %v", err)
-		response.WriteError(w, http.StatusInternalServerError, models.CodeInternal, models.MsgInternal)
+		zerolog.Ctx(r.Context()).Error().Err(err).Str("operation", "artist.response").Msg("сборка ответа исполнителя")
+		response.WriteError(r.Context(), w, http.StatusInternalServerError, models.CodeInternal, models.MsgInternal)
 		return
 	}
-	response.WriteJSON(w, http.StatusOK, body)
+	response.WriteJSON(r.Context(), w, http.StatusOK, body)
 }

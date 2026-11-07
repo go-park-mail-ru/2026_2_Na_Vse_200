@@ -47,6 +47,8 @@ services:
       APP_SESSION_TTL: ${APP_SESSION_TTL:-24h}
       APP_SHUTDOWN_TIMEOUT: ${APP_SHUTDOWN_TIMEOUT:-10s}
       MEDIA_ROOT: ${MEDIA_ROOT:-/tmp/media}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      LOG_FORMAT: ${LOG_FORMAT:-json}
     ports:
       - "127.0.0.1:${DOCKER_HTTP_PORT:-8080}:8080"
     depends_on:

@@ -4,19 +4,20 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 
+	"github.com/rs/zerolog"
+
 	"2026_2_Na_Vse_200/internal/delivery/response"
 	"2026_2_Na_Vse_200/internal/models"
 )
 
-func testLogger() (*slog.Logger, *bytes.Buffer) {
+func testLogger() (zerolog.Logger, *bytes.Buffer) {
 	var buf bytes.Buffer
-	return slog.New(slog.NewJSONHandler(&buf, nil)), &buf
+	return zerolog.New(&buf).With().Timestamp().Logger(), &buf
 }
 
 func decodeLog(t *testing.T, buf *bytes.Buffer) map[string]any {
@@ -126,8 +127,8 @@ func TestWithLogging(t *testing.T) {
 		t.Errorf("status = %v, ожидался %d", fields["status"], http.StatusCreated)
 	}
 
-	if url, _ := fields["url"].(string); !strings.Contains(url, "utm=test") {
-		t.Errorf("url = %v, ожидалась строка запроса целиком", fields["url"])
+	if fields["url"] != "/api/v1/auth/signup" {
+		t.Errorf("url = %v, ожидался путь без query string", fields["url"])
 	}
 
 	if fields["real_ip"] != "203.0.113.7" {
@@ -194,7 +195,7 @@ func TestWithRecover(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/health", nil)
 	w := httptest.NewRecorder()
 
-	Chain(panicking, WithRecover(logger), WithRequestID).ServeHTTP(w, req)
+	Chain(panicking, WithRequestID, WithLogging(logger, "test"), WithRecover()).ServeHTTP(w, req)
 
 	if w.Code != http.StatusInternalServerError {
 		t.Fatalf("статус = %d, ожидался %d", w.Code, http.StatusInternalServerError)
@@ -208,7 +209,10 @@ func TestWithRecover(t *testing.T) {
 		t.Errorf("текст паники ушёл клиенту: %s", body)
 	}
 
-	fields := decodeLog(t, buf)
+	var fields map[string]any
+	if err := json.Unmarshal([]byte(strings.Split(strings.TrimSpace(buf.String()), "\n")[0]), &fields); err != nil {
+		t.Fatal(err)
+	}
 	if fields["stack"] == nil {
 		t.Error("в логе нет стека — по такой записи аварию не разобрать")
 	}
@@ -335,7 +339,7 @@ func TestWithJSONErrors(t *testing.T) {
 
 func TestWithJSONErrorsPassesSuccess(t *testing.T) {
 	ok := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		response.WriteJSON(w, http.StatusOK, map[string]string{"status": "ok"})
+		response.WriteJSON(r.Context(), w, http.StatusOK, map[string]string{"status": "ok"})
 	})
 
 	req := httptest.NewRequest(http.MethodGet, "/health", nil)

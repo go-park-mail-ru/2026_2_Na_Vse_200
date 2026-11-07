@@ -5,10 +5,13 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
 	"2026_2_Na_Vse_200/internal/models"
+
+	"github.com/rs/zerolog"
 )
 
 func TestWithAuth(t *testing.T) {
@@ -88,6 +91,74 @@ func TestWithAuth(t *testing.T) {
 			}
 			if tt.wantStatus == http.StatusOK && gotUser != tt.wantUser {
 				t.Fatalf("user id = %q, ожидался %q", gotUser, tt.wantUser)
+			}
+		})
+	}
+}
+
+func TestWithAuthScopesUserLogger(t *testing.T) {
+	logger, buf := testLogger()
+	lookup := func(_ context.Context, id models.SessionID) (models.Session, error) {
+		switch id {
+		case "private-session-a":
+			return models.Session{ID: id, UserID: "user-a"}, nil
+		case "private-session-b":
+			return models.Session{ID: id, UserID: "user-b"}, nil
+		default:
+			return models.Session{}, models.ErrSessionNotFound
+		}
+	}
+
+	for _, tt := range []struct {
+		cookie string
+		user   models.UserID
+		status int
+	}{
+		{"private-session-a", "user-a", http.StatusNoContent},
+		{"private-session-b", "user-b", http.StatusNoContent},
+		{"private-session-invalid", "", http.StatusUnauthorized},
+	} {
+		t.Run(tt.cookie, func(t *testing.T) {
+			buf.Reset()
+			ctx, cancel := context.WithCancel(context.Background())
+			defer cancel()
+			called := false
+			handler := Chain(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				called = true
+				session, ok := SessionFromContext(r.Context())
+				if !ok || session.UserID != tt.user {
+					t.Fatalf("сессия = %+v, ожидался %q", session, tt.user)
+				}
+				cancel()
+				if !errors.Is(r.Context().Err(), context.Canceled) {
+					t.Fatal("обработчик потерял сигнал отмены запроса")
+				}
+				zerolog.Ctx(r.Context()).Info().Msg("protected handler")
+				w.WriteHeader(http.StatusNoContent)
+			}), WithRequestID, WithLogging(logger, "test"), WithAuth("session_id", lookup))
+
+			req := httptest.NewRequest(http.MethodGet, "/protected", nil).WithContext(ctx)
+			req.AddCookie(&http.Cookie{Name: "session_id", Value: tt.cookie})
+			w := httptest.NewRecorder()
+			handler.ServeHTTP(w, req)
+			if w.Code != tt.status || called != (tt.user != "") {
+				t.Fatalf("статус = %d, обработчик вызван = %t", w.Code, called)
+			}
+
+			events := readRegressionEvents(t, buf)
+			if tt.user != "" {
+				if len(events) != 2 || events[0]["user_id"] != string(tt.user) ||
+					events[0]["request_id"] != w.Header().Get(HeaderRequestID) {
+					t.Fatalf("неверный лог защищённого обработчика: %v", events)
+				}
+			} else if len(events) != 1 {
+				t.Fatalf("ожидалось одно событие access-log, получено %v", events)
+			}
+			if _, ok := events[len(events)-1]["user_id"]; ok {
+				t.Fatal("пользователь появился во внешнем access-log")
+			}
+			if strings.Contains(buf.String(), tt.cookie) {
+				t.Fatal("лог содержит идентификатор сессии")
 			}
 		})
 	}

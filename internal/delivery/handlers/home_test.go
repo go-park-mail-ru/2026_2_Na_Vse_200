@@ -3,11 +3,8 @@ package handlers
 import (
 	"context"
 	"encoding/json"
-	"io"
-	"log"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"strings"
 	"testing"
 
@@ -140,8 +137,6 @@ func (brokenCatalogRepo) HomeAlbums(context.Context, int) ([]models.Album, error
 }
 
 func TestHomeStorageFailure(t *testing.T) {
-	log.SetOutput(io.Discard)
-	defer log.SetOutput(os.Stderr)
 
 	w := getHome(t, newHomeHandler(brokenCatalogRepo{}))
 

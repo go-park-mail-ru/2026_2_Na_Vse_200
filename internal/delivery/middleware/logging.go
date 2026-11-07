@@ -1,19 +1,23 @@
 package middleware
 
 import (
-	"log/slog"
 	"net"
 	"net/http"
 	"strings"
 	"time"
+
+	"github.com/rs/zerolog"
 )
 
 // WithLogging записывает параметры запроса, статус и время обработки.
-func WithLogging(logger *slog.Logger, handledBy string) Middleware {
+func WithLogging(logger zerolog.Logger, handledBy string) Middleware {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			start := time.Now()
 			sw := &statusWriter{ResponseWriter: w}
+			requestLogger := logger.With().
+				Str("request_id", RequestIDFromContext(r.Context())).Logger()
+			r = r.WithContext(requestLogger.WithContext(r.Context()))
 
 			next.ServeHTTP(sw, r)
 
@@ -22,22 +26,33 @@ func WithLogging(logger *slog.Logger, handledBy string) Middleware {
 				sw.status = http.StatusOK
 			}
 
-			logger.LogAttrs(r.Context(), slog.LevelInfo, "http-запрос обработан",
-				slog.String("request_id", RequestIDFromContext(r.Context())),
-				slog.String("method", r.Method),
-				slog.String("url", r.URL.RequestURI()),
-				slog.String("host", r.Host),
-				slog.String("remote_addr", r.RemoteAddr),
-				slog.String("real_ip", RealIP(r)),
-				slog.String("user_agent", r.UserAgent()),
-				slog.Int64("content_length", r.ContentLength),
-				slog.Int("status", sw.status),
-				slog.Time("start_time", start),
-				slog.String("duration_human_readable", duration.String()),
-				slog.Float64("duration_ms", float64(duration.Nanoseconds())/1e6),
-				slog.String("handled_by", handledBy),
-			)
+			requestLogger.WithLevel(accessLogLevel(sw.status)).
+				Str("method", r.Method).
+				Str("url", r.URL.Path).
+				Str("host", r.Host).
+				Str("remote_addr", r.RemoteAddr).
+				Str("real_ip", RealIP(r)).
+				Str("user_agent", r.UserAgent()).
+				Int64("content_length", r.ContentLength).
+				Int64("response_bytes", sw.bytesWritten).
+				Int("status", sw.status).
+				Time("start_time", start).
+				Str("duration_human_readable", duration.String()).
+				Float64("duration_ms", float64(duration.Nanoseconds())/1e6).
+				Str("handled_by", handledBy).
+				Msg("http-запрос обработан")
 		})
+	}
+}
+
+func accessLogLevel(status int) zerolog.Level {
+	switch status / 100 {
+	case 4:
+		return zerolog.WarnLevel
+	case 5:
+		return zerolog.ErrorLevel
+	default:
+		return zerolog.InfoLevel
 	}
 }
 

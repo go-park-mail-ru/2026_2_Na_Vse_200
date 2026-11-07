@@ -4,20 +4,18 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
-	"os"
 	"time"
 
 	"2026_2_Na_Vse_200/internal/config"
 	"2026_2_Na_Vse_200/internal/repository/postgres"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/rs/zerolog"
 )
 
-func Run(ctx context.Context, cfg config.Config) error {
+func Run(ctx context.Context, cfg config.Config, logger zerolog.Logger) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
 	pool, err := connectPostgres(ctx, cfg.PostgreSQLDSN)
 	if err != nil {
 		return err

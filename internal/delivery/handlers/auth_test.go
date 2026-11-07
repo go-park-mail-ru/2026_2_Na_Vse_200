@@ -4,11 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"io"
-	"log"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"strings"
 	"testing"
 	"time"
@@ -224,8 +221,6 @@ func (failingUserRepo) Create(ctx context.Context, user models.User) (models.Use
 }
 
 func TestSignupStorageFailure(t *testing.T) {
-	log.SetOutput(io.Discard)
-	defer log.SetOutput(os.Stderr)
 
 	api := newRepositoryTestAPI(&testConfig, &repositoryTestDeps{
 		Users:    failingUserRepo{},
@@ -270,8 +265,6 @@ func newHandlerWithSessions(sessions ports.SessionRepository) http.Handler {
 
 // Сбой создания сессии не отменяет уже созданный аккаунт.
 func TestSignupSessionFailure(t *testing.T) {
-	log.SetOutput(io.Discard)
-	defer log.SetOutput(os.Stderr)
 
 	users := &authUsersFixture{}
 	api := newRepositoryTestAPI(&testConfig, &repositoryTestDeps{
@@ -420,8 +413,6 @@ func TestLoginDoesNotApplyPasswordRules(t *testing.T) {
 }
 
 func TestLoginSessionFailure(t *testing.T) {
-	log.SetOutput(io.Discard)
-	defer log.SetOutput(os.Stderr)
 
 	hasher := auth.NewBcryptHasherWithCost(auth.MinCost)
 	hash, err := hasher.Hash("muzyka2026")
@@ -617,8 +608,6 @@ func (brokenSessionRepo) Delete(ctx context.Context, id models.SessionID) error 
 
 // Ошибка БД должна давать 500, а не ответ об отсутствии авторизации.
 func TestSessionStorageFailure(t *testing.T) {
-	log.SetOutput(io.Discard)
-	defer log.SetOutput(os.Stderr)
 
 	handler := newHandlerWithSessions(brokenSessionRepo{})
 	cookie := &http.Cookie{Name: _sessionCookieName, Value: string(auth.NewSessionID())}

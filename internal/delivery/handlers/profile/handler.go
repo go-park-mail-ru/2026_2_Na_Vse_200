@@ -6,9 +6,10 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
-	"log"
 	"net/http"
 	"uuid"
+
+	"github.com/rs/zerolog"
 
 	"2026_2_Na_Vse_200/internal/delivery/middleware"
 	"2026_2_Na_Vse_200/internal/delivery/response"
@@ -40,7 +41,7 @@ func NewProfileHandler(usecase ProfileUsecase) *ProfileHandler {
 func (h *ProfileHandler) Get(w http.ResponseWriter, r *http.Request) {
 	session, ok := middleware.SessionFromContext(r.Context())
 	if !ok {
-		response.WriteError(w, http.StatusUnauthorized, models.CodeUnauthorized, models.MsgUnauthorized)
+		response.WriteError(r.Context(), w, http.StatusUnauthorized, models.CodeUnauthorized, models.MsgUnauthorized)
 		return
 	}
 	requestedID, ok := parseUserID(w, r)
@@ -49,22 +50,22 @@ func (h *ProfileHandler) Get(w http.ResponseWriter, r *http.Request) {
 	}
 
 	user, err := h.usecase.Get(r.Context(), session.UserID, requestedID)
-	if !writeProfileError(w, err, "чтение профиля") {
+	if !writeProfileError(r.Context(), w, err, "чтение профиля") {
 		return
 	}
 	body, err := newProfileResponse(user)
 	if err != nil {
-		log.Printf("сборка ответа профиля: %v", err)
-		response.WriteError(w, http.StatusInternalServerError, models.CodeInternal, models.MsgInternal)
+		zerolog.Ctx(r.Context()).Error().Err(err).Str("operation", "profile.response").Msg("сборка ответа профиля")
+		response.WriteError(r.Context(), w, http.StatusInternalServerError, models.CodeInternal, models.MsgInternal)
 		return
 	}
-	response.WriteJSON(w, http.StatusOK, body)
+	response.WriteJSON(r.Context(), w, http.StatusOK, body)
 }
 
 func (h *ProfileHandler) Update(w http.ResponseWriter, r *http.Request) {
 	session, ok := middleware.SessionFromContext(r.Context())
 	if !ok {
-		response.WriteError(w, http.StatusUnauthorized, models.CodeUnauthorized, models.MsgUnauthorized)
+		response.WriteError(r.Context(), w, http.StatusUnauthorized, models.CodeUnauthorized, models.MsgUnauthorized)
 		return
 	}
 	requestedID, ok := parseUserID(w, r)
@@ -75,7 +76,7 @@ func (h *ProfileHandler) Update(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, maxBodySize)
 	var req updateRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		response.WriteError(w, http.StatusBadRequest, models.CodeInvalidJSON, models.MsgInvalidJSON)
+		response.WriteError(r.Context(), w, http.StatusBadRequest, models.CodeInvalidJSON, models.MsgInvalidJSON)
 		return
 	}
 
@@ -84,7 +85,7 @@ func (h *ProfileHandler) Update(w http.ResponseWriter, r *http.Request) {
 		DisplayName: req.DisplayName,
 	})
 	if len(form.Fields) > 0 {
-		response.WriteFieldsError(w, http.StatusBadRequest, models.CodeValidationFailed, models.MsgValidationFailed, form.Fields)
+		response.WriteFieldsError(r.Context(), w, http.StatusBadRequest, models.CodeValidationFailed, models.MsgValidationFailed, form.Fields)
 		return
 	}
 
@@ -92,22 +93,22 @@ func (h *ProfileHandler) Update(w http.ResponseWriter, r *http.Request) {
 		Email:       form.Email,
 		DisplayName: form.DisplayName,
 	})
-	if !writeProfileError(w, err, "обновление профиля") {
+	if !writeProfileError(r.Context(), w, err, "обновление профиля") {
 		return
 	}
 	body, err := newProfileResponse(user)
 	if err != nil {
-		log.Printf("сборка ответа профиля: %v", err)
-		response.WriteError(w, http.StatusInternalServerError, models.CodeInternal, models.MsgInternal)
+		zerolog.Ctx(r.Context()).Error().Err(err).Str("operation", "profile.response").Msg("сборка ответа профиля")
+		response.WriteError(r.Context(), w, http.StatusInternalServerError, models.CodeInternal, models.MsgInternal)
 		return
 	}
-	response.WriteJSON(w, http.StatusOK, body)
+	response.WriteJSON(r.Context(), w, http.StatusOK, body)
 }
 
 func (h *ProfileHandler) UploadAvatar(w http.ResponseWriter, r *http.Request) {
 	session, ok := middleware.SessionFromContext(r.Context())
 	if !ok {
-		response.WriteError(w, http.StatusUnauthorized, models.CodeUnauthorized, models.MsgUnauthorized)
+		response.WriteError(r.Context(), w, http.StatusUnauthorized, models.CodeUnauthorized, models.MsgUnauthorized)
 		return
 	}
 	requestedID, ok := parseUserID(w, r)
@@ -116,12 +117,12 @@ func (h *ProfileHandler) UploadAvatar(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := r.ParseMultipartForm(maxAvatarForm); err != nil {
-		response.WriteError(w, http.StatusBadRequest, models.CodeInvalidJSON, models.MsgInvalidJSON)
+		response.WriteError(r.Context(), w, http.StatusBadRequest, models.CodeInvalidJSON, models.MsgInvalidJSON)
 		return
 	}
 	file, _, err := r.FormFile(avatarField)
 	if err != nil {
-		response.WriteFieldsError(w, http.StatusBadRequest, models.CodeValidationFailed, models.MsgValidationFailed, map[string]string{
+		response.WriteFieldsError(r.Context(), w, http.StatusBadRequest, models.CodeValidationFailed, models.MsgValidationFailed, map[string]string{
 			avatarField: "Добавьте файл аватара",
 		})
 		return
@@ -130,12 +131,12 @@ func (h *ProfileHandler) UploadAvatar(w http.ResponseWriter, r *http.Request) {
 
 	data, err := io.ReadAll(io.LimitReader(file, profileusecase.MaxAvatarBytes+1))
 	if err != nil {
-		response.WriteError(w, http.StatusBadRequest, models.CodeInvalidJSON, models.MsgInvalidJSON)
+		response.WriteError(r.Context(), w, http.StatusBadRequest, models.CodeInvalidJSON, models.MsgInvalidJSON)
 		return
 	}
 	mimeType, err := profileusecase.DetectAvatarMIME(data)
 	if err != nil || len(data) == 0 || int64(len(data)) > profileusecase.MaxAvatarBytes {
-		response.WriteFieldsError(w, http.StatusBadRequest, models.CodeValidationFailed, models.MsgValidationFailed, map[string]string{
+		response.WriteFieldsError(r.Context(), w, http.StatusBadRequest, models.CodeValidationFailed, models.MsgValidationFailed, map[string]string{
 			avatarField: "Нужен JPEG, PNG или WebP до 2 МБ",
 		})
 		return
@@ -149,16 +150,16 @@ func (h *ProfileHandler) UploadAvatar(w http.ResponseWriter, r *http.Request) {
 		int64(len(data)),
 		bytes.NewReader(data),
 	)
-	if !writeProfileError(w, err, "загрузка аватара") {
+	if !writeProfileError(r.Context(), w, err, "загрузка аватара") {
 		return
 	}
 	body, err := newProfileResponse(user)
 	if err != nil {
-		log.Printf("сборка ответа профиля: %v", err)
-		response.WriteError(w, http.StatusInternalServerError, models.CodeInternal, models.MsgInternal)
+		zerolog.Ctx(r.Context()).Error().Err(err).Str("operation", "profile.response").Msg("сборка ответа профиля")
+		response.WriteError(r.Context(), w, http.StatusInternalServerError, models.CodeInternal, models.MsgInternal)
 		return
 	}
-	response.WriteJSON(w, http.StatusOK, body)
+	response.WriteJSON(r.Context(), w, http.StatusOK, body)
 }
 
 type updateRequest struct {
@@ -169,33 +170,33 @@ type updateRequest struct {
 func parseUserID(w http.ResponseWriter, r *http.Request) (models.UserID, bool) {
 	id, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {
-		response.WriteError(w, http.StatusNotFound, models.CodeNotFound, models.MsgNotFound)
+		response.WriteError(r.Context(), w, http.StatusNotFound, models.CodeNotFound, models.MsgNotFound)
 		return "", false
 	}
 	return models.UserID(id.String()), true
 }
 
-func writeProfileError(w http.ResponseWriter, err error, cause string) bool {
+func writeProfileError(ctx context.Context, w http.ResponseWriter, err error, cause string) bool {
 	if err == nil {
 		return true
 	}
 	var validationErr *models.ValidationError
 	switch {
 	case errors.As(err, &validationErr):
-		response.WriteFieldsError(w, http.StatusBadRequest, models.CodeValidationFailed, models.MsgValidationFailed, validationErr.Fields)
+		response.WriteFieldsError(ctx, w, http.StatusBadRequest, models.CodeValidationFailed, models.MsgValidationFailed, validationErr.Fields)
 	case errors.Is(err, models.ErrForbidden):
-		response.WriteError(w, http.StatusForbidden, models.CodeForbidden, models.MsgForbidden)
+		response.WriteError(ctx, w, http.StatusForbidden, models.CodeForbidden, models.MsgForbidden)
 	case errors.Is(err, models.ErrUnauthorized):
-		response.WriteError(w, http.StatusUnauthorized, models.CodeUnauthorized, models.MsgUnauthorized)
+		response.WriteError(ctx, w, http.StatusUnauthorized, models.CodeUnauthorized, models.MsgUnauthorized)
 	case errors.Is(err, models.ErrEmailTaken):
-		response.WriteError(w, http.StatusConflict, models.CodeEmailTaken, models.MsgEmailTaken)
+		response.WriteError(ctx, w, http.StatusConflict, models.CodeEmailTaken, models.MsgEmailTaken)
 	case errors.Is(err, models.ErrInvalidAvatar):
-		response.WriteFieldsError(w, http.StatusBadRequest, models.CodeValidationFailed, models.MsgValidationFailed, map[string]string{
+		response.WriteFieldsError(ctx, w, http.StatusBadRequest, models.CodeValidationFailed, models.MsgValidationFailed, map[string]string{
 			avatarField: "Нужен JPEG, PNG или WebP до 2 МБ",
 		})
 	default:
-		log.Printf("%s: %v", cause, err)
-		response.WriteError(w, http.StatusInternalServerError, models.CodeInternal, models.MsgInternal)
+		zerolog.Ctx(ctx).Error().Err(err).Str("operation", "profile").Msg(cause)
+		response.WriteError(ctx, w, http.StatusInternalServerError, models.CodeInternal, models.MsgInternal)
 	}
 	return false
 }

@@ -14,13 +14,22 @@ func Chain(handler http.Handler, middlewares ...Middleware) http.Handler {
 	return handler
 }
 
-// statusWriter сохраняет HTTP-статус для записи в лог.
+// statusWriter сохраняет HTTP-статус и число записанных байтов тела ответа.
 type statusWriter struct {
 	http.ResponseWriter
-	status int
+	status       int
+	bytesWritten int64
 }
 
 func (w *statusWriter) WriteHeader(code int) {
+	if w.status != 0 {
+		return
+	}
+	// Информационный ответ не фиксирует окончательный статус.
+	if code >= 100 && code < 200 && code != http.StatusSwitchingProtocols {
+		w.ResponseWriter.WriteHeader(code)
+		return
+	}
 	w.status = code
 	w.ResponseWriter.WriteHeader(code)
 }
@@ -28,7 +37,14 @@ func (w *statusWriter) WriteHeader(code int) {
 // Write учитывает неявный статус 200 при записи тела ответа.
 func (w *statusWriter) Write(b []byte) (int, error) {
 	if w.status == 0 {
-		w.status = http.StatusOK
+		w.WriteHeader(http.StatusOK)
 	}
-	return w.ResponseWriter.Write(b)
+	n, err := w.ResponseWriter.Write(b)
+	w.bytesWritten += int64(n)
+	return n, err
+}
+
+// Unwrap позволяет http.ResponseController получить исходный ResponseWriter.
+func (w *statusWriter) Unwrap() http.ResponseWriter {
+	return w.ResponseWriter
 }
