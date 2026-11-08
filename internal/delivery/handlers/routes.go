@@ -50,7 +50,7 @@ func New(cfg *config.Config, deps *Deps) *API {
 		media:          deps.Media,
 	}
 	if deps.Favorites != nil {
-		api.favorites = favorites.New(deps.Favorites)
+		api.favorites = favorites.NewFavoritesHandler(deps.Favorites)
 	}
 	return api
 }

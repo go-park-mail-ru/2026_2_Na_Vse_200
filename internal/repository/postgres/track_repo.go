@@ -72,3 +72,65 @@ func (r *TrackRepo) GetAudio(ctx context.Context, id models.TrackID) (models.Med
 	}
 	return file, err
 }
+
+// FavoriteIDs returns only the authenticated account's favorites.
+func (r *TrackRepo) FavoriteIDs(ctx context.Context, account models.UserID) ([]string, error) {
+	const query = `
+	 SELECT f.track_id::text
+	 FROM favorite_track f
+	 JOIN track t ON t.id = f.track_id
+	 WHERE f.account_id = $1::uuid AND t.status = 'published'
+	 ORDER BY f.track_id`
+
+	rows, err := r.pool.Query(ctx, query, string(account))
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	ids := make([]string, 0)
+	for rows.Next() {
+		var id string
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+
+		ids = append(ids, id)
+	}
+
+	return ids, rows.Err()
+}
+
+func (r *TrackRepo) SetFavorite(ctx context.Context, account models.UserID, track models.TrackID, liked bool) error {
+	if !liked {
+		const query = `
+		 DELETE FROM favorite_track
+		 WHERE account_id = $1::uuid AND track_id = $2::uuid`
+
+		_, err := r.pool.Exec(ctx, query, string(account), string(track))
+		return err
+	}
+
+	const query = `
+	 WITH published AS (
+	     SELECT id FROM track WHERE id = $2::uuid AND status = 'published'
+	 ), inserted AS (
+	     INSERT INTO favorite_track (account_id, track_id)
+	     SELECT $1::uuid, id FROM published
+	     ON CONFLICT DO NOTHING
+	     RETURNING track_id
+	 )
+	 SELECT EXISTS(SELECT 1 FROM published)`
+
+	var exists bool
+	err := r.pool.QueryRow(ctx, query, string(account), string(track)).Scan(&exists)
+	if err != nil {
+		return err
+	}
+
+	if !exists {
+		return models.ErrTrackNotFound
+	}
+
+	return nil
+}
