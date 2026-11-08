@@ -33,6 +33,7 @@ func (r *ArtistRepo) GetByID(ctx context.Context, id models.ArtistID) (models.Ar
 	if image != nil {
 		fileID := models.MediaFileID(*image)
 		artist.ImageFileID = &fileID
+		artist.ImageURL = mediaURL(*image)
 	}
 	return artist, nil
 }
@@ -41,13 +42,13 @@ func (r *ArtistRepo) GetByID(ctx context.Context, id models.ArtistID) (models.Ar
 func (r *ArtistRepo) Tracks(ctx context.Context, id models.ArtistID, limit, offset int) ([]models.Track, error) {
 	const query = `
  WITH selected_tracks AS (
-  SELECT t.id, t.title, t.audio_file_id, t.created_at
+  SELECT t.id, t.title, t.audio_file_id, t.cover_file_id, t.created_at
   FROM track t
   JOIN track_artist ta ON ta.track_id = t.id
   WHERE ta.artist_id = $1::uuid AND t.status = 'published'
   ORDER BY t.created_at DESC, t.id LIMIT $2 OFFSET $3
  )
- SELECT t.id::text, t.title, audio.duration_ms, a.id::text, a.name
+ SELECT t.id::text, t.title, audio.duration_ms, t.cover_file_id::text, a.id::text, a.name
  FROM selected_tracks t
  JOIN media_file audio ON audio.id = t.audio_file_id
  LEFT JOIN track_artist ta ON ta.track_id = t.id
@@ -62,13 +63,13 @@ func (r *ArtistRepo) Tracks(ctx context.Context, id models.ArtistID, limit, offs
 func (r *ArtistRepo) Albums(ctx context.Context, id models.ArtistID, limit, offset int) ([]models.Album, error) {
 	const query = `
  WITH selected_albums AS (
-  SELECT al.id, al.title, al.release_date, al.created_at
+  SELECT al.id, al.title, al.release_date, al.cover_file_id, al.created_at
   FROM album al
   JOIN album_artist aa ON aa.album_id = al.id
   WHERE aa.artist_id = $1::uuid
   ORDER BY al.created_at DESC, al.id LIMIT $2 OFFSET $3
  )
- SELECT al.id::text, al.title, al.release_date, a.id::text, a.name
+ SELECT al.id::text, al.title, al.release_date, al.cover_file_id::text, a.id::text, a.name
  FROM selected_albums al
  LEFT JOIN album_artist aa ON aa.album_id = al.id
  LEFT JOIN artist a ON a.id = aa.artist_id

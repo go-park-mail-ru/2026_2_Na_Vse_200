@@ -3,6 +3,7 @@ package postgres
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"2026_2_Na_Vse_200/internal/models"
 	"2026_2_Na_Vse_200/internal/usecase/ports"
@@ -10,20 +11,20 @@ import (
 )
 
 const homeArtistsQuery = `
-	SELECT id::text, name
+	SELECT id::text, name, image_file_id::text
 	FROM artist
 	ORDER BY created_at DESC, id
 	LIMIT $1`
 
 const homeTracksQuery = `
 	WITH selected_tracks AS (
-		SELECT id, title, audio_file_id, created_at
+		SELECT id, title, audio_file_id, cover_file_id, created_at
 		FROM track
 		WHERE status = 'published'
 		ORDER BY created_at DESC, id
 		LIMIT $1
 	)
-	SELECT t.id::text, t.title, audio.duration_ms, a.id::text, a.name
+	SELECT t.id::text, t.title, audio.duration_ms, t.cover_file_id::text, a.id::text, a.name
 	FROM selected_tracks AS t
 	JOIN media_file AS audio ON audio.id = t.audio_file_id
 	LEFT JOIN track_artist AS ta ON ta.track_id = t.id
@@ -32,12 +33,12 @@ const homeTracksQuery = `
 
 const homeAlbumsQuery = `
 	WITH selected_albums AS (
-		SELECT id, title, release_date, created_at
+		SELECT id, title, release_date, cover_file_id, created_at
 		FROM album
 		ORDER BY created_at DESC, id
 		LIMIT $1
 	)
-	SELECT al.id::text, al.title, al.release_date, a.id::text, a.name
+	SELECT al.id::text, al.title, al.release_date, al.cover_file_id::text, a.id::text, a.name
 	FROM selected_albums AS al
 	LEFT JOIN album_artist AS aa ON aa.album_id = al.id
 	LEFT JOIN artist AS a ON a.id = aa.artist_id
@@ -72,12 +73,18 @@ func (r *CatalogRepo) HomeArtists(ctx context.Context, limit int) ([]models.Arti
 		var (
 			artist models.Artist
 			id     string
+			image  *string
 		)
-		if err := rows.Scan(&id, &artist.Name); err != nil {
+		if err := rows.Scan(&id, &artist.Name, &image); err != nil {
 			return nil, fmt.Errorf("scan home artist: %w", err)
 		}
 
 		artist.ID = models.ArtistID(id)
+		if image != nil {
+			fileID := models.MediaFileID(*image)
+			artist.ImageFileID = &fileID
+			artist.ImageURL = mediaURL(*image)
+		}
 		artists = append(artists, artist)
 	}
 
@@ -111,12 +118,18 @@ func readTracks(ctx context.Context, pool *pgxpool.Pool, query string, args ...a
 		var (
 			track                models.Track
 			id                   string
+			coverID              *string
 			artistID, artistName *string
 		)
-		if err := rows.Scan(&id, &track.Title, &track.DurationMS, &artistID, &artistName); err != nil {
+		if err := rows.Scan(&id, &track.Title, &track.DurationMS, &coverID, &artistID, &artistName); err != nil {
 			return nil, fmt.Errorf("scan home track: %w", err)
 		}
 		track.ID = models.TrackID(id)
+		if coverID != nil {
+			fileID := models.MediaFileID(*coverID)
+			track.CoverFileID = &fileID
+			track.CoverURL = mediaURL(*coverID)
+		}
 
 		index, exists := trackIndexes[track.ID]
 		if !exists {
@@ -164,12 +177,18 @@ func readAlbums(ctx context.Context, pool *pgxpool.Pool, query string, args ...a
 		var (
 			album                models.Album
 			id                   string
+			coverID              *string
 			artistID, artistName *string
 		)
-		if err := rows.Scan(&id, &album.Title, &album.ReleaseDate, &artistID, &artistName); err != nil {
+		if err := rows.Scan(&id, &album.Title, &album.ReleaseDate, &coverID, &artistID, &artistName); err != nil {
 			return nil, fmt.Errorf("scan home album: %w", err)
 		}
 		album.ID = models.AlbumID(id)
+		if coverID != nil {
+			fileID := models.MediaFileID(*coverID)
+			album.CoverFileID = &fileID
+			album.CoverURL = mediaURL(*coverID)
+		}
 
 		index, exists := albumIndexes[album.ID]
 		if !exists {
@@ -192,4 +211,12 @@ func readAlbums(ctx context.Context, pool *pgxpool.Pool, query string, args ...a
 	}
 
 	return albums, nil
+}
+
+func mediaURL(fileID string) string {
+	fileID = strings.TrimSpace(fileID)
+	if fileID == "" {
+		return ""
+	}
+	return "/api/v1/media/" + fileID
 }
