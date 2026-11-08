@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"2026_2_Na_Vse_200/internal/delivery/handlers/favorites"
 	"net/http"
 
 	"2026_2_Na_Vse_200/internal/config"
@@ -16,15 +17,17 @@ import (
 const sessionCookieName = "session_id"
 
 type Deps struct {
-	Auth    auth.Usecase
-	Catalog home.CatalogUsecase
-	Profile profile.ProfileUsecase
-	Account profile.AccountUsecase
-	Artist  artist.ArtistUsecase
-	Media   *media.MediaHandler
+	Favorites favorites.Repository
+	Auth      auth.Usecase
+	Catalog   home.CatalogUsecase
+	Profile   profile.ProfileUsecase
+	Account   profile.AccountUsecase
+	Artist    artist.ArtistUsecase
+	Media     *media.MediaHandler
 }
 
 type API struct {
+	favorites      *favorites.Handler
 	auth           auth.Usecase
 	authH          *auth.Handler
 	home           *home.Handler
@@ -36,7 +39,7 @@ type API struct {
 }
 
 func New(cfg *config.Config, deps *Deps) *API {
-	return &API{
+	api := &API{
 		auth:           deps.Auth,
 		authH:          auth.New(cfg, deps.Auth),
 		home:           home.New(deps.Catalog),
@@ -46,6 +49,10 @@ func New(cfg *config.Config, deps *Deps) *API {
 		artist:         artist.NewArtistHandler(deps.Artist),
 		media:          deps.Media,
 	}
+	if deps.Favorites != nil {
+		api.favorites = favorites.NewFavoritesHandler(deps.Favorites)
+	}
+	return api
 }
 
 func (a *API) Routes() http.Handler {
@@ -68,6 +75,12 @@ func (a *API) Routes() http.Handler {
 		mux.Handle("GET /api/v1/users/{id}", authUser(http.HandlerFunc(a.profile.Get)))
 		mux.Handle("PUT /api/v1/users/{id}", authUser(http.HandlerFunc(a.profile.Update)))
 		mux.Handle("POST /api/v1/users/{id}/avatar", authUser(http.HandlerFunc(a.profile.UploadAvatar)))
+	}
+	if a.auth != nil && a.favorites != nil {
+		authUser := middleware.WithAuth(sessionCookieName, a.auth.SessionByID)
+		mux.Handle("GET /api/v1/favorites", authUser(http.HandlerFunc(a.favorites.List)))
+		mux.Handle("PUT /api/v1/tracks/{id}/favorite", authUser(http.HandlerFunc(a.favorites.Set)))
+		mux.Handle("DELETE /api/v1/tracks/{id}/favorite", authUser(http.HandlerFunc(a.favorites.Set)))
 	}
 	if a.artist != nil {
 		mux.HandleFunc("GET /api/v1/artists/{id}", a.artist.Get)
