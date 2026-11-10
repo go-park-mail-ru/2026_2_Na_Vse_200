@@ -81,7 +81,6 @@ func (u *Usecase) signIn(ctx context.Context, user models.User) (Result, error) 
 	}
 	log.Info("auth.signIn: сессия создана",
 		slog.String("user_id", string(user.ID)),
-		slog.String("session_id", string(session.ID)),
 	)
 	return Result{User: user, Session: session}, nil
 }
@@ -156,7 +155,7 @@ func (u *Usecase) SessionByID(ctx context.Context, id models.SessionID) (models.
 		return models.Session{}, fmt.Errorf("read session: %w", err)
 	}
 	if session.IsExpired(u.now()) {
-		log.Info("auth.SessionByID: сессия истекла", slog.String("session_id", string(session.ID)))
+		log.Info("auth.SessionByID: сессия истекла")
 		return models.Session{}, models.ErrSessionExpired
 	}
 	return session, nil
@@ -193,9 +192,9 @@ func (u *Usecase) Logout(ctx context.Context, id models.SessionID) error {
 		return nil
 	}
 	if err := u.sessions.Delete(ctx, id); err != nil {
-		log.Error("auth.Logout: удаление сессии", slog.Any("error", err), slog.String("session_id", string(id)))
+		log.Error("auth.Logout: удаление сессии", slog.Any("error", err))
 		return fmt.Errorf("delete session: %w", err)
 	}
-	log.Info("auth.Logout: сессия удалена", slog.String("session_id", string(id)))
+	log.Info("auth.Logout: сессия удалена")
 	return nil
 }

@@ -73,7 +73,7 @@ func (r *TrackRepo) GetAudio(ctx context.Context, id models.TrackID) (models.Med
 	return file, err
 }
 
-// FavoriteIDs returns only the authenticated account's favorites.
+// FavoriteIDs возвращает ID опубликованных треков из избранного пользователя.
 func (r *TrackRepo) FavoriteIDs(ctx context.Context, account models.UserID) ([]string, error) {
 	const query = `
 	 SELECT f.track_id::text

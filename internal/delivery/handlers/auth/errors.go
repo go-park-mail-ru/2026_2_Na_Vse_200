@@ -1,46 +1,32 @@
 package auth
 
 import (
-	authusecase "2026_2_Na_Vse_200/internal/usecase/auth"
+	"encoding/json"
 	"errors"
-	"log"
+	"io"
+	"log/slog"
 	"net/http"
 
 	"2026_2_Na_Vse_200/internal/delivery/response"
+	"2026_2_Na_Vse_200/internal/logger"
 	"2026_2_Na_Vse_200/internal/models"
+	authusecase "2026_2_Na_Vse_200/internal/usecase/auth"
 )
 
-const (
-	errNoSessionCookie = "запрос без cookie сессии"
-	errSessionRejected = "сессия неизвестна или истекла"
-)
-
-func logCause(cause string, err error) {
-	if err != nil {
-		log.Printf("%s: %v", cause, err)
-		return
+// Ошибки клиента пишем на INFO, сбои приложения — на ERROR.
+func (a *Handler) logError(r *http.Request, operation string, err error) {
+	var validationErr *authusecase.ValidationError
+	var syntaxErr *json.SyntaxError
+	var typeErr *json.UnmarshalTypeError
+	var sizeErr *http.MaxBytesError
+	level := slog.LevelError
+	if errors.As(err, &validationErr) || errors.As(err, &syntaxErr) ||
+		errors.As(err, &typeErr) || errors.As(err, &sizeErr) || errors.Is(err, io.EOF) ||
+		errors.Is(err, models.ErrEmailTaken) || errors.Is(err, authusecase.ErrInvalidCredentials) ||
+		errors.Is(err, authusecase.ErrUnauthorized) {
+		level = slog.LevelInfo
 	}
-	log.Print(cause)
-}
-
-func writeInternalError(w http.ResponseWriter, cause string, err error) {
-	logCause(cause, err)
-	response.WriteError(w, http.StatusInternalServerError,
-		models.CodeInternal, models.MsgInternal)
-}
-
-// Отсутствующая, неизвестная и истёкшая сессии дают одинаковый ответ.
-func writeUnauthorized(w http.ResponseWriter, cause string, err error) {
-	logCause(cause, err)
-	response.WriteError(w, http.StatusUnauthorized,
-		models.CodeUnauthorized, models.MsgUnauthorized)
-}
-
-// Неизвестный email и неверный пароль дают одинаковый ответ.
-func writeInvalidCredentials(w http.ResponseWriter, cause string) {
-	logCause(cause, nil)
-	response.WriteError(w, http.StatusUnauthorized,
-		models.CodeInvalidCredentials, models.MsgInvalidCredentials)
+	logger.FromContext(r.Context(), a.log).Log(r.Context(), level, operation, slog.Any("error", err))
 }
 
 func writeAuthError(w http.ResponseWriter, err error) {
@@ -51,10 +37,10 @@ func writeAuthError(w http.ResponseWriter, err error) {
 	case errors.Is(err, models.ErrEmailTaken):
 		response.WriteError(w, http.StatusConflict, models.CodeEmailTaken, models.MsgEmailTaken)
 	case errors.Is(err, authusecase.ErrInvalidCredentials):
-		writeInvalidCredentials(w, err.Error())
+		response.WriteError(w, http.StatusUnauthorized, models.CodeInvalidCredentials, models.MsgInvalidCredentials)
 	case errors.Is(err, authusecase.ErrUnauthorized):
-		writeUnauthorized(w, errSessionRejected, err)
+		response.WriteError(w, http.StatusUnauthorized, models.CodeUnauthorized, models.MsgUnauthorized)
 	default:
-		writeInternalError(w, "authentication failed", err)
+		response.WriteError(w, http.StatusInternalServerError, models.CodeInternal, models.MsgInternal)
 	}
 }

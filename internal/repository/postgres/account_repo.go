@@ -8,7 +8,7 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-// Serialize sensitive changes and verify that the password did not change after bcrypt verification.
+// changeAccount блокирует аккаунт и проверяет, что хеш пароля не изменился после проверки bcrypt.
 func (r *UserRepo) changeAccount(ctx context.Context, id models.UserID, expectedHash string, change func(pgx.Tx) error) error {
 	tx, err := r.transactions.Begin(ctx)
 	if err != nil {
@@ -61,7 +61,7 @@ func (r *UserRepo) DeleteAccount(ctx context.Context, id models.UserID, expected
 		return models.ErrForbidden
 	}
 	return r.changeAccount(ctx, id, expectedHash, func(tx pgx.Tx) error {
-		// Retain the shared music catalog; user-owned playlists, favorites and sessions cascade.
+		// Сохраняем треки за служебным аккаунтом; плейлисты, избранное и сессии удаляются каскадно.
 		if _, err := tx.Exec(ctx, `UPDATE track SET uploader_id='10000000-0000-4000-8000-000000000001'::uuid WHERE uploader_id=$1::uuid`, string(id)); err != nil {
 			return err
 		}

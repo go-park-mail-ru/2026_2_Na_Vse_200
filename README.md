@@ -59,4 +59,8 @@ go build -o app ./cmd/app
 - [Figma](https://www.figma.com/design/a6FEt86x6uF36jjA64WcW8/MUSIC?node-id=0-1&t=Yrg1OBQLQ2NnfmIr-0)
 - [Сайт](http://161.104.107.92/)
 
-Ветки называются `MUSIC-###`, PR — `MUSIC-###: описание задачи`. Для слияния в `main` нужен апрув [Ярослава](https://t.me/ykarmannikov).
+### Правила оформления Pull Requests
+
+1. Ветка создается с названием `MUSIC-###`, где ### — номер задачи.
+2. Название Pull Request'а соответствует названию задачи: `MUSIC-###: description`, где description — название задачи (что вы реализовали в этом Pull Request'е).
+3. Для того, чтобы залить изменения в ветку `main`, нужен апрув от [Тимофея](https://t.me/TimofeyChichikin).

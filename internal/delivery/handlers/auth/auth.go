@@ -16,16 +16,19 @@ func (a *Handler) Signup(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, _maxBodySize)
 	var req signupRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		a.logError(r, "auth.Signup: разбор JSON", err)
 		response.WriteError(w, http.StatusBadRequest, models.CodeInvalidJSON, models.MsgInvalidJSON)
 		return
 	}
 	result, err := a.usecase.Signup(r.Context(), authusecase.SignupInput{Email: req.Email, Password: req.Password, DisplayName: req.DisplayName})
 	if err != nil {
+		a.logError(r, "auth.Signup", err)
 		writeAuthError(w, err)
 		return
 	}
 	a.setSessionCookie(w, string(result.Session.ID))
 	if _, err := a.issueCSRFCookie(w); err != nil {
+		a.logError(r, "auth.Signup: CSRF-cookie", err)
 		response.WriteError(w, http.StatusInternalServerError, models.CodeInternal, models.MsgInternal)
 		return
 	}
@@ -36,16 +39,19 @@ func (a *Handler) Login(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, _maxBodySize)
 	var req loginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		a.logError(r, "auth.Login: разбор JSON", err)
 		response.WriteError(w, http.StatusBadRequest, models.CodeInvalidJSON, models.MsgInvalidJSON)
 		return
 	}
 	result, err := a.usecase.Login(r.Context(), authusecase.LoginInput{Email: req.Email, Password: req.Password})
 	if err != nil {
+		a.logError(r, "auth.Login", err)
 		writeAuthError(w, err)
 		return
 	}
 	a.setSessionCookie(w, string(result.Session.ID))
 	if _, err := a.issueCSRFCookie(w); err != nil {
+		a.logError(r, "auth.Login: CSRF-cookie", err)
 		response.WriteError(w, http.StatusInternalServerError, models.CodeInternal, models.MsgInternal)
 		return
 	}
@@ -61,11 +67,13 @@ func (a *Handler) sessionIDFromRequest(r *http.Request) (string, error) {
 func (a *Handler) Me(w http.ResponseWriter, r *http.Request) {
 	id, err := a.sessionIDFromRequest(r)
 	if err != nil {
-		writeUnauthorized(w, errNoSessionCookie, err)
+		a.logError(r, "auth.Me: нет cookie сессии", models.ErrUnauthorized)
+		response.WriteError(w, http.StatusUnauthorized, models.CodeUnauthorized, models.MsgUnauthorized)
 		return
 	}
 	user, err := a.usecase.Me(r.Context(), models.SessionID(id))
 	if err != nil {
+		a.logError(r, "auth.Me", err)
 		writeAuthError(w, err)
 		return
 	}
@@ -74,6 +82,7 @@ func (a *Handler) Me(w http.ResponseWriter, r *http.Request) {
 func (a *Handler) Logout(w http.ResponseWriter, r *http.Request) {
 	id, _ := a.sessionIDFromRequest(r)
 	if err := a.usecase.Logout(r.Context(), models.SessionID(id)); err != nil {
+		a.logError(r, "auth.Logout", err)
 		writeAuthError(w, err)
 		return
 	}
