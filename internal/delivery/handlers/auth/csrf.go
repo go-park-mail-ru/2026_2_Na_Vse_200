@@ -15,6 +15,7 @@ type csrfResponse struct {
 func (a *Handler) CSRF(w http.ResponseWriter, r *http.Request) {
 	token, err := a.issueCSRFCookie(w)
 	if err != nil {
+		a.logError(r, "auth.CSRF: выдача cookie", err)
 		response.WriteError(w, http.StatusInternalServerError, models.CodeInternal, models.MsgInternal)
 		return
 	}

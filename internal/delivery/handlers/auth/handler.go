@@ -2,6 +2,7 @@ package auth
 
 import (
 	"context"
+	"log/slog"
 
 	"2026_2_Na_Vse_200/internal/config"
 	"2026_2_Na_Vse_200/internal/models"
@@ -19,8 +20,13 @@ type Usecase interface {
 type Handler struct {
 	cfg     *config.Config
 	usecase Usecase
+	log     *slog.Logger
 }
 
-func New(cfg *config.Config, usecase Usecase) *Handler {
-	return &Handler{cfg: cfg, usecase: usecase}
+func New(cfg *config.Config, usecase Usecase, logs ...*slog.Logger) *Handler {
+	log := slog.Default()
+	if len(logs) > 0 && logs[0] != nil {
+		log = logs[0]
+	}
+	return &Handler{cfg: cfg, usecase: usecase, log: log}
 }

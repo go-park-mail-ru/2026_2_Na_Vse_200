@@ -176,3 +176,74 @@ func TestDetectAvatarMIME(t *testing.T) {
 		t.Fatalf("err=%v", err)
 	}
 }
+
+// TestGetErrors проверяет ошибки чтения пользователя.
+func TestGetErrors(t *testing.T) {
+	dbErr := errors.New("db unavailable")
+	for _, want := range []error{models.ErrUserNotFound, dbErr} {
+		users := &userRepoStub{err: want}
+		uc := NewProfileUsecase(users, nil, nil, nil, nil)
+		_, err := uc.Get(context.Background(), "user-1", "user-1")
+		if errors.Is(want, models.ErrUserNotFound) {
+			want = models.ErrUnauthorized
+		}
+		if !errors.Is(err, want) {
+			t.Fatalf("ошибка = %v, ожидалась %v", err, want)
+		}
+	}
+}
+
+// TestAvatarSaveErrors проверяет удаление файла при ошибке сохранения аватара.
+func TestAvatarSaveErrors(t *testing.T) {
+	failure := errors.New("storage unavailable")
+	for _, tc := range []struct {
+		name                          string
+		blobErr, mediaErr, profileErr error
+		want                          error
+		removed                       int
+	}{
+		{"сохранение файла", failure, nil, nil, failure, 0},
+		{"запись метаданных", nil, failure, nil, failure, 1},
+		{"привязка аватара", nil, nil, failure, failure, 1},
+		{"пользователь удалён", nil, nil, models.ErrUserNotFound, models.ErrUnauthorized, 1},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			blobs := &blobStub{err: tc.blobErr}
+			media := &mediaRepoStub{err: tc.mediaErr}
+			profiles := &profileRepoStub{user: userRepoStub{failOn: tc.profileErr != nil, err: tc.profileErr}}
+			uc := NewProfileUsecase(nil, profiles, media, blobs, nil)
+			_, err := uc.UploadAvatar(context.Background(), "user-1", "user-1", "image/png", 3, strings.NewReader("png"))
+			if !errors.Is(err, tc.want) {
+				t.Fatalf("ошибка = %v, ожидалась %v", err, tc.want)
+			}
+			if len(blobs.removed) != tc.removed {
+				t.Fatalf("удалено файлов = %d, ожидалось %d", len(blobs.removed), tc.removed)
+			}
+			if tc.removed > 0 {
+				if _, ok := blobs.saved[blobs.removed[0]]; !ok {
+					t.Errorf("удалён другой файл: %q", blobs.removed[0])
+				}
+			}
+		})
+	}
+}
+
+// TestAvatarValidation проверяет размер и тип аватара до записи файла.
+func TestAvatarValidation(t *testing.T) {
+	for _, tc := range []struct {
+		name, mime string
+		size       int64
+	}{
+		{"пустой файл", "image/png", 0},
+		{"слишком большой", "image/png", MaxAvatarBytes + 1},
+		{"не изображение", "text/plain", 3},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			uc := NewProfileUsecase(nil, nil, nil, nil, nil)
+			_, err := uc.UploadAvatar(context.Background(), "user-1", "user-1", tc.mime, tc.size, strings.NewReader("abc"))
+			if !errors.Is(err, models.ErrInvalidAvatar) {
+				t.Fatalf("ошибка = %v, ожидалась ErrInvalidAvatar", err)
+			}
+		})
+	}
+}
