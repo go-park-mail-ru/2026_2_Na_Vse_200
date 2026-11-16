@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 
+	"2026_2_Na_Vse_200/internal/logger"
 	"2026_2_Na_Vse_200/internal/models"
 	"2026_2_Na_Vse_200/internal/usecase/ports"
 )
@@ -21,6 +22,7 @@ func NewArtistUsecase(artists ports.ArtistRepository) *ArtistUsecase {
 }
 
 func (u *ArtistUsecase) Artist(ctx context.Context, id models.ArtistID, limit, offset int) (ArtistPage, error) {
+	logger.UsecaseStarted(ctx, "catalog.artist")
 	artist, err := u.artists.GetByID(ctx, id)
 	if err != nil {
 		return ArtistPage{}, fmt.Errorf("artist: %w", err)

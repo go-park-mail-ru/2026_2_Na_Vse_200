@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
 	"net/http"
 	"time"
 
@@ -20,10 +19,12 @@ import (
 	authusecase "2026_2_Na_Vse_200/internal/usecase/auth"
 	catalogusecase "2026_2_Na_Vse_200/internal/usecase/catalog"
 	profileusecase "2026_2_Na_Vse_200/internal/usecase/profile"
+
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/rs/zerolog"
 )
 
-func newHandler(cfg config.Config, pool *pgxpool.Pool, sessions *postgres.SessionRepo, logger *slog.Logger) (http.Handler, error) {
+func newHandler(cfg config.Config, pool *pgxpool.Pool, sessions *postgres.SessionRepo, logger zerolog.Logger) (http.Handler, error) {
 	blobs, err := storage.NewLocal(cfg.MediaRoot)
 	if err != nil {
 		return nil, err
@@ -32,20 +33,19 @@ func newHandler(cfg config.Config, pool *pgxpool.Pool, sessions *postgres.Sessio
 	users := postgres.NewUserRepo(pool)
 	mediaRepo := postgres.NewMediaRepo(pool)
 	api := handlers.New(&cfg, &handlers.Deps{
-		Logger:    logger,
 		Favorites: postgres.NewTrackRepo(pool),
 		Account:   accountusecase.NewAccountUsecase(users, users, auth.NewBcryptHasher()),
-		Auth:      authusecase.NewAuthUsecase(users, sessions, auth.NewBcryptHasher(), auth.NewSessionID, time.Now, cfg.SessionTTL, logger),
-		Catalog:   catalogusecase.New(postgres.NewCatalogRepo(pool), logger),
-		Profile:   profileusecase.NewProfileUsecase(users, users, mediaRepo, blobs, logger),
-		Artist:    artistusecase.NewArtistUsecase(postgres.NewArtistRepo(pool), logger),
+		Auth:      authusecase.NewAuthUsecase(users, sessions, auth.NewBcryptHasher(), auth.NewSessionID, time.Now, cfg.SessionTTL),
+		Catalog:   catalogusecase.New(postgres.NewCatalogRepo(pool)),
+		Profile:   profileusecase.NewProfileUsecase(users, users, mediaRepo, blobs),
+		Artist:    artistusecase.NewArtistUsecase(postgres.NewArtistRepo(pool)),
 		Media:     media.NewMediaHandler(mediaRepo, blobs, postgres.NewTrackRepo(pool)),
 	})
 	return middleware.Chain(
 		api.Routes(),
-		middleware.WithRecover(logger),
 		middleware.WithRequestID,
 		middleware.WithLogging(logger, "monolith/middleware"),
+		middleware.WithRecover(),
 		middleware.WithCORS(cfg.AllowedOrigin, cfg.AllowedMethods, cfg.AllowedHeaders),
 		middleware.WithCSRF,
 		middleware.WithJSONErrors,
@@ -63,10 +63,10 @@ func newServer(addr string, handler http.Handler) *http.Server {
 	}
 }
 
-func serve(ctx context.Context, server *http.Server, timeout time.Duration, logger *slog.Logger) error {
+func serve(ctx context.Context, server *http.Server, timeout time.Duration, logger zerolog.Logger) error {
 	serverErrors := make(chan error, 1)
 	go func() {
-		logger.Info("запуск сервера", slog.String("addr", server.Addr), slog.String("handled_by", "monolith/server"))
+		logger.Info().Str("addr", server.Addr).Str("handled_by", "monolith/server").Msg("запуск сервера")
 		err := server.ListenAndServe()
 		if errors.Is(err, http.ErrServerClosed) {
 			err = nil
@@ -81,7 +81,7 @@ func serve(ctx context.Context, server *http.Server, timeout time.Duration, logg
 		}
 		return nil
 	case <-ctx.Done():
-		logger.Info("получен сигнал остановки, завершаем текущие запросы")
+		logger.Info().Msg("получен сигнал остановки, завершаем текущие запросы")
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), timeout)
 		defer cancel()
 		if err := server.Shutdown(shutdownCtx); err != nil {
@@ -92,7 +92,7 @@ func serve(ctx context.Context, server *http.Server, timeout time.Duration, logg
 		if err := <-serverErrors; err != nil {
 			return fmt.Errorf("сервер остановлен с ошибкой: %w", err)
 		}
-		logger.Info("сервер остановлен")
+		logger.Info().Msg("сервер остановлен")
 		return nil
 	}
 }

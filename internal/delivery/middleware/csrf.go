@@ -22,7 +22,7 @@ func WithCSRF(next http.Handler) http.Handler {
 			cookieToken = cookie.Value
 		}
 		if err := security.CheckCSRF(cookieToken, r.Header.Get(security.CSRFHeaderName)); err != nil {
-			response.WriteError(w, http.StatusForbidden, models.CodeCSRFRejected, models.MsgCSRFRejected)
+			response.WriteError(r.Context(), w, http.StatusForbidden, models.CodeCSRFRejected, models.MsgCSRFRejected)
 			return
 		}
 		next.ServeHTTP(w, r)

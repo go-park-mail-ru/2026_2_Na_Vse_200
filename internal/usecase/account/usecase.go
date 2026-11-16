@@ -5,6 +5,7 @@ import (
 	"errors"
 	"strings"
 
+	"2026_2_Na_Vse_200/internal/logger"
 	"2026_2_Na_Vse_200/internal/models"
 	"2026_2_Na_Vse_200/internal/usecase/ports"
 	"2026_2_Na_Vse_200/internal/validation"
@@ -51,6 +52,7 @@ func (u *Usecase) verify(ctx context.Context, owner, id models.UserID, password 
 }
 
 func (u *Usecase) ChangeEmail(ctx context.Context, owner, id models.UserID, password, email string) (models.User, error) {
+	logger.UsecaseStarted(ctx, "account.change_email")
 	user, err := u.verify(ctx, owner, id, password)
 	if err != nil {
 		return models.User{}, err
@@ -63,6 +65,7 @@ func (u *Usecase) ChangeEmail(ctx context.Context, owner, id models.UserID, pass
 }
 
 func (u *Usecase) ChangePassword(ctx context.Context, owner, id models.UserID, password, next string) error {
+	logger.UsecaseStarted(ctx, "account.change_password")
 	user, err := u.verify(ctx, owner, id, password)
 	if err != nil {
 		return err
@@ -79,6 +82,7 @@ func (u *Usecase) ChangePassword(ctx context.Context, owner, id models.UserID, p
 }
 
 func (u *Usecase) Delete(ctx context.Context, owner, id models.UserID, password string) error {
+	logger.UsecaseStarted(ctx, "account.delete")
 	user, err := u.verify(ctx, owner, id, password)
 	if err != nil {
 		return err

@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"2026_2_Na_Vse_200/internal/delivery/handlers/favorites"
-	"log/slog"
 	"net/http"
 
 	"2026_2_Na_Vse_200/internal/config"
@@ -18,7 +17,6 @@ import (
 const sessionCookieName = "session_id"
 
 type Deps struct {
-	Logger    *slog.Logger
 	Favorites favorites.Repository
 	Auth      auth.Usecase
 	Catalog   home.CatalogUsecase
@@ -43,7 +41,7 @@ type API struct {
 func New(cfg *config.Config, deps *Deps) *API {
 	api := &API{
 		auth:           deps.Auth,
-		authH:          auth.New(cfg, deps.Auth, deps.Logger),
+		authH:          auth.New(cfg, deps.Auth),
 		home:           home.New(deps.Catalog),
 		profile:        profile.NewProfileHandler(deps.Profile),
 		account:        profile.NewAccountHandler(deps.Account, cfg),

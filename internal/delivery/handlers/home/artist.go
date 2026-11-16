@@ -3,9 +3,10 @@ package home
 import (
 	"context"
 	"errors"
-	"log"
 	"net/http"
 	"strconv"
+
+	"github.com/rs/zerolog"
 
 	"2026_2_Na_Vse_200/internal/delivery/response"
 	"2026_2_Na_Vse_200/internal/models"
@@ -32,20 +33,20 @@ func (h *ArtistHandler) Artist(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if err != nil || limit < 1 || limit > 100 || offset < 0 {
-		response.WriteError(w, http.StatusBadRequest, "invalid_pagination", "limit: от 1 до 100; offset: не меньше 0")
+		response.WriteError(r.Context(), w, http.StatusBadRequest, "invalid_pagination", "limit: от 1 до 100; offset: не меньше 0")
 		return
 	}
 	result, err := h.artists.Artist(r.Context(), models.ArtistID(r.PathValue("id")), limit, offset)
 	if errors.Is(err, models.ErrArtistNotFound) {
-		response.WriteError(w, http.StatusNotFound, models.CodeNotFound, "Исполнитель не найден")
+		response.WriteError(r.Context(), w, http.StatusNotFound, models.CodeNotFound, "Исполнитель не найден")
 		return
 	}
 	if err != nil {
-		log.Printf("ошибка чтения исполнителя: %v", err)
-		response.WriteError(w, http.StatusInternalServerError, models.CodeInternal, models.MsgInternal)
+		zerolog.Ctx(r.Context()).Error().Err(err).Str("operation", "artist.page").Msg("ошибка чтения исполнителя")
+		response.WriteError(r.Context(), w, http.StatusInternalServerError, models.CodeInternal, models.MsgInternal)
 		return
 	}
-	response.WriteJSON(w, http.StatusOK, struct {
+	response.WriteJSON(r.Context(), w, http.StatusOK, struct {
 		artistResponse
 		Biography string          `json:"biography"`
 		Tracks    []trackResponse `json:"tracks"`

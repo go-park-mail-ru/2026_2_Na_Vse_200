@@ -33,6 +33,7 @@ func (r *UserRepo) changeAccount(ctx context.Context, id models.UserID, expected
 }
 
 func (r *UserRepo) ChangeEmail(ctx context.Context, id models.UserID, expectedHash, email string) (models.User, error) {
+	ctx = withDBOperation(ctx, "account.change_email")
 	var user models.User
 	err := r.changeAccount(ctx, id, expectedHash, func(tx pgx.Tx) error {
 		var err error
@@ -47,6 +48,7 @@ func (r *UserRepo) ChangeEmail(ctx context.Context, id models.UserID, expectedHa
 }
 
 func (r *UserRepo) ChangePassword(ctx context.Context, id models.UserID, expectedHash, nextHash string) error {
+	ctx = withDBOperation(ctx, "account.change_password")
 	return r.changeAccount(ctx, id, expectedHash, func(tx pgx.Tx) error {
 		if _, err := tx.Exec(ctx, `UPDATE account SET password_hash=$2 WHERE id=$1::uuid`, string(id), nextHash); err != nil {
 			return err
@@ -57,6 +59,7 @@ func (r *UserRepo) ChangePassword(ctx context.Context, id models.UserID, expecte
 }
 
 func (r *UserRepo) DeleteAccount(ctx context.Context, id models.UserID, expectedHash string) error {
+	ctx = withDBOperation(ctx, "account.delete")
 	if string(id) == "10000000-0000-4000-8000-000000000001" {
 		return models.ErrForbidden
 	}

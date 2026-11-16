@@ -44,6 +44,7 @@ func NewSessionRepo(pool *pgxpool.Pool) *SessionRepo {
 
 // Create сохраняет сессию с идентификатором, заданным вызывающим кодом.
 func (r *SessionRepo) Create(ctx context.Context, session models.Session) error {
+	ctx = withDBOperation(ctx, "sessions.create")
 	if _, err := r.pool.Exec(ctx, createSessionQuery, string(session.ID), string(session.UserID), session.ExpiresAt); err != nil {
 		return fmt.Errorf("insert auth session: %w", err)
 	}
@@ -52,6 +53,7 @@ func (r *SessionRepo) Create(ctx context.Context, session models.Session) error 
 
 // GetByID возвращает сессию, проверяя срок действия по времени БД.
 func (r *SessionRepo) GetByID(ctx context.Context, id models.SessionID) (models.Session, error) {
+	ctx = withDBOperation(ctx, "sessions.get_by_id")
 	if err := ctx.Err(); err != nil {
 		return models.Session{}, err
 	}
@@ -85,6 +87,7 @@ func (r *SessionRepo) GetByID(ctx context.Context, id models.SessionID) (models.
 
 // Delete удаляет сессию. Отсутствующий или некорректный ID не считается ошибкой.
 func (r *SessionRepo) Delete(ctx context.Context, id models.SessionID) error {
+	ctx = withDBOperation(ctx, "sessions.delete")
 	if err := ctx.Err(); err != nil {
 		return err
 	}
@@ -102,6 +105,7 @@ func (r *SessionRepo) Delete(ctx context.Context, id models.SessionID) error {
 
 // DeleteExpired удаляет все истёкшие сессии.
 func (r *SessionRepo) DeleteExpired(ctx context.Context) error {
+	ctx = withDBOperation(ctx, "sessions.delete_expired")
 	if _, err := r.pool.Exec(ctx, deleteExpiredSessionsQuery); err != nil {
 		return fmt.Errorf("delete expired auth sessions: %w", err)
 	}

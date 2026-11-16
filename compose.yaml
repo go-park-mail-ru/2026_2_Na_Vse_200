@@ -47,6 +47,8 @@ services:
       APP_COOKIE_SECURE: ${APP_COOKIE_SECURE:-false}
       APP_SESSION_TTL: ${APP_SESSION_TTL:-24h}
       APP_SHUTDOWN_TIMEOUT: ${APP_SHUTDOWN_TIMEOUT:-10s}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      LOG_FORMAT: ${LOG_FORMAT:-json}
     volumes:
       - ./media:/app/media
     ports:

@@ -2,8 +2,61 @@ package logger
 
 import (
 	"context"
-	"log/slog"
+	"fmt"
+	"io"
+	"strings"
+
+	"github.com/rs/zerolog"
 )
+
+func New(
+	out io.Writer,
+	level string,
+	format string,
+) (zerolog.Logger, error) {
+	level = strings.ToLower(strings.TrimSpace(level))
+	format = strings.ToLower(strings.TrimSpace(format))
+
+	if level == "" {
+		level = "info"
+	}
+	if format == "" {
+		format = "json"
+	}
+	parsedLevel, err := zerolog.ParseLevel(level)
+	if err != nil {
+		return zerolog.Logger{}, fmt.Errorf(
+			"уровень логирования %q: %w",
+			level,
+			err,
+		)
+	}
+
+	var writer io.Writer = out
+
+	switch format {
+	case "json":
+	case "console":
+		writer = zerolog.ConsoleWriter{
+			Out:     out,
+			NoColor: true,
+		}
+	default:
+		return zerolog.Logger{}, fmt.Errorf(
+			"неизвестный формат логирования %q",
+			format,
+		)
+	}
+
+	logger := zerolog.New(writer).
+		Level(parsedLevel).
+		With().
+		Timestamp().
+		Str("service", "music-api").
+		Logger()
+
+	return logger, nil
+}
 
 type ctxKey struct{}
 
@@ -18,18 +71,11 @@ func RequestID(ctx context.Context) string {
 	return id
 }
 
-// FromContext возвращает логгер с request_id текущего запроса.
-func FromContext(ctx context.Context, base *slog.Logger) *slog.Logger {
-	if base == nil {
-		base = slog.Default()
-	}
-	if id := RequestID(ctx); id != "" {
-		return base.With(slog.String("request_id", id))
-	}
-	return base
-}
-
-// Discard возвращает логгер без вывода — для тестов.
-func Discard() *slog.Logger {
-	return slog.New(slog.DiscardHandler)
+// UsecaseStarted отмечает вход в сценарий с полями логгера текущего запроса.
+func UsecaseStarted(ctx context.Context, operation string) {
+	zerolog.Ctx(ctx).Debug().
+		Str("layer", "usecase").
+		Str("operation", operation).
+		Str("phase", "start").
+		Msg("начало сценария")
 }

@@ -3,7 +3,8 @@ package catalog
 import (
 	"context"
 	"fmt"
-	"log/slog"
+
+	"github.com/rs/zerolog"
 
 	"2026_2_Na_Vse_200/internal/logger"
 	"2026_2_Na_Vse_200/internal/models"
@@ -20,40 +21,36 @@ type Home struct {
 
 type Usecase struct {
 	catalog ports.CatalogRepository
-	log     *slog.Logger
 }
 
-func New(catalog ports.CatalogRepository, log *slog.Logger) *Usecase {
-	if log == nil {
-		log = logger.Discard()
-	}
-	return &Usecase{catalog: catalog, log: log}
+func New(catalog ports.CatalogRepository) *Usecase {
+	return &Usecase{catalog: catalog}
 }
 
 func (u *Usecase) Home(ctx context.Context) (Home, error) {
-	log := logger.FromContext(ctx, u.log)
-	log.Info("catalog.Home: старт")
+	logger.UsecaseStarted(ctx, "catalog.home")
+	log := zerolog.Ctx(ctx)
 
 	tracks, err := u.catalog.HomeTracks(ctx, homeLimit)
 	if err != nil {
-		log.Error("catalog.Home: чтение треков", slog.Any("error", err))
+		log.Error().Err(err).Msg("catalog.Home: чтение треков")
 		return Home{}, fmt.Errorf("home tracks: %w", err)
 	}
-	log.Info("catalog.Home: треки получены", slog.Int("count", len(tracks)))
+	log.Info().Int("count", len(tracks)).Msg("catalog.Home: треки получены")
 
 	artists, err := u.catalog.HomeArtists(ctx, homeLimit)
 	if err != nil {
-		log.Error("catalog.Home: чтение исполнителей", slog.Any("error", err))
+		log.Error().Err(err).Msg("catalog.Home: чтение исполнителей")
 		return Home{}, fmt.Errorf("home artists: %w", err)
 	}
-	log.Info("catalog.Home: исполнители получены", slog.Int("count", len(artists)))
+	log.Info().Int("count", len(artists)).Msg("catalog.Home: исполнители получены")
 
 	albums, err := u.catalog.HomeAlbums(ctx, homeLimit)
 	if err != nil {
-		log.Error("catalog.Home: чтение альбомов", slog.Any("error", err))
+		log.Error().Err(err).Msg("catalog.Home: чтение альбомов")
 		return Home{}, fmt.Errorf("home albums: %w", err)
 	}
-	log.Info("catalog.Home: альбомы получены", slog.Int("count", len(albums)))
+	log.Info().Int("count", len(albums)).Msg("catalog.Home: альбомы получены")
 
 	return Home{Tracks: tracks, Artists: artists, Albums: albums}, nil
 }
