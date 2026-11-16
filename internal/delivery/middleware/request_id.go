@@ -4,15 +4,13 @@ import (
 	"context"
 	"net/http"
 	"uuid"
-)
 
-type ctxKey int
+	"2026_2_Na_Vse_200/internal/logger"
+)
 
 const (
 	// HeaderRequestID задаёт имя заголовка с идентификатором запроса.
 	HeaderRequestID = "X-Request-ID"
-
-	_requestIDKey ctxKey = 0
 )
 
 // WithRequestID сохраняет ID запроса в контексте и заголовке ответа.
@@ -26,16 +24,12 @@ func WithRequestID(next http.Handler) http.Handler {
 
 		w.Header().Set(HeaderRequestID, id)
 
-		ctx := context.WithValue(r.Context(), _requestIDKey, id)
+		ctx := logger.WithRequestID(r.Context(), id)
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
 
 // RequestIDFromContext возвращает ID запроса или пустую строку.
 func RequestIDFromContext(ctx context.Context) string {
-	id, ok := ctx.Value(_requestIDKey).(string)
-	if !ok {
-		return ""
-	}
-	return id
+	return logger.RequestID(ctx)
 }

@@ -1,6 +1,7 @@
 package logger
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"strings"
@@ -22,7 +23,6 @@ func New(
 	if format == "" {
 		format = "json"
 	}
-
 	parsedLevel, err := zerolog.ParseLevel(level)
 	if err != nil {
 		return zerolog.Logger{}, fmt.Errorf(
@@ -56,4 +56,26 @@ func New(
 		Logger()
 
 	return logger, nil
+}
+
+type ctxKey struct{}
+
+// WithRequestID кладёт идентификатор запроса в контекст.
+func WithRequestID(ctx context.Context, id string) context.Context {
+	return context.WithValue(ctx, ctxKey{}, id)
+}
+
+// RequestID возвращает идентификатор запроса из контекста или пустую строку.
+func RequestID(ctx context.Context) string {
+	id, _ := ctx.Value(ctxKey{}).(string)
+	return id
+}
+
+// UsecaseStarted отмечает вход в сценарий с полями логгера текущего запроса.
+func UsecaseStarted(ctx context.Context, operation string) {
+	zerolog.Ctx(ctx).Debug().
+		Str("layer", "usecase").
+		Str("operation", operation).
+		Str("phase", "start").
+		Msg("начало сценария")
 }

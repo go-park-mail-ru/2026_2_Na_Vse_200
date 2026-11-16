@@ -14,6 +14,7 @@ import (
 	"2026_2_Na_Vse_200/internal/delivery/middleware"
 	"2026_2_Na_Vse_200/internal/repository/postgres"
 	"2026_2_Na_Vse_200/internal/storage"
+	accountusecase "2026_2_Na_Vse_200/internal/usecase/account"
 	artistusecase "2026_2_Na_Vse_200/internal/usecase/artist"
 	authusecase "2026_2_Na_Vse_200/internal/usecase/auth"
 	catalogusecase "2026_2_Na_Vse_200/internal/usecase/catalog"
@@ -32,11 +33,13 @@ func newHandler(cfg config.Config, pool *pgxpool.Pool, sessions *postgres.Sessio
 	users := postgres.NewUserRepo(pool)
 	mediaRepo := postgres.NewMediaRepo(pool)
 	api := handlers.New(&cfg, &handlers.Deps{
-		Auth:    authusecase.New(users, sessions, auth.NewBcryptHasher(), auth.NewSessionID, time.Now, cfg.SessionTTL),
-		Catalog: catalogusecase.New(postgres.NewCatalogRepo(pool)),
-		Profile: profileusecase.NewProfileUsecase(users, users, mediaRepo, blobs),
-		Artist:  artistusecase.NewArtistUsecase(postgres.NewArtistRepo(pool)),
-		Media:   media.NewMediaHandler(mediaRepo, blobs),
+		Favorites: postgres.NewTrackRepo(pool),
+		Account:   accountusecase.NewAccountUsecase(users, users, auth.NewBcryptHasher()),
+		Auth:      authusecase.NewAuthUsecase(users, sessions, auth.NewBcryptHasher(), auth.NewSessionID, time.Now, cfg.SessionTTL),
+		Catalog:   catalogusecase.New(postgres.NewCatalogRepo(pool)),
+		Profile:   profileusecase.NewProfileUsecase(users, users, mediaRepo, blobs),
+		Artist:    artistusecase.NewArtistUsecase(postgres.NewArtistRepo(pool)),
+		Media:     media.NewMediaHandler(mediaRepo, blobs, postgres.NewTrackRepo(pool)),
 	})
 	return middleware.Chain(
 		api.Routes(),
@@ -44,6 +47,7 @@ func newHandler(cfg config.Config, pool *pgxpool.Pool, sessions *postgres.Sessio
 		middleware.WithLogging(logger, "monolith/middleware"),
 		middleware.WithRecover(),
 		middleware.WithCORS(cfg.AllowedOrigin, cfg.AllowedMethods, cfg.AllowedHeaders),
+		middleware.WithCSRF,
 		middleware.WithJSONErrors,
 	), nil
 }
@@ -54,7 +58,7 @@ func newServer(addr string, handler http.Handler) *http.Server {
 		Handler:           handler,
 		ReadHeaderTimeout: 3 * time.Second,
 		ReadTimeout:       15 * time.Second,
-		WriteTimeout:      15 * time.Second,
+		WriteTimeout:      0,
 		IdleTimeout:       60 * time.Second,
 	}
 }

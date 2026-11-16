@@ -7,6 +7,7 @@ import (
 
 // ProfileRepository изменяет данные профиля и привязку аватара.
 type ProfileRepository interface {
+	// UpdateProfile меняет имя; email должен совпадать с текущим и не изменяется.
 	UpdateProfile(ctx context.Context, id models.UserID, email, displayName string) (models.User, error)
 	SetAvatar(ctx context.Context, id models.UserID, fileID models.MediaFileID) (models.User, error)
 }

@@ -16,7 +16,9 @@ func WithLogging(logger zerolog.Logger, handledBy string) Middleware {
 			start := time.Now()
 			sw := &statusWriter{ResponseWriter: w}
 			requestLogger := logger.With().
-				Str("request_id", RequestIDFromContext(r.Context())).Logger()
+				Str("request_id", RequestIDFromContext(r.Context())).
+				Caller().
+				Logger()
 			r = r.WithContext(requestLogger.WithContext(r.Context()))
 
 			next.ServeHTTP(sw, r)
@@ -29,6 +31,7 @@ func WithLogging(logger zerolog.Logger, handledBy string) Middleware {
 			requestLogger.WithLevel(accessLogLevel(sw.status)).
 				Str("method", r.Method).
 				Str("url", r.URL.Path).
+				Str("route", r.Pattern).
 				Str("host", r.Host).
 				Str("remote_addr", r.RemoteAddr).
 				Str("real_ip", RealIP(r)).

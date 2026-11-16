@@ -1,6 +1,9 @@
 package auth
 
-import "2026_2_Na_Vse_200/internal/models"
+import (
+	"2026_2_Na_Vse_200/internal/models"
+	"2026_2_Na_Vse_200/internal/security"
+)
 
 type userResponse struct {
 	ID          string  `json:"id"`
@@ -13,7 +16,7 @@ func newUserResponse(user models.User) userResponse {
 	resp := userResponse{
 		ID:          string(user.ID),
 		Email:       user.Email,
-		DisplayName: user.DisplayName,
+		DisplayName: security.EscapeText(user.DisplayName),
 	}
 
 	if user.AvatarURL != "" {

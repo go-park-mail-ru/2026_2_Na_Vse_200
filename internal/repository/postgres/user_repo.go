@@ -18,18 +18,22 @@ type rowQuerier interface {
 
 // UserRepo хранит пользователей в таблице account.
 type UserRepo struct {
-	pool rowQuerier
+	pool         rowQuerier
+	transactions interface {
+		Begin(context.Context) (pgx.Tx, error)
+	}
 }
 
 var _ ports.UserRepository = (*UserRepo)(nil)
 
 // NewUserRepo создаёт репозиторий пользователей.
 func NewUserRepo(pool *pgxpool.Pool) *UserRepo {
-	return &UserRepo{pool: pool}
+	return &UserRepo{pool: pool, transactions: pool}
 }
 
 // Create сохраняет аккаунт. ID и время создания задаёт база данных.
 func (r *UserRepo) Create(ctx context.Context, user models.User) (models.User, error) {
+	ctx = withDBOperation(ctx, "users.create")
 	const query = `
 		INSERT INTO account (email, password_hash, display_name, avatar_file_id)
 		VALUES ($1, $2, $3, $4)
@@ -58,6 +62,7 @@ func (r *UserRepo) Create(ctx context.Context, user models.User) (models.User, e
 
 // GetByID возвращает пользователя или models.ErrUserNotFound.
 func (r *UserRepo) GetByID(ctx context.Context, id models.UserID) (models.User, error) {
+	ctx = withDBOperation(ctx, "users.get_by_id")
 	const query = `
 		SELECT id, email, password_hash, display_name, avatar_file_id::text, created_at
 		FROM account
@@ -75,6 +80,7 @@ func (r *UserRepo) GetByID(ctx context.Context, id models.UserID) (models.User, 
 
 // GetByEmail ищет пользователя по нормализованному email и возвращает его с хешем пароля.
 func (r *UserRepo) GetByEmail(ctx context.Context, email string) (models.User, error) {
+	ctx = withDBOperation(ctx, "users.get_by_email")
 	const query = `
 		SELECT id, email, password_hash, display_name, avatar_file_id::text, created_at
 		FROM account
@@ -103,6 +109,7 @@ func scanUser(row pgx.Row) (models.User, error) {
 
 	user.ID = models.UserID(id)
 	if avatarFileID != nil {
+		user.AvatarURL = "/api/v1/media/" + *avatarFileID
 		fileID := models.MediaFileID(*avatarFileID)
 		user.AvatarFileID = &fileID
 	}

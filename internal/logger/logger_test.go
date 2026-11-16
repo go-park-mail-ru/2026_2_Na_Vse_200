@@ -2,6 +2,7 @@ package logger_test
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"strings"
@@ -100,5 +101,15 @@ func TestNewConsoleLogger(t *testing.T) {
 
 	if !strings.Contains(out.String(), "server ready") || strings.Contains(out.String(), "\x1b") || json.Valid(out.Bytes()) {
 		t.Fatalf("неверный вывод console: %q", out.String())
+	}
+}
+
+func TestRequestIDRoundTrip(t *testing.T) {
+	ctx := logger.WithRequestID(context.Background(), "req-1")
+	if got := logger.RequestID(ctx); got != "req-1" {
+		t.Fatalf("RequestID = %q", got)
+	}
+	if got := logger.RequestID(context.Background()); got != "" {
+		t.Fatalf("пустой контекст: %q", got)
 	}
 }

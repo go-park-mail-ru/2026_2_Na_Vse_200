@@ -14,6 +14,7 @@ var (
 	ErrForbidden         = errors.New("forbidden")
 	ErrUnauthorized      = errors.New("unauthorized")
 	ErrInvalidAvatar     = errors.New("invalid avatar")
+	ErrCurrentPassword   = errors.New("current password is incorrect or changed")
 )
 
 type ValidationError struct{ Fields map[string]string }

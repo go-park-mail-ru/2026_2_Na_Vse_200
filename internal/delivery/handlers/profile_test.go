@@ -161,7 +161,7 @@ func TestProfileUpdate(t *testing.T) {
 	handler, cookie, user, _ := newProfileFixture(t)
 
 	req := httptest.NewRequest(http.MethodPut, "/api/v1/users/"+user.ID, strings.NewReader(
-		`{"email":"new@example.com","display_name":"Новое имя"}`,
+		`{"email":"andrey@example.com","display_name":"Новое имя"}`,
 	))
 	req.Header.Set("Content-Type", "application/json")
 	req.AddCookie(cookie)
@@ -175,7 +175,7 @@ func TestProfileUpdate(t *testing.T) {
 	if err := json.Unmarshal(w.Body.Bytes(), &got); err != nil {
 		t.Fatalf("json: %v", err)
 	}
-	if got.Email != "new@example.com" || got.DisplayName != "Новое имя" {
+	if got.Email != "andrey@example.com" || got.DisplayName != "Новое имя" {
 		t.Fatalf("got=%+v", got)
 	}
 }

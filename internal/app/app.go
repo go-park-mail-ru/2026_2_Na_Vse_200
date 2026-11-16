@@ -16,6 +16,7 @@ func Run(ctx context.Context, cfg config.Config, logger zerolog.Logger) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
+	ctx = logger.WithContext(ctx)
 	pool, err := connectPostgres(ctx, cfg.PostgreSQLDSN)
 	if err != nil {
 		return err
@@ -46,7 +47,12 @@ func connectPostgres(ctx context.Context, dsn string) (*pgxpool.Pool, error) {
 	if dsn == "" {
 		return nil, errors.New("конфигурация: POSTGRES_DSN не задан")
 	}
-	pool, err := pgxpool.New(ctx, dsn)
+	cfg, err := pgxpool.ParseConfig(dsn)
+	if err != nil {
+		return nil, fmt.Errorf("postgresql: %w", err)
+	}
+	cfg.ConnConfig.Tracer = postgres.QueryTracer{}
+	pool, err := pgxpool.NewWithConfig(ctx, cfg)
 	if err != nil {
 		return nil, fmt.Errorf("postgresql: %w", err)
 	}

@@ -1,8 +1,8 @@
 package media
 
 import (
+	"context"
 	"errors"
-	"io"
 	"net/http"
 	"os"
 	"uuid"
@@ -11,31 +11,50 @@ import (
 
 	"2026_2_Na_Vse_200/internal/delivery/response"
 	"2026_2_Na_Vse_200/internal/models"
-	"2026_2_Na_Vse_200/internal/usecase/ports"
 )
 
-type MediaBlobStore interface {
-	Open(key string) (*os.File, error)
+type Repository interface {
+	GetByID(context.Context, models.MediaFileID) (models.MediaFile, error)
 }
-
+type Tracks interface {
+	GetAudio(context.Context, models.TrackID) (models.MediaFile, error)
+}
+type Blobs interface {
+	Open(string) (*os.File, error)
+}
 type MediaHandler struct {
-	media ports.MediaRepository
-	blobs MediaBlobStore
+	media  Repository
+	tracks Tracks
+	blobs  Blobs
 }
 
-func NewMediaHandler(media ports.MediaRepository, blobs MediaBlobStore) *MediaHandler {
-	return &MediaHandler{media: media, blobs: blobs}
+func NewMediaHandler(media Repository, blobs Blobs, tracks ...Tracks) *MediaHandler {
+	h := &MediaHandler{media: media, blobs: blobs}
+	if len(tracks) > 0 {
+		h.tracks = tracks[0]
+	}
+	return h
 }
-
 func (h *MediaHandler) Get(w http.ResponseWriter, r *http.Request) {
 	id, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {
 		response.WriteError(r.Context(), w, http.StatusNotFound, models.CodeNotFound, models.MsgNotFound)
 		return
 	}
-
 	file, err := h.media.GetByID(r.Context(), models.MediaFileID(id.String()))
-	if errors.Is(err, models.ErrMediaFileNotFound) {
+	h.serve(w, r, file, err)
+}
+func (h *MediaHandler) Audio(w http.ResponseWriter, r *http.Request) {
+	id, err := uuid.Parse(r.PathValue("id"))
+	if err != nil || h.tracks == nil {
+		response.WriteError(r.Context(), w, http.StatusNotFound, models.CodeNotFound, models.MsgNotFound)
+		return
+	}
+	file, err := h.tracks.GetAudio(r.Context(), models.TrackID(id.String()))
+	h.serve(w, r, file, err)
+}
+func (h *MediaHandler) serve(w http.ResponseWriter, r *http.Request, file models.MediaFile, err error) {
+	if errors.Is(err, models.ErrMediaFileNotFound) || errors.Is(err, models.ErrTrackNotFound) {
 		response.WriteError(r.Context(), w, http.StatusNotFound, models.CodeNotFound, models.MsgNotFound)
 		return
 	}
@@ -44,23 +63,24 @@ func (h *MediaHandler) Get(w http.ResponseWriter, r *http.Request) {
 		response.WriteError(r.Context(), w, http.StatusInternalServerError, models.CodeInternal, models.MsgInternal)
 		return
 	}
-
-	blob, err := h.blobs.Open(file.StorageKey)
+	body, err := h.blobs.Open(file.StorageKey)
+	if os.IsNotExist(err) {
+		response.WriteError(r.Context(), w, http.StatusNotFound, models.CodeNotFound, models.MsgNotFound)
+		return
+	}
 	if err != nil {
-		if os.IsNotExist(err) {
-			response.WriteError(r.Context(), w, http.StatusNotFound, models.CodeNotFound, models.MsgNotFound)
-			return
-		}
 		zerolog.Ctx(r.Context()).Error().Err(err).Str("operation", "media.open").Msg("открытие медиафайла")
 		response.WriteError(r.Context(), w, http.StatusInternalServerError, models.CodeInternal, models.MsgInternal)
 		return
 	}
-	defer blob.Close()
-
-	w.Header().Set("Content-Type", file.MIMEType)
-	w.Header().Set("Cache-Control", "public, max-age=86400")
-	w.WriteHeader(http.StatusOK)
-	if _, err := io.Copy(w, blob); err != nil {
-		zerolog.Ctx(r.Context()).Error().Err(err).Str("operation", "media.send").Msg("отправка медиафайла")
+	defer body.Close()
+	info, err := body.Stat()
+	if err != nil || !info.Mode().IsRegular() {
+		response.WriteError(r.Context(), w, http.StatusInternalServerError, models.CodeInternal, models.MsgInternal)
+		return
 	}
+	w.Header().Set("Content-Type", file.MIMEType)
+	w.Header().Set("X-Content-Type-Options", "nosniff")
+	w.Header().Set("Cache-Control", "public, max-age=3600")
+	http.ServeContent(w, r, info.Name(), info.ModTime(), body)
 }

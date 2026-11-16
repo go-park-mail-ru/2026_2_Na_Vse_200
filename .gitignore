@@ -21,5 +21,11 @@ go.work.sum
 .idea/
 .vscode/
 
-# Локальные медиафайлы.
+# Generated local demo audio.
+/media/audio/demo/
+
+# Uploaded local avatars.
+/media/images/avatars/
+
+# Local media storage from main.
 data/media/

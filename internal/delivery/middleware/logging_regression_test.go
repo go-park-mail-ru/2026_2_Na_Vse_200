@@ -12,16 +12,18 @@ import (
 	"github.com/rs/zerolog"
 )
 
-func TestRequestLoggerKeepsRequestIDAndHidesQuery(t *testing.T) {
+func TestRequestLoggerKeepsRequestIDAndCallerAndHidesQuery(t *testing.T) {
 	logger, buf := testLogger()
-	handler := Chain(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	mux := http.NewServeMux()
+	mux.HandleFunc("GET /test/{id}", func(w http.ResponseWriter, r *http.Request) {
 		zerolog.Ctx(r.Context()).Info().Str("operation", "test.handler").Msg("handler event")
 		w.WriteHeader(http.StatusNoContent)
-	}), WithRequestID, WithLogging(logger, "test"), WithRecover())
+	})
+	handler := Chain(mux, WithRequestID, WithLogging(logger, "test"), WithRecover())
 	ids := []string{"018f3b2a-4c5d-4e6f-8a9b-0c1d2e3f4a5b", "018f3b2a-4c5d-4e6f-8a9b-0c1d2e3f4a5c"}
 	for _, id := range ids {
 		buf.Reset()
-		req := httptest.NewRequest(http.MethodGet, "/test?token=secret-query", nil)
+		req := httptest.NewRequest(http.MethodGet, "/test/42?token=secret-query", nil)
 		req.Header.Set(HeaderRequestID, id)
 		req.Header.Set("Authorization", "Bearer secret-header")
 		req.AddCookie(&http.Cookie{Name: "session_id", Value: "secret-cookie"})
@@ -38,6 +40,15 @@ func TestRequestLoggerKeepsRequestIDAndHidesQuery(t *testing.T) {
 			if event["request_id"] != id {
 				t.Fatalf("request_id=%v, want %s", event["request_id"], id)
 			}
+		}
+		for i, file := range []string{"logging_regression_test.go:", "logging.go:"} {
+			caller, _ := events[i]["caller"].(string)
+			if !strings.Contains(caller, file) {
+				t.Errorf("event %d: caller=%q, want %s", i, caller, file)
+			}
+		}
+		if events[1]["route"] != "GET /test/{id}" || events[1]["url"] != "/test/42" {
+			t.Errorf("access route=%v url=%v", events[1]["route"], events[1]["url"])
 		}
 		if events[1]["status"] != float64(http.StatusNoContent) {
 			t.Fatalf("access status=%v", events[1]["status"])
