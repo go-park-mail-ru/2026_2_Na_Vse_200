@@ -67,6 +67,8 @@ func (QueryTracer) TraceQueryEnd(ctx context.Context, _ *pgx.Conn, data pgx.Trac
 	switch {
 	case data.Err == nil:
 		event.Str("outcome", "ok").Int64("rows_affected", data.CommandTag.RowsAffected())
+	case errors.Is(data.Err, pgx.ErrNoRows):
+		event.Str("outcome", "ok").Int64("rows_affected", 0)
 	case errors.Is(data.Err, context.Canceled):
 		event.Str("outcome", "canceled")
 	case errors.Is(data.Err, context.DeadlineExceeded):

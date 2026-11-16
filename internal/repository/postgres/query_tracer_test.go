@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"strings"
 	"testing"
 
@@ -20,6 +21,8 @@ func TestQueryTracerCorrelatesEventsWithoutSQLOrArguments(t *testing.T) {
 		sqlstate string
 	}{
 		{name: "success", outcome: "ok"},
+		{name: "no rows", err: pgx.ErrNoRows, outcome: "ok"},
+		{name: "connection error", err: errors.New("private-error-detail"), outcome: "error"},
 		{name: "postgres error", err: &pgconn.PgError{Code: "23505", Detail: "private-error-detail"}, outcome: "error", sqlstate: "23505"},
 		{name: "canceled", err: context.Canceled, outcome: "canceled"},
 		{name: "timeout", err: context.DeadlineExceeded, outcome: "deadline_exceeded"},
@@ -65,6 +68,9 @@ func TestQueryTracerCorrelatesEventsWithoutSQLOrArguments(t *testing.T) {
 					}
 					if tt.err == nil && event["rows_affected"] != float64(1) {
 						t.Errorf("rows_affected = %v, ожидалось 1", event["rows_affected"])
+					}
+					if errors.Is(tt.err, pgx.ErrNoRows) && event["rows_affected"] != float64(0) {
+						t.Errorf("rows_affected = %v, ожидалось 0", event["rows_affected"])
 					}
 				}
 			}

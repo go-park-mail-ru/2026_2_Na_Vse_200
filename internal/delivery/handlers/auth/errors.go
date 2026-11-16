@@ -2,38 +2,32 @@ package auth
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
+	"io"
 	"net/http"
 
 	"2026_2_Na_Vse_200/internal/delivery/response"
 	"2026_2_Na_Vse_200/internal/models"
 	authusecase "2026_2_Na_Vse_200/internal/usecase/auth"
+
 	"github.com/rs/zerolog"
 )
 
-const (
-	errNoSessionCookie = "запрос без cookie сессии"
-	errSessionRejected = "сессия неизвестна или истекла"
-)
-
-func writeInternalError(ctx context.Context, w http.ResponseWriter, cause string, err error) {
-	zerolog.Ctx(ctx).Error().Err(err).Str("operation", "auth").Msg(cause)
-	response.WriteError(ctx, w, http.StatusInternalServerError,
-		models.CodeInternal, models.MsgInternal)
-}
-
-// Отсутствующая, неизвестная и истёкшая сессии дают одинаковый ответ.
-func writeUnauthorized(ctx context.Context, w http.ResponseWriter, cause string, err error) {
-	zerolog.Ctx(ctx).Debug().Err(err).Str("operation", "auth").Msg(cause)
-	response.WriteError(ctx, w, http.StatusUnauthorized,
-		models.CodeUnauthorized, models.MsgUnauthorized)
-}
-
-// Неизвестный email и неверный пароль дают одинаковый ответ.
-func writeInvalidCredentials(ctx context.Context, w http.ResponseWriter, cause string) {
-	zerolog.Ctx(ctx).Debug().Str("operation", "auth").Msg(cause)
-	response.WriteError(ctx, w, http.StatusUnauthorized,
-		models.CodeInvalidCredentials, models.MsgInvalidCredentials)
+// Ошибки клиента пишем на INFO, сбои приложения — на ERROR.
+func (*Handler) logError(r *http.Request, operation string, err error) {
+	var validationErr *authusecase.ValidationError
+	var syntaxErr *json.SyntaxError
+	var typeErr *json.UnmarshalTypeError
+	var sizeErr *http.MaxBytesError
+	level := zerolog.ErrorLevel
+	if errors.As(err, &validationErr) || errors.As(err, &syntaxErr) ||
+		errors.As(err, &typeErr) || errors.As(err, &sizeErr) || errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) ||
+		errors.Is(err, models.ErrEmailTaken) || errors.Is(err, authusecase.ErrInvalidCredentials) ||
+		errors.Is(err, authusecase.ErrUnauthorized) {
+		level = zerolog.InfoLevel
+	}
+	zerolog.Ctx(r.Context()).WithLevel(level).Str("operation", operation).Err(err).Msg(operation)
 }
 
 func writeAuthError(ctx context.Context, w http.ResponseWriter, err error) {
@@ -44,10 +38,10 @@ func writeAuthError(ctx context.Context, w http.ResponseWriter, err error) {
 	case errors.Is(err, models.ErrEmailTaken):
 		response.WriteError(ctx, w, http.StatusConflict, models.CodeEmailTaken, models.MsgEmailTaken)
 	case errors.Is(err, authusecase.ErrInvalidCredentials):
-		writeInvalidCredentials(ctx, w, err.Error())
+		response.WriteError(ctx, w, http.StatusUnauthorized, models.CodeInvalidCredentials, models.MsgInvalidCredentials)
 	case errors.Is(err, authusecase.ErrUnauthorized):
-		writeUnauthorized(ctx, w, errSessionRejected, err)
+		response.WriteError(ctx, w, http.StatusUnauthorized, models.CodeUnauthorized, models.MsgUnauthorized)
 	default:
-		writeInternalError(ctx, w, "authentication failed", err)
+		response.WriteError(ctx, w, http.StatusInternalServerError, models.CodeInternal, models.MsgInternal)
 	}
 }

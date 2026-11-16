@@ -55,7 +55,7 @@ func (h *MediaHandler) Audio(w http.ResponseWriter, r *http.Request) {
 }
 func (h *MediaHandler) serve(w http.ResponseWriter, r *http.Request, file models.MediaFile, err error) {
 	if errors.Is(err, models.ErrMediaFileNotFound) || errors.Is(err, models.ErrTrackNotFound) {
-		response.WriteError(r.Context(), w, http.StatusNotFound, models.CodeNotFound, models.MsgNotFound)
+		http.NotFound(w, r)
 		return
 	}
 	if err != nil {
@@ -65,7 +65,7 @@ func (h *MediaHandler) serve(w http.ResponseWriter, r *http.Request, file models
 	}
 	body, err := h.blobs.Open(file.StorageKey)
 	if os.IsNotExist(err) {
-		response.WriteError(r.Context(), w, http.StatusNotFound, models.CodeNotFound, models.MsgNotFound)
+		http.NotFound(w, r)
 		return
 	}
 	if err != nil {
