@@ -7,6 +7,7 @@ import (
 
 	"2026_2_Na_Vse_200/internal/models"
 	"2026_2_Na_Vse_200/internal/usecase/ports"
+	"2026_2_Na_Vse_200/internal/validation"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -56,7 +57,7 @@ func (r *ArtistRepo) Tracks(ctx context.Context, id models.ArtistID, limit, offs
  LEFT JOIN track_artist ta ON ta.track_id = t.id
  LEFT JOIN artist a ON a.id = ta.artist_id
  ORDER BY t.created_at DESC, t.id, a.name, a.id`
-	if limit <= 0 || offset < 0 {
+	if !validation.ValidPagination(limit, offset) {
 		return nil, fmt.Errorf("invalid pagination")
 	}
 	return readTracks(ctx, r.pool, query, string(id), limit, offset)
@@ -77,7 +78,7 @@ func (r *ArtistRepo) Albums(ctx context.Context, id models.ArtistID, limit, offs
  LEFT JOIN album_artist aa ON aa.album_id = al.id
  LEFT JOIN artist a ON a.id = aa.artist_id
  ORDER BY al.created_at DESC, al.id, a.name, a.id`
-	if limit <= 0 || offset < 0 {
+	if !validation.ValidPagination(limit, offset) {
 		return nil, fmt.Errorf("invalid pagination")
 	}
 	return readAlbums(ctx, r.pool, query, string(id), limit, offset)

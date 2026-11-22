@@ -106,12 +106,18 @@ func (r *TrackRepo) FavoriteIDs(ctx context.Context, account models.UserID) ([]s
 
 func (r *TrackRepo) SetFavorite(ctx context.Context, account models.UserID, track models.TrackID, liked bool) error {
 	ctx = withDBOperation(ctx, "favorites.set")
+	return pgx.BeginFunc(ctx, r.pool, func(tx pgx.Tx) error {
+		return setFavorite(ctx, tx, account, track, liked)
+	})
+}
+
+func setFavorite(ctx context.Context, tx pgx.Tx, account models.UserID, track models.TrackID, liked bool) error {
 	if !liked {
 		const query = `
 		 DELETE FROM favorite_track
 		 WHERE account_id = $1::uuid AND track_id = $2::uuid`
 
-		_, err := r.pool.Exec(ctx, query, string(account), string(track))
+		_, err := tx.Exec(ctx, query, string(account), string(track))
 		return err
 	}
 
@@ -127,7 +133,7 @@ func (r *TrackRepo) SetFavorite(ctx context.Context, account models.UserID, trac
 	 SELECT EXISTS(SELECT 1 FROM published)`
 
 	var exists bool
-	err := r.pool.QueryRow(ctx, query, string(account), string(track)).Scan(&exists)
+	err := tx.QueryRow(ctx, query, string(account), string(track)).Scan(&exists)
 	if err != nil {
 		return err
 	}

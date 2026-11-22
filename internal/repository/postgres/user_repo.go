@@ -45,10 +45,10 @@ func (r *UserRepo) Create(ctx context.Context, user models.User) (models.User, e
 		avatar = string(*user.AvatarFileID)
 	}
 
-	err := r.pool.QueryRow(ctx, query,
-		user.Email, user.PasswordHash, user.DisplayName, avatar,
-	).
-		Scan(&id, &user.CreatedAt)
+	err := pgx.BeginFunc(ctx, r.transactions, func(tx pgx.Tx) error {
+		return tx.QueryRow(ctx, query, user.Email, user.PasswordHash, user.DisplayName, avatar).
+			Scan(&id, &user.CreatedAt)
+	})
 	if err != nil {
 		if isEmailConflict(err) {
 			return models.User{}, models.ErrEmailTaken

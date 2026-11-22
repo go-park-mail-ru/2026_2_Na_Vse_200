@@ -6,9 +6,9 @@ import (
 
 	"github.com/rs/zerolog"
 
-	"2026_2_Na_Vse_200/internal/logger"
 	"2026_2_Na_Vse_200/internal/models"
 	"2026_2_Na_Vse_200/internal/usecase/ports"
+	"2026_2_Na_Vse_200/internal/validation"
 )
 
 const pageLimit = 50
@@ -32,11 +32,11 @@ func (u *ArtistUsecase) Page(ctx context.Context, id models.ArtistID) (ArtistPag
 }
 
 func (u *ArtistUsecase) PageAt(ctx context.Context, id models.ArtistID, limit, offset int) (ArtistPage, error) {
-	logger.UsecaseStarted(ctx, "artists.page")
-	if limit < 1 || limit > 100 || offset < 0 {
+	log := zerolog.Ctx(ctx)
+	log.Info().Str("layer", "usecase").Str("operation", "artists.page").Msg("начало сценария")
+	if !validation.ValidPagination(limit, offset) {
 		return ArtistPage{}, fmt.Errorf("invalid pagination")
 	}
-	log := zerolog.Ctx(ctx)
 
 	artist, err := u.artists.GetByID(ctx, id)
 	if err != nil {

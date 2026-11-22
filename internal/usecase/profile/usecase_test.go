@@ -35,7 +35,8 @@ func (s *userRepoStub) GetByID(_ context.Context, id models.UserID) (models.User
 }
 
 type profileRepoStub struct {
-	user userRepoStub
+	media *mediaRepoStub
+	user  userRepoStub
 }
 
 func (s *profileRepoStub) UpdateProfile(_ context.Context, id models.UserID, email, displayName string) (models.User, error) {
@@ -105,7 +106,7 @@ func TestGet(t *testing.T) {
 	other := models.UserID("22222222-2222-2222-2222-222222222222")
 	avatar := models.MediaFileID("44444444-4444-4444-4444-444444444444")
 	users := &userRepoStub{user: models.User{Email: "andrey@example.com", DisplayName: "Андрей", AvatarFileID: &avatar}}
-	uc := NewProfileUsecase(users, &profileRepoStub{user: *users}, &mediaRepoStub{}, &blobStub{})
+	uc := NewProfileUsecase(users, &profileRepoStub{user: *users}, &blobStub{})
 
 	t.Run("чужой id", func(t *testing.T) {
 		_, err := uc.Get(context.Background(), owner, other)
@@ -128,7 +129,7 @@ func TestGet(t *testing.T) {
 func TestUpdate(t *testing.T) {
 	owner := models.UserID("11111111-1111-1111-1111-111111111111")
 	users := &userRepoStub{user: models.User{Email: "old@example.com", DisplayName: "Старое"}}
-	uc := NewProfileUsecase(users, &profileRepoStub{user: *users}, &mediaRepoStub{}, &blobStub{})
+	uc := NewProfileUsecase(users, &profileRepoStub{user: *users}, &blobStub{})
 
 	got, err := uc.Update(context.Background(), owner, owner, ProfileUpdateInput{
 		Email: "Old@Example.com", DisplayName: "Андрей",
@@ -146,7 +147,7 @@ func TestUploadAvatar(t *testing.T) {
 	users := &userRepoStub{user: models.User{Email: "a@b.co", DisplayName: "A"}}
 	media := &mediaRepoStub{}
 	blobs := &blobStub{}
-	uc := NewProfileUsecase(users, &profileRepoStub{user: *users}, media, blobs)
+	uc := NewProfileUsecase(users, &profileRepoStub{user: *users, media: media}, blobs)
 
 	pngHeader := append([]byte{
 		0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A,
@@ -182,7 +183,7 @@ func TestGetErrors(t *testing.T) {
 	dbErr := errors.New("db unavailable")
 	for _, want := range []error{models.ErrUserNotFound, dbErr} {
 		users := &userRepoStub{err: want}
-		uc := NewProfileUsecase(users, nil, nil, nil)
+		uc := NewProfileUsecase(users, nil, nil)
 		_, err := uc.Get(context.Background(), "user-1", "user-1")
 		if errors.Is(want, models.ErrUserNotFound) {
 			want = models.ErrUnauthorized
@@ -210,8 +211,8 @@ func TestAvatarSaveErrors(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			blobs := &blobStub{err: tc.blobErr}
 			media := &mediaRepoStub{err: tc.mediaErr}
-			profiles := &profileRepoStub{user: userRepoStub{failOn: tc.profileErr != nil, err: tc.profileErr}}
-			uc := NewProfileUsecase(nil, profiles, media, blobs)
+			profiles := &profileRepoStub{media: media, user: userRepoStub{failOn: tc.profileErr != nil, err: tc.profileErr}}
+			uc := NewProfileUsecase(nil, profiles, blobs)
 			_, err := uc.UploadAvatar(context.Background(), "user-1", "user-1", "image/png", 3, strings.NewReader("png"))
 			if !errors.Is(err, tc.want) {
 				t.Fatalf("ошибка = %v, ожидалась %v", err, tc.want)
@@ -239,11 +240,19 @@ func TestAvatarValidation(t *testing.T) {
 		{"не изображение", "text/plain", 3},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
-			uc := NewProfileUsecase(nil, nil, nil, nil)
+			uc := NewProfileUsecase(nil, nil, nil)
 			_, err := uc.UploadAvatar(context.Background(), "user-1", "user-1", tc.mime, tc.size, strings.NewReader("abc"))
 			if !errors.Is(err, models.ErrInvalidAvatar) {
 				t.Fatalf("ошибка = %v, ожидалась ErrInvalidAvatar", err)
 			}
 		})
 	}
+}
+
+func (s *profileRepoStub) SaveAvatar(ctx context.Context, id models.UserID, file models.MediaFile) (models.User, error) {
+	saved, err := s.media.Create(ctx, file)
+	if err != nil {
+		return models.User{}, err
+	}
+	return s.SetAvatar(ctx, id, saved.ID)
 }

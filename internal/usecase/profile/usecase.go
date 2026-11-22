@@ -11,7 +11,6 @@ import (
 
 	"github.com/rs/zerolog"
 
-	"2026_2_Na_Vse_200/internal/logger"
 	"2026_2_Na_Vse_200/internal/models"
 	"2026_2_Na_Vse_200/internal/usecase/ports"
 	"2026_2_Na_Vse_200/internal/validation"
@@ -35,22 +34,20 @@ type ProfileBlobStore interface {
 type ProfileUsecase struct {
 	users    ports.UserRepository
 	profiles ports.ProfileRepository
-	media    ports.MediaRepository
 	blobs    ProfileBlobStore
 }
 
 func NewProfileUsecase(
 	users ports.UserRepository,
 	profiles ports.ProfileRepository,
-	media ports.MediaRepository,
 	blobs ProfileBlobStore,
 ) *ProfileUsecase {
-	return &ProfileUsecase{users: users, profiles: profiles, media: media, blobs: blobs}
+	return &ProfileUsecase{users: users, profiles: profiles, blobs: blobs}
 }
 
 func (u *ProfileUsecase) Get(ctx context.Context, sessionUserID, requestedID models.UserID) (models.User, error) {
-	logger.UsecaseStarted(ctx, "profile.get")
 	log := zerolog.Ctx(ctx)
+	log.Info().Str("layer", "usecase").Str("operation", "profile.get").Msg("начало сценария")
 
 	if err := ensureOwner(sessionUserID, requestedID); err != nil {
 		log.Info().Str("session_user_id", string(sessionUserID)).Msg("profile.Get: доступ запрещён")
@@ -71,8 +68,8 @@ func (u *ProfileUsecase) Get(ctx context.Context, sessionUserID, requestedID mod
 }
 
 func (u *ProfileUsecase) Update(ctx context.Context, sessionUserID, requestedID models.UserID, in ProfileUpdateInput) (models.User, error) {
-	logger.UsecaseStarted(ctx, "profile.update")
 	log := zerolog.Ctx(ctx)
+	log.Info().Str("layer", "usecase").Str("operation", "profile.update").Msg("начало сценария")
 
 	if err := ensureOwner(sessionUserID, requestedID); err != nil {
 		log.Info().Str("session_user_id", string(sessionUserID)).Msg("profile.Update: доступ запрещён")
@@ -111,8 +108,8 @@ func (u *ProfileUsecase) Update(ctx context.Context, sessionUserID, requestedID 
 }
 
 func (u *ProfileUsecase) UploadAvatar(ctx context.Context, sessionUserID, requestedID models.UserID, mimeType string, size int64, body io.Reader) (models.User, error) {
-	logger.UsecaseStarted(ctx, "profile.upload_avatar")
 	log := zerolog.Ctx(ctx)
+	log.Info().Str("layer", "usecase").Str("operation", "profile.upload_avatar").Msg("начало сценария")
 
 	if err := ensureOwner(sessionUserID, requestedID); err != nil {
 		log.Info().Str("session_user_id", string(sessionUserID)).Msg("profile.UploadAvatar: доступ запрещён")
@@ -136,30 +133,25 @@ func (u *ProfileUsecase) UploadAvatar(ctx context.Context, sessionUserID, reques
 	}
 	log.Info().Str("key", key).Msg("profile.UploadAvatar: файл сохранён")
 
-	file, err := u.media.Create(ctx, models.MediaFile{
+	user, err := u.profiles.SaveAvatar(ctx, sessionUserID, models.MediaFile{
 		StorageKey: key,
 		MIMEType:   mimeType,
 		ByteSize:   size,
 	})
 	if err != nil {
-		_ = u.blobs.Remove(key)
-		log.Error().Err(err).Str("key", key).Msg("profile.UploadAvatar: создание media")
-		return models.User{}, fmt.Errorf("create media: %w", err)
+		if removeErr := u.blobs.Remove(key); removeErr != nil {
+			log.Error().Err(removeErr).Str("key", key).Msg("не удалось удалить файл после ошибки сохранения аватара")
+		}
 	}
-	log.Info().Str("media_id", string(file.ID)).Msg("profile.UploadAvatar: media создан")
-
-	user, err := u.profiles.SetAvatar(ctx, sessionUserID, file.ID)
 	if errors.Is(err, models.ErrUserNotFound) {
-		_ = u.blobs.Remove(key)
 		log.Info().Str("profile_user_id", string(sessionUserID)).Msg("profile.UploadAvatar: пользователь не найден")
 		return models.User{}, models.ErrUnauthorized
 	}
 	if err != nil {
-		_ = u.blobs.Remove(key)
 		log.Error().Err(err).Str("profile_user_id", string(sessionUserID)).Msg("profile.UploadAvatar: установка аватара")
 		return models.User{}, fmt.Errorf("set avatar: %w", err)
 	}
-	log.Info().Str("profile_user_id", string(user.ID)).Str("media_id", string(file.ID)).Msg("profile.UploadAvatar: успех")
+	log.Info().Str("profile_user_id", string(user.ID)).Msg("profile.UploadAvatar: успех")
 	return withAvatarURL(user), nil
 }
 

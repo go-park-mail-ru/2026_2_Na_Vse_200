@@ -28,6 +28,7 @@ func TestArtistPagination(t *testing.T) {
 		{"?offset=100", 200, 100, 100},
 		{"?limit=101", 400, 0, 0},
 		{"?offset=-1", 400, 0, 0},
+		{"?offset=10001", 400, 0, 0},
 		{"?limit=no", 400, 0, 0},
 	} {
 		t.Run(tc.query, func(t *testing.T) {

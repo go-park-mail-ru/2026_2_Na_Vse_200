@@ -5,7 +5,8 @@ import (
 	"errors"
 	"strings"
 
-	"2026_2_Na_Vse_200/internal/logger"
+	"github.com/rs/zerolog"
+
 	"2026_2_Na_Vse_200/internal/models"
 	"2026_2_Na_Vse_200/internal/usecase/ports"
 	"2026_2_Na_Vse_200/internal/validation"
@@ -52,7 +53,8 @@ func (u *Usecase) verify(ctx context.Context, owner, id models.UserID, password 
 }
 
 func (u *Usecase) ChangeEmail(ctx context.Context, owner, id models.UserID, password, email string) (models.User, error) {
-	logger.UsecaseStarted(ctx, "account.change_email")
+	log := zerolog.Ctx(ctx)
+	log.Info().Str("layer", "usecase").Str("operation", "account.change_email").Msg("начало сценария")
 	user, err := u.verify(ctx, owner, id, password)
 	if err != nil {
 		return models.User{}, err
@@ -65,7 +67,8 @@ func (u *Usecase) ChangeEmail(ctx context.Context, owner, id models.UserID, pass
 }
 
 func (u *Usecase) ChangePassword(ctx context.Context, owner, id models.UserID, password, next string) error {
-	logger.UsecaseStarted(ctx, "account.change_password")
+	log := zerolog.Ctx(ctx)
+	log.Info().Str("layer", "usecase").Str("operation", "account.change_password").Msg("начало сценария")
 	user, err := u.verify(ctx, owner, id, password)
 	if err != nil {
 		return err
@@ -82,13 +85,11 @@ func (u *Usecase) ChangePassword(ctx context.Context, owner, id models.UserID, p
 }
 
 func (u *Usecase) Delete(ctx context.Context, owner, id models.UserID, password string) error {
-	logger.UsecaseStarted(ctx, "account.delete")
+	log := zerolog.Ctx(ctx)
+	log.Info().Str("layer", "usecase").Str("operation", "account.delete").Msg("начало сценария")
 	user, err := u.verify(ctx, owner, id, password)
 	if err != nil {
 		return err
-	}
-	if string(id) == "10000000-0000-4000-8000-000000000001" {
-		return models.ErrForbidden
 	}
 	return u.accounts.DeleteAccount(ctx, id, user.PasswordHash)
 }

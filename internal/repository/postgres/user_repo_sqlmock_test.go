@@ -30,7 +30,7 @@ const updateUser = `
 	WHERE id = $1::uuid AND email = $2
 	RETURNING id::text, email, password_hash, display_name, avatar_file_id::text, created_at`
 
-const setAvatar = `
+const setAvatarQuery = `
 	UPDATE account SET avatar_file_id = $2::uuid
 	WHERE id = $1::uuid
 	RETURNING id::text, email, password_hash, display_name, avatar_file_id::text, created_at`
@@ -44,6 +44,33 @@ type sqlDB struct {
 // QueryRow передаёт запрос репозитория в sqlmock через database/sql.
 func (d sqlDB) QueryRow(ctx context.Context, query string, args ...any) pgx.Row {
 	return sqlRow{row: d.db.QueryRowContext(ctx, query, args...)}
+}
+
+// Begin позволяет существующим sqlmock-тестам проверять транзакции pgx.
+func (d sqlDB) Begin(ctx context.Context) (pgx.Tx, error) {
+	tx, err := d.db.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	return sqlTransaction{tx: tx}, nil
+}
+
+type sqlTransaction struct {
+	pgx.Tx
+	tx *sql.Tx
+}
+
+func (t sqlTransaction) QueryRow(ctx context.Context, query string, args ...any) pgx.Row {
+	return sqlRow{row: t.tx.QueryRowContext(ctx, query, args...)}
+}
+
+func (t sqlTransaction) Commit(context.Context) error { return t.tx.Commit() }
+func (t sqlTransaction) Rollback(context.Context) error {
+	err := t.tx.Rollback()
+	if errors.Is(err, sql.ErrTxDone) {
+		return pgx.ErrTxClosed
+	}
+	return err
 }
 
 type sqlRow struct {
@@ -72,7 +99,7 @@ func newUserMock(t *testing.T) (*UserRepo, sqlmock.Sqlmock) {
 		}
 		_ = db.Close()
 	})
-	return &UserRepo{pool: sqlDB{db: db}}, mock
+	return &UserRepo{pool: sqlDB{db: db}, transactions: sqlDB{db: db}}, mock
 }
 
 // TestUserCreate проверяет аргументы INSERT и поля, которые возвращает база.
@@ -85,10 +112,12 @@ func TestUserCreate(t *testing.T) {
 	}
 	created := time.Date(2026, 11, 3, 12, 0, 0, 0, time.UTC)
 	id := "11111111-1111-4111-8111-111111111111"
+	mock.ExpectBegin()
 	mock.ExpectQuery(insertUser).
 		WithArgs(user.Email, user.PasswordHash, user.DisplayName, nil).
 		WillReturnRows(sqlmock.NewRows([]string{"id", "created_at"}).AddRow(id, created))
 
+	mock.ExpectCommit()
 	got, err := repo.Create(context.Background(), user)
 	if err != nil {
 		t.Fatalf("Create: %v", err)
@@ -119,10 +148,12 @@ func TestUserCreateErrors(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			repo, mock := newUserMock(t)
 			user := models.User{Email: "andrey@example.com", PasswordHash: "stored-hash", DisplayName: "Андрей"}
+			mock.ExpectBegin()
 			mock.ExpectQuery(insertUser).
 				WithArgs(user.Email, user.PasswordHash, user.DisplayName, nil).
 				WillReturnError(tt.err)
 
+			mock.ExpectRollback()
 			_, err := repo.Create(context.Background(), user)
 			if !errors.Is(err, tt.want) {
 				t.Errorf("ошибка = %v, ожидалась %v", err, tt.want)
@@ -194,11 +225,13 @@ func TestUserUpdateProfile(t *testing.T) {
 		AvatarURL:    "/api/v1/media/" + string(avatar),
 		CreatedAt:    time.Date(2026, 11, 3, 12, 0, 0, 0, time.UTC),
 	}
+	mock.ExpectBegin()
 	mock.ExpectQuery(updateUser).
 		WithArgs(string(want.ID), want.Email, want.DisplayName).
 		WillReturnRows(sqlmock.NewRows(userCols).AddRow(string(want.ID), want.Email,
 			want.PasswordHash, want.DisplayName, string(avatar), want.CreatedAt))
 
+	mock.ExpectCommit()
 	got, err := repo.UpdateProfile(context.Background(), want.ID, want.Email, want.DisplayName)
 	if err != nil {
 		t.Fatalf("UpdateProfile: %v", err)
@@ -221,11 +254,13 @@ func TestUserSetAvatar(t *testing.T) {
 		AvatarURL:    "/api/v1/media/" + string(avatar),
 		CreatedAt:    time.Date(2026, 11, 3, 12, 0, 0, 0, time.UTC),
 	}
-	mock.ExpectQuery(setAvatar).
+	mock.ExpectBegin()
+	mock.ExpectQuery(setAvatarQuery).
 		WithArgs(string(want.ID), string(avatar)).
 		WillReturnRows(sqlmock.NewRows(userCols).AddRow(string(want.ID), want.Email,
 			want.PasswordHash, want.DisplayName, string(avatar), want.CreatedAt))
 
+	mock.ExpectCommit()
 	got, err := repo.SetAvatar(context.Background(), want.ID, avatar)
 	if err != nil {
 		t.Fatalf("SetAvatar: %v", err)

@@ -37,7 +37,7 @@ func newHandler(cfg config.Config, pool *pgxpool.Pool, sessions *postgres.Sessio
 		Account:   accountusecase.NewAccountUsecase(users, users, auth.NewBcryptHasher()),
 		Auth:      authusecase.NewAuthUsecase(users, sessions, auth.NewBcryptHasher(), auth.NewSessionID, time.Now, cfg.SessionTTL),
 		Catalog:   catalogusecase.New(postgres.NewCatalogRepo(pool)),
-		Profile:   profileusecase.NewProfileUsecase(users, users, mediaRepo, blobs),
+		Profile:   profileusecase.NewProfileUsecase(users, users, blobs),
 		Artist:    artistusecase.NewArtistUsecase(postgres.NewArtistRepo(pool)),
 		Media:     media.NewMediaHandler(mediaRepo, blobs, postgres.NewTrackRepo(pool)),
 	})

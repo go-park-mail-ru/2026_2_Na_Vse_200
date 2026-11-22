@@ -6,7 +6,6 @@ import (
 
 	"github.com/rs/zerolog"
 
-	"2026_2_Na_Vse_200/internal/logger"
 	"2026_2_Na_Vse_200/internal/models"
 	"2026_2_Na_Vse_200/internal/usecase/ports"
 )
@@ -28,8 +27,8 @@ func New(catalog ports.CatalogRepository) *Usecase {
 }
 
 func (u *Usecase) Home(ctx context.Context) (Home, error) {
-	logger.UsecaseStarted(ctx, "catalog.home")
 	log := zerolog.Ctx(ctx)
+	log.Info().Str("layer", "usecase").Str("operation", "catalog.home").Msg("начало сценария")
 
 	tracks, err := u.catalog.HomeTracks(ctx, homeLimit)
 	if err != nil {

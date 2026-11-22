@@ -8,7 +8,6 @@ import (
 
 	"github.com/rs/zerolog"
 
-	"2026_2_Na_Vse_200/internal/logger"
 	"2026_2_Na_Vse_200/internal/models"
 	"2026_2_Na_Vse_200/internal/usecase/ports"
 	"2026_2_Na_Vse_200/internal/validation"
@@ -68,8 +67,8 @@ func NewAuthUsecase(
 }
 
 func (u *Usecase) signIn(ctx context.Context, user models.User) (Result, error) {
-	logger.UsecaseStarted(ctx, "auth.sign_in")
 	log := zerolog.Ctx(ctx)
+	log.Info().Str("layer", "usecase").Str("operation", "auth.sign_in").Msg("начало сценария")
 	session := models.Session{ID: u.newSessionID(), UserID: user.ID, ExpiresAt: u.now().Add(u.ttl)}
 	if err := u.sessions.Create(ctx, session); err != nil {
 		log.Error().Err(err).Str("user_id", string(user.ID)).Msg("auth.signIn: создание сессии")
@@ -80,8 +79,8 @@ func (u *Usecase) signIn(ctx context.Context, user models.User) (Result, error) 
 }
 
 func (u *Usecase) Signup(ctx context.Context, in SignupInput) (Result, error) {
-	logger.UsecaseStarted(ctx, "auth.signup")
 	log := zerolog.Ctx(ctx)
+	log.Info().Str("layer", "usecase").Str("operation", "auth.signup").Msg("начало сценария")
 
 	form := validation.Signup(validation.SignupInput(in))
 	if !form.Valid() {
@@ -103,8 +102,8 @@ func (u *Usecase) Signup(ctx context.Context, in SignupInput) (Result, error) {
 }
 
 func (u *Usecase) Login(ctx context.Context, in LoginInput) (Result, error) {
-	logger.UsecaseStarted(ctx, "auth.login")
 	log := zerolog.Ctx(ctx)
+	log.Info().Str("layer", "usecase").Str("operation", "auth.login").Msg("начало сценария")
 
 	form := validation.Login(validation.LoginInput(in))
 	if !form.Valid() {
@@ -135,8 +134,8 @@ func (u *Usecase) Login(ctx context.Context, in LoginInput) (Result, error) {
 }
 
 func (u *Usecase) SessionByID(ctx context.Context, id models.SessionID) (models.Session, error) {
-	logger.UsecaseStarted(ctx, "auth.session_by_id")
 	log := zerolog.Ctx(ctx)
+	log.Info().Str("layer", "usecase").Str("operation", "auth.session_by_id").Msg("начало сценария")
 	if id == "" {
 		return models.Session{}, models.ErrSessionNotFound
 	}
@@ -157,8 +156,8 @@ func (u *Usecase) SessionByID(ctx context.Context, id models.SessionID) (models.
 }
 
 func (u *Usecase) Me(ctx context.Context, id models.SessionID) (models.User, error) {
-	logger.UsecaseStarted(ctx, "auth.me")
 	log := zerolog.Ctx(ctx)
+	log.Info().Str("layer", "usecase").Str("operation", "auth.me").Msg("начало сценария")
 
 	session, err := u.SessionByID(ctx, id)
 	if errors.Is(err, models.ErrSessionNotFound) || errors.Is(err, models.ErrSessionExpired) {
@@ -181,8 +180,8 @@ func (u *Usecase) Me(ctx context.Context, id models.SessionID) (models.User, err
 }
 
 func (u *Usecase) Logout(ctx context.Context, id models.SessionID) error {
-	logger.UsecaseStarted(ctx, "auth.logout")
 	log := zerolog.Ctx(ctx)
+	log.Info().Str("layer", "usecase").Str("operation", "auth.logout").Msg("начало сценария")
 	if id == "" {
 		return nil
 	}

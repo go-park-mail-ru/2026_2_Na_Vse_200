@@ -60,12 +60,16 @@ func (r *UserRepo) ChangePassword(ctx context.Context, id models.UserID, expecte
 
 func (r *UserRepo) DeleteAccount(ctx context.Context, id models.UserID, expectedHash string) error {
 	ctx = withDBOperation(ctx, "account.delete")
-	if string(id) == "10000000-0000-4000-8000-000000000001" {
-		return models.ErrForbidden
-	}
 	return r.changeAccount(ctx, id, expectedHash, func(tx pgx.Tx) error {
+		var catalogOwner string
+		if err := tx.QueryRow(ctx, "SELECT id::text FROM account WHERE system_key=$1 FOR SHARE", "catalog_owner").Scan(&catalogOwner); err != nil {
+			return err
+		}
+		if catalogOwner == string(id) {
+			return models.ErrForbidden
+		}
 		// Сохраняем треки за служебным аккаунтом; плейлисты, избранное и сессии удаляются каскадно.
-		if _, err := tx.Exec(ctx, `UPDATE track SET uploader_id='10000000-0000-4000-8000-000000000001'::uuid WHERE uploader_id=$1::uuid`, string(id)); err != nil {
+		if _, err := tx.Exec(ctx, `UPDATE track SET uploader_id=$2::uuid WHERE uploader_id=$1::uuid`, string(id), catalogOwner); err != nil {
 			return err
 		}
 		if _, err := tx.Exec(ctx, `DELETE FROM listening_event WHERE account_id=$1::uuid`, string(id)); err != nil {

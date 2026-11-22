@@ -70,12 +70,3 @@ func RequestID(ctx context.Context) string {
 	id, _ := ctx.Value(ctxKey{}).(string)
 	return id
 }
-
-// UsecaseStarted отмечает вход в сценарий с полями логгера текущего запроса.
-func UsecaseStarted(ctx context.Context, operation string) {
-	zerolog.Ctx(ctx).Debug().
-		Str("layer", "usecase").
-		Str("operation", operation).
-		Str("phase", "start").
-		Msg("начало сценария")
-}
