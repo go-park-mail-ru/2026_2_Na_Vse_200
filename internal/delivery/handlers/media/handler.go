@@ -1,16 +1,14 @@
 package media
 
 import (
+	"2026_2_Na_Vse_200/internal/delivery/response"
+	"2026_2_Na_Vse_200/internal/models"
 	"context"
 	"errors"
 	"log"
 	"net/http"
 	"os"
-	"strings"
 	"uuid"
-
-	"2026_2_Na_Vse_200/internal/delivery/response"
-	"2026_2_Na_Vse_200/internal/models"
 )
 
 type Repository interface {
@@ -42,10 +40,6 @@ func (h *MediaHandler) Get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	file, err := h.media.GetByID(r.Context(), models.MediaFileID(id.String()))
-	if err == nil && strings.HasPrefix(file.StorageKey, models.PlaylistCoverPrefix) {
-		http.NotFound(w, r)
-		return
-	}
 	h.serve(w, r, file, err)
 }
 func (h *MediaHandler) Audio(w http.ResponseWriter, r *http.Request) {

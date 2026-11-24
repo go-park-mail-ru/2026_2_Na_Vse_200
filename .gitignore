@@ -24,9 +24,8 @@ go.work.sum
 # Generated local demo audio.
 /media/audio/demo/
 
-# Uploaded local images.
+# Uploaded local avatars.
 /media/images/avatars/
-/media/images/playlists/
 
 # Local media storage from main.
 data/media/
