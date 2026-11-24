@@ -5,6 +5,7 @@ import (
 	"time"
 	"uuid"
 
+	"2026_2_Na_Vse_200/internal/auth"
 	"2026_2_Na_Vse_200/internal/models"
 )
 
@@ -153,4 +154,8 @@ func (s artistRepoStub) Albums(context.Context, models.ArtistID, int, int) ([]mo
 		return []models.Album{}, nil
 	}
 	return s.albums, nil
+}
+
+func (f *authUsersFixture) SaveAvatar(ctx context.Context, id models.UserID, file models.MediaFile) (models.User, error) {
+	return f.SetAvatar(ctx, id, models.MediaFileID(auth.NewSessionID()))
 }

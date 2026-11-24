@@ -3,15 +3,14 @@ package favorites
 import (
 	"context"
 	"errors"
-	"log/slog"
 	"net/http"
 	"uuid"
 
 	"2026_2_Na_Vse_200/internal/delivery/handlers/home"
 	"2026_2_Na_Vse_200/internal/delivery/middleware"
 	"2026_2_Na_Vse_200/internal/delivery/response"
-	"2026_2_Na_Vse_200/internal/logger"
 	"2026_2_Na_Vse_200/internal/models"
+	"github.com/rs/zerolog"
 )
 
 type Repository interface {
@@ -25,14 +24,14 @@ func NewFavoritesHandler(repo Repository) *Handler { return &Handler{repo: repo}
 func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 	session, ok := middleware.SessionFromContext(r.Context())
 	if !ok {
-		response.WriteError(w, http.StatusUnauthorized, models.CodeUnauthorized, models.MsgUnauthorized)
+		response.WriteError(r.Context(), w, http.StatusUnauthorized, models.CodeUnauthorized, models.MsgUnauthorized)
 		return
 	}
 
 	tracks, err := h.repo.FavoriteTracks(r.Context(), session.UserID)
 	if err != nil {
-		logger.FromContext(r.Context(), nil).ErrorContext(r.Context(), "list favorites", slog.Any("error", err))
-		response.WriteError(w, http.StatusInternalServerError, models.CodeInternal, models.MsgInternal)
+		zerolog.Ctx(r.Context()).Error().Err(err).Str("operation", "favorites.list").Msg("list favorites")
+		response.WriteError(r.Context(), w, http.StatusInternalServerError, models.CodeInternal, models.MsgInternal)
 		return
 	}
 
@@ -41,7 +40,7 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 		ids = append(ids, string(track.ID))
 	}
 	w.Header().Set("Cache-Control", "private, no-store")
-	response.WriteJSON(w, http.StatusOK, struct {
+	response.WriteJSON(r.Context(), w, http.StatusOK, struct {
 		TrackIDs []string             `json:"track_ids"`
 		Tracks   []home.TrackResponse `json:"tracks"`
 	}{TrackIDs: ids, Tracks: home.NewTrackResponses(tracks)})
@@ -50,24 +49,24 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 func (h *Handler) Set(w http.ResponseWriter, r *http.Request) {
 	session, ok := middleware.SessionFromContext(r.Context())
 	if !ok {
-		response.WriteError(w, http.StatusUnauthorized, models.CodeUnauthorized, models.MsgUnauthorized)
+		response.WriteError(r.Context(), w, http.StatusUnauthorized, models.CodeUnauthorized, models.MsgUnauthorized)
 		return
 	}
 
 	id, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {
-		response.WriteError(w, http.StatusNotFound, models.CodeNotFound, models.MsgNotFound)
+		response.WriteError(r.Context(), w, http.StatusNotFound, models.CodeNotFound, models.MsgNotFound)
 		return
 	}
 	err = h.repo.SetFavorite(r.Context(), session.UserID, models.TrackID(id.String()), r.Method == http.MethodPut)
 	if errors.Is(err, models.ErrTrackNotFound) {
-		response.WriteError(w, http.StatusNotFound, models.CodeNotFound, models.MsgNotFound)
+		response.WriteError(r.Context(), w, http.StatusNotFound, models.CodeNotFound, models.MsgNotFound)
 		return
 	}
 
 	if err != nil {
-		logger.FromContext(r.Context(), nil).ErrorContext(r.Context(), "update favorite", slog.Any("error", err))
-		response.WriteError(w, http.StatusInternalServerError, models.CodeInternal, models.MsgInternal)
+		zerolog.Ctx(r.Context()).Error().Err(err).Str("operation", "favorites.set").Msg("update favorite")
+		response.WriteError(r.Context(), w, http.StatusInternalServerError, models.CodeInternal, models.MsgInternal)
 		return
 	}
 

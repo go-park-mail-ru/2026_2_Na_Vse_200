@@ -76,7 +76,7 @@ func TestEmbeddedMigrationsRoundTrip(t *testing.T) {
 		t.Fatal(err)
 	}
 	version, dirty, err := runner.Version()
-	if err != nil || version != 6 || dirty {
+	if err != nil || version != 7 || dirty {
 		t.Fatalf("version=%d dirty=%t error=%v", version, dirty, err)
 	}
 	if err := applyMigrations(ctx, runner, command{action: "up"}); err != nil {
@@ -86,7 +86,7 @@ func TestEmbeddedMigrationsRoundTrip(t *testing.T) {
 		t.Fatal(err)
 	}
 	version, dirty, err = runner.Version()
-	if err != nil || version != 5 || dirty {
+	if err != nil || version != 6 || dirty {
 		t.Fatalf("version=%d dirty=%t error=%v", version, dirty, err)
 	}
 	if _, err := db.ExecContext(ctx, `

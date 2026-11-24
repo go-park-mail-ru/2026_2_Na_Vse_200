@@ -18,6 +18,7 @@ var _ ports.TrackRepository = (*TrackRepo)(nil)
 func NewTrackRepo(pool *pgxpool.Pool) *TrackRepo { return &TrackRepo{pool: pool} }
 
 func (r *TrackRepo) GetByID(ctx context.Context, id models.TrackID) (models.Track, error) {
+	ctx = withDBOperation(ctx, "tracks.get_by_id")
 	const query = `
  SELECT t.id::text, t.uploader_id::text, t.title, t.audio_file_id::text,
         t.cover_file_id::text, t.status, audio.duration_ms
@@ -62,6 +63,7 @@ func (r *TrackRepo) GetByID(ctx context.Context, id models.TrackID) (models.Trac
 
 // GetAudio выдаёт путь и метаданные аудио только опубликованного трека.
 func (r *TrackRepo) GetAudio(ctx context.Context, id models.TrackID) (models.MediaFile, error) {
+	ctx = withDBOperation(ctx, "tracks.get_audio")
 	const query = `
  SELECT m.id::text, m.storage_key, m.mime_type, m.byte_size, m.duration_ms, m.created_at, m.updated_at
  FROM track t JOIN media_file m ON m.id = t.audio_file_id
@@ -74,12 +76,19 @@ func (r *TrackRepo) GetAudio(ctx context.Context, id models.TrackID) (models.Med
 }
 
 func (r *TrackRepo) SetFavorite(ctx context.Context, account models.UserID, track models.TrackID, liked bool) error {
+	ctx = withDBOperation(ctx, "favorites.set")
+	return pgx.BeginFunc(ctx, r.pool, func(tx pgx.Tx) error {
+		return setFavorite(ctx, tx, account, track, liked)
+	})
+}
+
+func setFavorite(ctx context.Context, tx pgx.Tx, account models.UserID, track models.TrackID, liked bool) error {
 	if !liked {
 		const query = `
 		 DELETE FROM favorite_track
 		 WHERE account_id = $1::uuid AND track_id = $2::uuid`
 
-		_, err := r.pool.Exec(ctx, query, string(account), string(track))
+		_, err := tx.Exec(ctx, query, string(account), string(track))
 		return err
 	}
 
@@ -95,7 +104,7 @@ func (r *TrackRepo) SetFavorite(ctx context.Context, account models.UserID, trac
 	 SELECT EXISTS(SELECT 1 FROM published)`
 
 	var exists bool
-	err := r.pool.QueryRow(ctx, query, string(account), string(track)).Scan(&exists)
+	err := tx.QueryRow(ctx, query, string(account), string(track)).Scan(&exists)
 	if err != nil {
 		return err
 	}

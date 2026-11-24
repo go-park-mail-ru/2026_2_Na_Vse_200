@@ -38,7 +38,7 @@ func (h *AccountHandler) request(w http.ResponseWriter, r *http.Request) (models
 	var req accountRequest
 	session, ok := middleware.SessionFromContext(r.Context())
 	if !ok {
-		response.WriteError(w, 401, models.CodeUnauthorized, models.MsgUnauthorized)
+		response.WriteError(r.Context(), w, 401, models.CodeUnauthorized, models.MsgUnauthorized)
 		return "", "", req, false
 	}
 	id, ok := parseUserID(w, r)
@@ -46,28 +46,28 @@ func (h *AccountHandler) request(w http.ResponseWriter, r *http.Request) (models
 		return "", "", req, false
 	}
 	if id != session.UserID {
-		response.WriteError(w, 403, models.CodeForbidden, models.MsgForbidden)
+		response.WriteError(r.Context(), w, 403, models.CodeForbidden, models.MsgForbidden)
 		return "", "", req, false
 	}
 	decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 16384))
 	decoder.DisallowUnknownFields()
 	if err := decoder.Decode(&req); err != nil {
-		response.WriteError(w, 400, models.CodeInvalidJSON, models.MsgInvalidJSON)
+		response.WriteError(r.Context(), w, 400, models.CodeInvalidJSON, models.MsgInvalidJSON)
 		return "", "", req, false
 	}
 	if err := decoder.Decode(new(any)); err != io.EOF {
-		response.WriteError(w, 400, models.CodeInvalidJSON, models.MsgInvalidJSON)
+		response.WriteError(r.Context(), w, 400, models.CodeInvalidJSON, models.MsgInvalidJSON)
 		return "", "", req, false
 	}
 	return session.UserID, id, req, true
 }
 
-func writeAccountError(w http.ResponseWriter, err error) bool {
+func writeAccountError(ctx context.Context, w http.ResponseWriter, err error) bool {
 	if errors.Is(err, models.ErrCurrentPassword) {
-		response.WriteFieldsError(w, 400, "invalid_current_password", "Неверный текущий пароль", map[string]string{"current_password": "Неверный текущий пароль"})
+		response.WriteFieldsError(ctx, w, 400, "invalid_current_password", "Неверный текущий пароль", map[string]string{"current_password": "Неверный текущий пароль"})
 		return false
 	}
-	return writeProfileError(w, err, "изменение аккаунта")
+	return writeProfileError(ctx, w, err, "изменение аккаунта")
 }
 
 func (h *AccountHandler) ChangeEmail(w http.ResponseWriter, r *http.Request) {
@@ -76,14 +76,14 @@ func (h *AccountHandler) ChangeEmail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	user, err := h.usecase.ChangeEmail(r.Context(), owner, id, req.CurrentPassword, req.Email)
-	if !writeAccountError(w, err) {
+	if !writeAccountError(r.Context(), w, err) {
 		return
 	}
 	body, err := newProfileResponse(user)
-	if !writeAccountError(w, err) {
+	if !writeAccountError(r.Context(), w, err) {
 		return
 	}
-	response.WriteJSON(w, 200, body)
+	response.WriteJSON(r.Context(), w, 200, body)
 }
 
 func (h *AccountHandler) ChangePassword(w http.ResponseWriter, r *http.Request) {
@@ -91,7 +91,7 @@ func (h *AccountHandler) ChangePassword(w http.ResponseWriter, r *http.Request) 
 	if !ok {
 		return
 	}
-	if !writeAccountError(w, h.usecase.ChangePassword(r.Context(), owner, id, req.CurrentPassword, req.NewPassword)) {
+	if !writeAccountError(r.Context(), w, h.usecase.ChangePassword(r.Context(), owner, id, req.CurrentPassword, req.NewPassword)) {
 		return
 	}
 	h.clearCookie(w)
@@ -103,7 +103,7 @@ func (h *AccountHandler) Delete(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	if !writeAccountError(w, h.usecase.Delete(r.Context(), owner, id, req.CurrentPassword)) {
+	if !writeAccountError(r.Context(), w, h.usecase.Delete(r.Context(), owner, id, req.CurrentPassword)) {
 		return
 	}
 	h.clearCookie(w)

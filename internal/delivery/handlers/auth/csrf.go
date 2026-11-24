@@ -16,10 +16,10 @@ func (a *Handler) CSRF(w http.ResponseWriter, r *http.Request) {
 	token, err := a.issueCSRFCookie(w)
 	if err != nil {
 		a.logError(r, "auth.CSRF: выдача cookie", err)
-		response.WriteError(w, http.StatusInternalServerError, models.CodeInternal, models.MsgInternal)
+		response.WriteError(r.Context(), w, http.StatusInternalServerError, models.CodeInternal, models.MsgInternal)
 		return
 	}
-	response.WriteJSON(w, http.StatusOK, csrfResponse{CSRFToken: token})
+	response.WriteJSON(r.Context(), w, http.StatusOK, csrfResponse{CSRFToken: token})
 }
 
 func (a *Handler) issueCSRFCookie(w http.ResponseWriter) (string, error) {

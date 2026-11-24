@@ -9,7 +9,6 @@ import (
 	_ "image/jpeg"
 	_ "image/png"
 	"io"
-	"log/slog"
 	"mime"
 	"net/http"
 	"os"
@@ -20,8 +19,8 @@ import (
 	"2026_2_Na_Vse_200/internal/delivery/handlers/home"
 	"2026_2_Na_Vse_200/internal/delivery/middleware"
 	"2026_2_Na_Vse_200/internal/delivery/response"
-	"2026_2_Na_Vse_200/internal/logger"
 	"2026_2_Na_Vse_200/internal/models"
+	"github.com/rs/zerolog"
 )
 
 const (
@@ -91,7 +90,7 @@ func (h *Handler) Register(mux *http.ServeMux, auth middleware.Middleware) {
 		mux.Handle(pattern, auth(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			session, ok := middleware.SessionFromContext(r.Context())
 			if !ok {
-				response.WriteError(w, http.StatusUnauthorized, models.CodeUnauthorized, models.MsgUnauthorized)
+				response.WriteError(r.Context(), w, http.StatusUnauthorized, models.CodeUnauthorized, models.MsgUnauthorized)
 				return
 			}
 			w.Header().Set("Cache-Control", "private, no-store")
@@ -119,7 +118,7 @@ func (h *Handler) list(w http.ResponseWriter, r *http.Request, owner models.User
 	for _, playlist := range playlists {
 		cards = append(cards, newCard(playlist))
 	}
-	response.WriteJSON(w, http.StatusOK, struct {
+	response.WriteJSON(r.Context(), w, http.StatusOK, struct {
 		Playlists []card `json:"playlists"`
 	}{Playlists: cards})
 }
@@ -130,7 +129,7 @@ func (h *Handler) get(w http.ResponseWriter, r *http.Request, owner models.UserI
 		writeError(r.Context(), w, err)
 		return
 	}
-	response.WriteJSON(w, http.StatusOK, newDetail(playlist))
+	response.WriteJSON(r.Context(), w, http.StatusOK, newDetail(playlist))
 }
 
 func (h *Handler) save(w http.ResponseWriter, r *http.Request, owner models.UserID) {
@@ -149,7 +148,7 @@ func (h *Handler) save(w http.ResponseWriter, r *http.Request, owner models.User
 	if id == "" {
 		status = http.StatusCreated
 	}
-	response.WriteJSON(w, status, newDetail(playlist))
+	response.WriteJSON(r.Context(), w, status, newDetail(playlist))
 }
 
 func (h *Handler) importPlaylist(w http.ResponseWriter, r *http.Request, owner models.UserID) {
@@ -163,7 +162,7 @@ func (h *Handler) importPlaylist(w http.ResponseWriter, r *http.Request, owner m
 		return
 	}
 	if form.sourceAccountID != "" && form.sourceAccountID != string(owner) {
-		response.WriteError(w, http.StatusForbidden, models.CodeForbidden, "Сессия аккаунта изменилась. Повторите вход.")
+		response.WriteError(r.Context(), w, http.StatusForbidden, models.CodeForbidden, "Сессия аккаунта изменилась. Повторите вход.")
 		return
 	}
 	result, err := h.repo.Import(r.Context(), owner, form.legacyID, form.input, form.trackIDs)
@@ -175,7 +174,7 @@ func (h *Handler) importPlaylist(w http.ResponseWriter, r *http.Request, owner m
 	if result.Created {
 		status = http.StatusCreated
 	}
-	response.WriteJSON(w, status, struct {
+	response.WriteJSON(r.Context(), w, status, struct {
 		Playlist detail   `json:"playlist"`
 		Skipped  []string `json:"skipped_track_ids"`
 	}{Playlist: newDetail(result.Playlist), Skipped: result.SkippedTrackIDs})
@@ -224,7 +223,7 @@ func (h *Handler) changeTracks(
 		writeError(r.Context(), w, err)
 		return
 	}
-	response.WriteJSON(w, http.StatusOK, newDetail(page))
+	response.WriteJSON(r.Context(), w, http.StatusOK, newDetail(page))
 }
 
 func (h *Handler) cover(w http.ResponseWriter, r *http.Request, owner models.UserID) {
@@ -386,17 +385,17 @@ func writeError(ctx context.Context, w http.ResponseWriter, err error) {
 	switch {
 	case errors.Is(err, models.ErrPlaylistNotFound), errors.Is(err, models.ErrTrackNotFound),
 		errors.Is(err, models.ErrMediaFileNotFound), errors.Is(err, os.ErrNotExist):
-		response.WriteError(w, http.StatusNotFound, models.CodeNotFound, models.MsgNotFound)
+		response.WriteError(ctx, w, http.StatusNotFound, models.CodeNotFound, models.MsgNotFound)
 	case errors.Is(err, models.ErrPlaylistImportDeleted):
-		response.WriteError(w, http.StatusGone, "playlist_import_deleted", "Импортированный плейлист удалён.")
+		response.WriteError(ctx, w, http.StatusGone, "playlist_import_deleted", "Импортированный плейлист удалён.")
 	case errors.As(err, &tooLarge):
-		response.WriteError(w, http.StatusRequestEntityTooLarge, models.CodeValidationFailed,
+		response.WriteError(ctx, w, http.StatusRequestEntityTooLarge, models.CodeValidationFailed,
 			"Файл или запрос превышает допустимый размер.",
 		)
 	case errors.As(err, &invalid):
-		response.WriteError(w, http.StatusBadRequest, models.CodeValidationFailed, invalid.message)
+		response.WriteError(ctx, w, http.StatusBadRequest, models.CodeValidationFailed, invalid.message)
 	default:
-		logger.FromContext(ctx, nil).ErrorContext(ctx, "playlist request", slog.Any("error", err))
-		response.WriteError(w, http.StatusInternalServerError, models.CodeInternal, models.MsgInternal)
+		zerolog.Ctx(ctx).Error().Err(err).Str("operation", "playlist.request").Msg("playlist request")
+		response.WriteError(ctx, w, http.StatusInternalServerError, models.CodeInternal, models.MsgInternal)
 	}
 }

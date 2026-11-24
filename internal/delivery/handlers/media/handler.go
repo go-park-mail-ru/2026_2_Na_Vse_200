@@ -3,11 +3,12 @@ package media
 import (
 	"context"
 	"errors"
-	"log"
 	"net/http"
 	"os"
 	"strings"
 	"uuid"
+
+	"github.com/rs/zerolog"
 
 	"2026_2_Na_Vse_200/internal/delivery/response"
 	"2026_2_Na_Vse_200/internal/models"
@@ -38,7 +39,7 @@ func NewMediaHandler(media Repository, blobs Blobs, tracks ...Tracks) *MediaHand
 func (h *MediaHandler) Get(w http.ResponseWriter, r *http.Request) {
 	id, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {
-		response.WriteError(w, http.StatusNotFound, models.CodeNotFound, models.MsgNotFound)
+		response.WriteError(r.Context(), w, http.StatusNotFound, models.CodeNotFound, models.MsgNotFound)
 		return
 	}
 	file, err := h.media.GetByID(r.Context(), models.MediaFileID(id.String()))
@@ -51,7 +52,7 @@ func (h *MediaHandler) Get(w http.ResponseWriter, r *http.Request) {
 func (h *MediaHandler) Audio(w http.ResponseWriter, r *http.Request) {
 	id, err := uuid.Parse(r.PathValue("id"))
 	if err != nil || h.tracks == nil {
-		response.WriteError(w, http.StatusNotFound, models.CodeNotFound, models.MsgNotFound)
+		response.WriteError(r.Context(), w, http.StatusNotFound, models.CodeNotFound, models.MsgNotFound)
 		return
 	}
 	file, err := h.tracks.GetAudio(r.Context(), models.TrackID(id.String()))
@@ -63,8 +64,8 @@ func (h *MediaHandler) serve(w http.ResponseWriter, r *http.Request, file models
 		return
 	}
 	if err != nil {
-		log.Printf("media metadata: %v", err)
-		response.WriteError(w, 500, models.CodeInternal, models.MsgInternal)
+		zerolog.Ctx(r.Context()).Error().Err(err).Str("operation", "media.get").Msg("чтение медиафайла")
+		response.WriteError(r.Context(), w, http.StatusInternalServerError, models.CodeInternal, models.MsgInternal)
 		return
 	}
 	body, err := h.blobs.Open(file.StorageKey)
@@ -73,14 +74,14 @@ func (h *MediaHandler) serve(w http.ResponseWriter, r *http.Request, file models
 		return
 	}
 	if err != nil {
-		log.Printf("open media: %v", err)
-		response.WriteError(w, 500, models.CodeInternal, models.MsgInternal)
+		zerolog.Ctx(r.Context()).Error().Err(err).Str("operation", "media.open").Msg("открытие медиафайла")
+		response.WriteError(r.Context(), w, http.StatusInternalServerError, models.CodeInternal, models.MsgInternal)
 		return
 	}
 	defer body.Close()
 	info, err := body.Stat()
 	if err != nil || !info.Mode().IsRegular() {
-		response.WriteError(w, 500, models.CodeInternal, models.MsgInternal)
+		response.WriteError(r.Context(), w, http.StatusInternalServerError, models.CodeInternal, models.MsgInternal)
 		return
 	}
 	w.Header().Set("Content-Type", file.MIMEType)

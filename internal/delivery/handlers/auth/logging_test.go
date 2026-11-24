@@ -5,11 +5,12 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/rs/zerolog"
 
 	"2026_2_Na_Vse_200/internal/config"
 	"2026_2_Na_Vse_200/internal/delivery/middleware"
@@ -54,8 +55,8 @@ func TestAuthErrorLogs(t *testing.T) {
 	} {
 		t.Run(tc.name+tc.body, func(t *testing.T) {
 			var buf bytes.Buffer
-			log := slog.New(slog.NewJSONHandler(&buf, nil))
-			h := New(&config.Config{}, failedAuth{err: errors.New("db unavailable")}, log)
+			log := zerolog.New(&buf)
+			h := New(&config.Config{}, failedAuth{err: errors.New("db unavailable")})
 			handlers := map[string]http.HandlerFunc{"signup": h.Signup, "login": h.Login, "me": h.Me, "logout": h.Logout}
 			r := httptest.NewRequest(http.MethodPost, "/auth/"+tc.name, strings.NewReader(tc.body))
 			r.Header.Set("X-Request-ID", requestID)
@@ -81,7 +82,11 @@ func TestAuthErrorLogs(t *testing.T) {
 				if entry.RequestID != requestID {
 					t.Errorf("request_id = %q", entry.RequestID)
 				}
-				if i == 0 && (entry.Error == "" || tc.status == 500 && entry.Level != "ERROR") {
+				wantLevel := "info"
+				if tc.status == http.StatusInternalServerError {
+					wantLevel = "error"
+				}
+				if i == 0 && (entry.Error == "" || entry.Level != wantLevel) {
 					t.Errorf("неверный лог ошибки: %s", line)
 				}
 			}

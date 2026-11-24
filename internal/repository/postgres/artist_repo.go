@@ -7,6 +7,7 @@ import (
 
 	"2026_2_Na_Vse_200/internal/models"
 	"2026_2_Na_Vse_200/internal/usecase/ports"
+	"2026_2_Na_Vse_200/internal/validation"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -18,6 +19,7 @@ var _ ports.ArtistRepository = (*ArtistRepo)(nil)
 func NewArtistRepo(pool *pgxpool.Pool) *ArtistRepo { return &ArtistRepo{pool: pool} }
 
 func (r *ArtistRepo) GetByID(ctx context.Context, id models.ArtistID) (models.Artist, error) {
+	ctx = withDBOperation(ctx, "artists.get_by_id")
 	const query = `
  SELECT id::text, name, biography, image_file_id::text
  FROM artist WHERE id = $1::uuid`
@@ -40,6 +42,7 @@ func (r *ArtistRepo) GetByID(ctx context.Context, id models.ArtistID) (models.Ar
 
 // Лимит применяется до присоединения исполнителей, чтобы вернуть целые карточки треков.
 func (r *ArtistRepo) Tracks(ctx context.Context, id models.ArtistID, limit, offset int) ([]models.Track, error) {
+	ctx = withDBOperation(ctx, "artists.tracks")
 	const query = `
  WITH selected_tracks AS (
   SELECT t.id, t.title, t.audio_file_id, t.cover_file_id, t.created_at
@@ -54,13 +57,14 @@ func (r *ArtistRepo) Tracks(ctx context.Context, id models.ArtistID, limit, offs
  LEFT JOIN track_artist ta ON ta.track_id = t.id
  LEFT JOIN artist a ON a.id = ta.artist_id
  ORDER BY t.created_at DESC, t.id, a.name, a.id`
-	if limit <= 0 || offset < 0 {
+	if !validation.ValidPagination(limit, offset) {
 		return nil, fmt.Errorf("invalid pagination")
 	}
 	return readTracks(ctx, r.pool, query, string(id), limit, offset)
 }
 
 func (r *ArtistRepo) Albums(ctx context.Context, id models.ArtistID, limit, offset int) ([]models.Album, error) {
+	ctx = withDBOperation(ctx, "artists.albums")
 	const query = `
  WITH selected_albums AS (
   SELECT al.id, al.title, al.release_date, al.cover_file_id, al.created_at
@@ -74,7 +78,7 @@ func (r *ArtistRepo) Albums(ctx context.Context, id models.ArtistID, limit, offs
  LEFT JOIN album_artist aa ON aa.album_id = al.id
  LEFT JOIN artist a ON a.id = aa.artist_id
  ORDER BY al.created_at DESC, al.id, a.name, a.id`
-	if limit <= 0 || offset < 0 {
+	if !validation.ValidPagination(limit, offset) {
 		return nil, fmt.Errorf("invalid pagination")
 	}
 	return readAlbums(ctx, r.pool, query, string(id), limit, offset)
