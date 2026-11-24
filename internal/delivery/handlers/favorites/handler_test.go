@@ -20,13 +20,9 @@ type repoStub struct {
 	enabled bool
 }
 
-func (s *repoStub) FavoriteTracks(_ context.Context, user models.UserID) ([]models.Track, error) {
+func (s *repoStub) FavoriteIDs(_ context.Context, user models.UserID) ([]string, error) {
 	s.user = user
-	tracks := make([]models.Track, 0, len(s.ids))
-	for _, id := range s.ids {
-		tracks = append(tracks, models.Track{ID: models.TrackID(id), Title: "Title " + id})
-	}
-	return tracks, s.err
+	return s.ids, s.err
 }
 
 func (s *repoStub) SetFavorite(_ context.Context, user models.UserID, track models.TrackID, enabled bool) error {
@@ -53,20 +49,12 @@ func TestList(t *testing.T) {
 	}
 	var body struct {
 		TrackIDs []string `json:"track_ids"`
-		Tracks   []struct {
-			ID    string `json:"id"`
-			Title string `json:"title"`
-		} `json:"tracks"`
 	}
 	if err := json.Unmarshal(w.Body.Bytes(), &body); err != nil {
 		t.Fatal(err)
 	}
 	if len(body.TrackIDs) != 2 || body.TrackIDs[0] != "track-1" || body.TrackIDs[1] != "track-2" || repo.user != "user-1" {
 		t.Fatalf("неверный список избранного: %+v, пользователь %q", body, repo.user)
-	}
-	if len(body.Tracks) != 2 || body.Tracks[0].ID != body.TrackIDs[0] ||
-		body.Tracks[1].ID != body.TrackIDs[1] || body.Tracks[0].Title != "Title track-1" {
-		t.Fatalf("favorite track data: %+v", body.Tracks)
 	}
 }
 

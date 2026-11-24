@@ -12,7 +12,6 @@ import (
 	"2026_2_Na_Vse_200/internal/config"
 	"2026_2_Na_Vse_200/internal/delivery/handlers"
 	"2026_2_Na_Vse_200/internal/delivery/handlers/media"
-	"2026_2_Na_Vse_200/internal/delivery/handlers/playlist"
 	"2026_2_Na_Vse_200/internal/delivery/middleware"
 	"2026_2_Na_Vse_200/internal/repository/postgres"
 	"2026_2_Na_Vse_200/internal/storage"
@@ -32,21 +31,15 @@ func newHandler(cfg config.Config, pool *pgxpool.Pool, sessions *postgres.Sessio
 
 	users := postgres.NewUserRepo(pool)
 	mediaRepo := postgres.NewMediaRepo(pool)
-	catalog := postgres.NewCatalogRepo(pool)
-	tracks := postgres.NewTrackRepo(pool)
 	api := handlers.New(&cfg, &handlers.Deps{
 		Logger:    logger,
-		Favorites: tracks,
-		Music:     catalog,
-		Playlists: playlist.New(postgres.NewPlaylistRepo(pool, blobs), blobs),
+		Favorites: postgres.NewTrackRepo(pool),
 		Account:   accountusecase.NewAccountUsecase(users, users, auth.NewBcryptHasher()),
-		Auth: authusecase.NewAuthUsecase(
-			users, sessions, auth.NewBcryptHasher(), auth.NewSessionID, time.Now, cfg.SessionTTL, logger,
-		),
-		Catalog: catalogusecase.New(catalog, logger),
-		Profile: profileusecase.NewProfileUsecase(users, users, mediaRepo, blobs, logger),
-		Artist:  artistusecase.NewArtistUsecase(postgres.NewArtistRepo(pool), logger),
-		Media:   media.NewMediaHandler(mediaRepo, blobs, tracks),
+		Auth:      authusecase.NewAuthUsecase(users, sessions, auth.NewBcryptHasher(), auth.NewSessionID, time.Now, cfg.SessionTTL, logger),
+		Catalog:   catalogusecase.New(postgres.NewCatalogRepo(pool), logger),
+		Profile:   profileusecase.NewProfileUsecase(users, users, mediaRepo, blobs, logger),
+		Artist:    artistusecase.NewArtistUsecase(postgres.NewArtistRepo(pool), logger),
+		Media:     media.NewMediaHandler(mediaRepo, blobs, postgres.NewTrackRepo(pool)),
 	})
 	return middleware.Chain(
 		api.Routes(),

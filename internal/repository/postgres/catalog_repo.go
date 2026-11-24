@@ -7,17 +7,16 @@ import (
 
 	"2026_2_Na_Vse_200/internal/models"
 	"2026_2_Na_Vse_200/internal/usecase/ports"
-	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
-const _homeArtistsQuery = `
+const homeArtistsQuery = `
 	SELECT id::text, name, image_file_id::text
 	FROM artist
 	ORDER BY created_at DESC, id
 	LIMIT $1`
 
-const _homeTracksQuery = `
+const homeTracksQuery = `
 	WITH selected_tracks AS (
 		SELECT id, title, audio_file_id, cover_file_id, created_at
 		FROM track
@@ -25,17 +24,24 @@ const _homeTracksQuery = `
 		ORDER BY created_at DESC, id
 		LIMIT $1
 	)
-` + _trackProjection + `
+	SELECT t.id::text, t.title, audio.duration_ms, t.cover_file_id::text, a.id::text, a.name
+	FROM selected_tracks AS t
+	JOIN media_file AS audio ON audio.id = t.audio_file_id
+	LEFT JOIN track_artist AS ta ON ta.track_id = t.id
+	LEFT JOIN artist AS a ON a.id = ta.artist_id
 	ORDER BY t.created_at DESC, t.id, a.name, a.id`
 
-const _homeAlbumsQuery = `
+const homeAlbumsQuery = `
 	WITH selected_albums AS (
 		SELECT id, title, release_date, cover_file_id, created_at
 		FROM album
 		ORDER BY created_at DESC, id
 		LIMIT $1
 	)
-` + _albumProjection + `
+	SELECT al.id::text, al.title, al.release_date, al.cover_file_id::text, a.id::text, a.name
+	FROM selected_albums AS al
+	LEFT JOIN album_artist AS aa ON aa.album_id = al.id
+	LEFT JOIN artist AS a ON a.id = aa.artist_id
 	ORDER BY al.created_at DESC, al.id, a.name, a.id`
 
 // CatalogRepo читает музыкальный каталог из PostgreSQL.
@@ -57,14 +63,9 @@ func (r *CatalogRepo) HomeArtists(ctx context.Context, limit int) ([]models.Arti
 		return artists, nil
 	}
 
-	return readArtists(ctx, r.pool, _homeArtistsQuery, limit)
-}
-
-func readArtists(ctx context.Context, db catalogReader, query string, args ...any) ([]models.Artist, error) {
-	artists := make([]models.Artist, 0)
-	rows, err := db.Query(ctx, query, args...)
+	rows, err := r.pool.Query(ctx, homeArtistsQuery, limit)
 	if err != nil {
-		return nil, fmt.Errorf("select artists: %w", err)
+		return nil, fmt.Errorf("select home artists: %w", err)
 	}
 	defer rows.Close()
 
@@ -75,7 +76,7 @@ func readArtists(ctx context.Context, db catalogReader, query string, args ...an
 			image  *string
 		)
 		if err := rows.Scan(&id, &artist.Name, &image); err != nil {
-			return nil, fmt.Errorf("scan artist: %w", err)
+			return nil, fmt.Errorf("scan home artist: %w", err)
 		}
 
 		artist.ID = models.ArtistID(id)
@@ -88,7 +89,7 @@ func readArtists(ctx context.Context, db catalogReader, query string, args ...an
 	}
 
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("read artists: %w", err)
+		return nil, fmt.Errorf("read home artists: %w", err)
 	}
 
 	return artists, nil
@@ -101,18 +102,14 @@ func (r *CatalogRepo) HomeTracks(ctx context.Context, limit int) ([]models.Track
 		return tracks, nil
 	}
 
-	return readTracks(ctx, r.pool, _homeTracksQuery, limit)
+	return readTracks(ctx, r.pool, homeTracksQuery, limit)
 }
 
-type catalogReader interface {
-	Query(context.Context, string, ...any) (pgx.Rows, error)
-}
-
-func readTracks(ctx context.Context, pool catalogReader, query string, args ...any) ([]models.Track, error) {
+func readTracks(ctx context.Context, pool *pgxpool.Pool, query string, args ...any) ([]models.Track, error) {
 	tracks := make([]models.Track, 0)
 	rows, err := pool.Query(ctx, query, args...)
 	if err != nil {
-		return nil, fmt.Errorf("select tracks: %w", err)
+		return nil, fmt.Errorf("select home tracks: %w", err)
 	}
 	defer rows.Close()
 
@@ -125,7 +122,7 @@ func readTracks(ctx context.Context, pool catalogReader, query string, args ...a
 			artistID, artistName *string
 		)
 		if err := rows.Scan(&id, &track.Title, &track.DurationMS, &coverID, &artistID, &artistName); err != nil {
-			return nil, fmt.Errorf("scan track: %w", err)
+			return nil, fmt.Errorf("scan home track: %w", err)
 		}
 		track.ID = models.TrackID(id)
 		if coverID != nil {
@@ -151,7 +148,7 @@ func readTracks(ctx context.Context, pool catalogReader, query string, args ...a
 	}
 
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("read tracks: %w", err)
+		return nil, fmt.Errorf("read home tracks: %w", err)
 	}
 
 	return tracks, nil
@@ -164,14 +161,14 @@ func (r *CatalogRepo) HomeAlbums(ctx context.Context, limit int) ([]models.Album
 		return albums, nil
 	}
 
-	return readAlbums(ctx, r.pool, _homeAlbumsQuery, limit)
+	return readAlbums(ctx, r.pool, homeAlbumsQuery, limit)
 }
 
-func readAlbums(ctx context.Context, pool catalogReader, query string, args ...any) ([]models.Album, error) {
+func readAlbums(ctx context.Context, pool *pgxpool.Pool, query string, args ...any) ([]models.Album, error) {
 	albums := make([]models.Album, 0)
 	rows, err := pool.Query(ctx, query, args...)
 	if err != nil {
-		return nil, fmt.Errorf("select albums: %w", err)
+		return nil, fmt.Errorf("select home albums: %w", err)
 	}
 	defer rows.Close()
 
@@ -184,7 +181,7 @@ func readAlbums(ctx context.Context, pool catalogReader, query string, args ...a
 			artistID, artistName *string
 		)
 		if err := rows.Scan(&id, &album.Title, &album.ReleaseDate, &coverID, &artistID, &artistName); err != nil {
-			return nil, fmt.Errorf("scan album: %w", err)
+			return nil, fmt.Errorf("scan home album: %w", err)
 		}
 		album.ID = models.AlbumID(id)
 		if coverID != nil {
@@ -210,7 +207,7 @@ func readAlbums(ctx context.Context, pool catalogReader, query string, args ...a
 	}
 
 	if err := rows.Err(); err != nil {
-		return nil, fmt.Errorf("read albums: %w", err)
+		return nil, fmt.Errorf("read home albums: %w", err)
 	}
 
 	return albums, nil

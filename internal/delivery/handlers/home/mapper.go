@@ -6,11 +6,10 @@ import (
 	"2026_2_Na_Vse_200/internal/models"
 )
 
-// NewTrackResponses converts catalog tracks to their public representation.
-func NewTrackResponses(tracks []models.Track) []TrackResponse {
-	out := make([]TrackResponse, 0, len(tracks))
+func newTrackResponses(tracks []models.Track) []trackResponse {
+	out := make([]trackResponse, 0, len(tracks))
 	for _, track := range tracks {
-		out = append(out, TrackResponse{
+		out = append(out, trackResponse{
 			ID:         string(track.ID),
 			Title:      track.Title,
 			DurationMS: track.DurationMS,
@@ -21,11 +20,10 @@ func NewTrackResponses(tracks []models.Track) []TrackResponse {
 	return out
 }
 
-// NewArtistResponses converts catalog artists to their public representation.
-func NewArtistResponses(artists []models.Artist) []ArtistResponse {
-	out := make([]ArtistResponse, 0, len(artists))
+func newArtistResponses(artists []models.Artist) []artistResponse {
+	out := make([]artistResponse, 0, len(artists))
 	for _, artist := range artists {
-		out = append(out, ArtistResponse{
+		out = append(out, artistResponse{
 			ID:       string(artist.ID),
 			Name:     artist.Name,
 			ImageURL: optionalString(artist.ImageURL),
@@ -34,24 +32,18 @@ func NewArtistResponses(artists []models.Artist) []ArtistResponse {
 	return out
 }
 
-// NewAlbumResponses converts catalog albums to their public representation.
-func NewAlbumResponses(albums []models.Album) []AlbumResponse {
-	out := make([]AlbumResponse, 0, len(albums))
+func newAlbumResponses(albums []models.Album) []albumResponse {
+	out := make([]albumResponse, 0, len(albums))
 	for _, album := range albums {
-		out = append(out, NewAlbumResponse(album))
+		out = append(out, albumResponse{
+			ID:          string(album.ID),
+			Title:       album.Title,
+			ReleaseDate: formatReleaseDate(album.ReleaseDate),
+			CoverURL:    optionalString(album.CoverURL),
+			Artists:     newArtistRefResponses(album.Artists),
+		})
 	}
 	return out
-}
-
-// NewAlbumResponse converts an album to its public metadata.
-func NewAlbumResponse(album models.Album) AlbumResponse {
-	return AlbumResponse{
-		ID:          string(album.ID),
-		Title:       album.Title,
-		ReleaseDate: formatReleaseDate(album.ReleaseDate),
-		CoverURL:    optionalString(album.CoverURL),
-		Artists:     newArtistRefResponses(album.Artists),
-	}
 }
 
 func newArtistRefResponses(artists []models.ArtistRef) []artistRefResponse {

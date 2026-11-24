@@ -30,8 +30,8 @@ func (h *Handler) Home(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	response.WriteJSON(w, http.StatusOK, homeResponse{
-		Tracks:  NewTrackResponses(result.Tracks),
-		Artists: NewArtistResponses(result.Artists),
-		Albums:  NewAlbumResponses(result.Albums),
+		Tracks:  newTrackResponses(result.Tracks),
+		Artists: newArtistResponses(result.Artists),
+		Albums:  newAlbumResponses(result.Albums),
 	})
 }
