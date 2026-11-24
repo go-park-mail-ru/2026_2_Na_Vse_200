@@ -1,9 +1,11 @@
 package response
 
 import (
+	"context"
 	"encoding/json"
-	"log"
 	"net/http"
+
+	"github.com/rs/zerolog"
 )
 
 // ErrorResponse содержит ошибку в формате API.
@@ -20,10 +22,10 @@ type ErrorBody struct {
 
 // WriteJSON формирует JSON до отправки заголовков.
 // При ошибке сериализации клиент получает 500 без частичного тела ответа.
-func WriteJSON(w http.ResponseWriter, code int, data any) {
+func WriteJSON(ctx context.Context, w http.ResponseWriter, code int, data any) {
 	body, err := json.Marshal(data)
 	if err != nil {
-		log.Printf("сборка JSON-ответа: %v", err)
+		zerolog.Ctx(ctx).Error().Err(err).Str("operation", "response.marshal").Msg("сборка JSON-ответа")
 		w.WriteHeader(http.StatusInternalServerError)
 		return
 	}
@@ -32,20 +34,20 @@ func WriteJSON(w http.ResponseWriter, code int, data any) {
 	w.WriteHeader(code)
 
 	if _, err := w.Write(body); err != nil {
-		log.Printf("отправка ответа: %v", err)
+		zerolog.Ctx(ctx).Error().Err(err).Str("operation", "response.write").Msg("отправка ответа")
 	}
 }
 
 // WriteError отправляет код и сообщение ошибки в формате JSON.
-func WriteError(w http.ResponseWriter, code int, errCode, message string) {
-	WriteJSON(w, code, ErrorResponse{
+func WriteError(ctx context.Context, w http.ResponseWriter, code int, errCode, message string) {
+	WriteJSON(ctx, w, code, ErrorResponse{
 		Error: ErrorBody{Code: errCode, Message: message},
 	})
 }
 
 // WriteFieldsError добавляет к ошибке сообщения для отдельных полей.
-func WriteFieldsError(w http.ResponseWriter, code int, errCode, message string, fields map[string]string) {
-	WriteJSON(w, code, ErrorResponse{
+func WriteFieldsError(ctx context.Context, w http.ResponseWriter, code int, errCode, message string, fields map[string]string) {
+	WriteJSON(ctx, w, code, ErrorResponse{
 		Error: ErrorBody{Code: errCode, Message: message, Fields: fields},
 	})
 }

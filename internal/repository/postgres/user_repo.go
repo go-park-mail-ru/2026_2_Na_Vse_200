@@ -33,6 +33,7 @@ func NewUserRepo(pool *pgxpool.Pool) *UserRepo {
 
 // Create сохраняет аккаунт. ID и время создания задаёт база данных.
 func (r *UserRepo) Create(ctx context.Context, user models.User) (models.User, error) {
+	ctx = withDBOperation(ctx, "users.create")
 	const query = `
 		INSERT INTO account (email, password_hash, display_name, avatar_file_id)
 		VALUES ($1, $2, $3, $4)
@@ -44,10 +45,10 @@ func (r *UserRepo) Create(ctx context.Context, user models.User) (models.User, e
 		avatar = string(*user.AvatarFileID)
 	}
 
-	err := r.pool.QueryRow(ctx, query,
-		user.Email, user.PasswordHash, user.DisplayName, avatar,
-	).
-		Scan(&id, &user.CreatedAt)
+	err := pgx.BeginFunc(ctx, r.transactions, func(tx pgx.Tx) error {
+		return tx.QueryRow(ctx, query, user.Email, user.PasswordHash, user.DisplayName, avatar).
+			Scan(&id, &user.CreatedAt)
+	})
 	if err != nil {
 		if isEmailConflict(err) {
 			return models.User{}, models.ErrEmailTaken
@@ -61,6 +62,7 @@ func (r *UserRepo) Create(ctx context.Context, user models.User) (models.User, e
 
 // GetByID возвращает пользователя или models.ErrUserNotFound.
 func (r *UserRepo) GetByID(ctx context.Context, id models.UserID) (models.User, error) {
+	ctx = withDBOperation(ctx, "users.get_by_id")
 	const query = `
 		SELECT id, email, password_hash, display_name, avatar_file_id::text, created_at
 		FROM account
@@ -78,6 +80,7 @@ func (r *UserRepo) GetByID(ctx context.Context, id models.UserID) (models.User, 
 
 // GetByEmail ищет пользователя по нормализованному email и возвращает его с хешем пароля.
 func (r *UserRepo) GetByEmail(ctx context.Context, email string) (models.User, error) {
+	ctx = withDBOperation(ctx, "users.get_by_email")
 	const query = `
 		SELECT id, email, password_hash, display_name, avatar_file_id::text, created_at
 		FROM account

@@ -5,12 +5,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log/slog"
 	"net/http"
 	"path"
 	"uuid"
 
-	"2026_2_Na_Vse_200/internal/logger"
+	"github.com/rs/zerolog"
+
 	"2026_2_Na_Vse_200/internal/models"
 	"2026_2_Na_Vse_200/internal/usecase/ports"
 	"2026_2_Na_Vse_200/internal/validation"
@@ -34,58 +34,51 @@ type ProfileBlobStore interface {
 type ProfileUsecase struct {
 	users    ports.UserRepository
 	profiles ports.ProfileRepository
-	media    ports.MediaRepository
 	blobs    ProfileBlobStore
-	log      *slog.Logger
 }
 
 func NewProfileUsecase(
 	users ports.UserRepository,
 	profiles ports.ProfileRepository,
-	media ports.MediaRepository,
 	blobs ProfileBlobStore,
-	log *slog.Logger,
 ) *ProfileUsecase {
-	if log == nil {
-		log = logger.Discard()
-	}
-	return &ProfileUsecase{users: users, profiles: profiles, media: media, blobs: blobs, log: log}
+	return &ProfileUsecase{users: users, profiles: profiles, blobs: blobs}
 }
 
 func (u *ProfileUsecase) Get(ctx context.Context, sessionUserID, requestedID models.UserID) (models.User, error) {
-	log := logger.FromContext(ctx, u.log)
-	log.Info("profile.Get: старт", slog.String("user_id", string(requestedID)))
+	log := zerolog.Ctx(ctx)
+	log.Info().Str("layer", "usecase").Str("operation", "profile.get").Msg("начало сценария")
 
 	if err := ensureOwner(sessionUserID, requestedID); err != nil {
-		log.Info("profile.Get: доступ запрещён", slog.String("session_user_id", string(sessionUserID)))
+		log.Info().Str("session_user_id", string(sessionUserID)).Msg("profile.Get: доступ запрещён")
 		return models.User{}, err
 	}
 
 	user, err := u.users.GetByID(ctx, sessionUserID)
 	if errors.Is(err, models.ErrUserNotFound) {
-		log.Info("profile.Get: пользователь не найден", slog.String("user_id", string(sessionUserID)))
+		log.Info().Str("profile_user_id", string(sessionUserID)).Msg("profile.Get: пользователь не найден")
 		return models.User{}, models.ErrUnauthorized
 	}
 	if err != nil {
-		log.Error("profile.Get: чтение пользователя", slog.Any("error", err), slog.String("user_id", string(sessionUserID)))
+		log.Error().Err(err).Str("profile_user_id", string(sessionUserID)).Msg("profile.Get: чтение пользователя")
 		return models.User{}, fmt.Errorf("find user: %w", err)
 	}
-	log.Info("profile.Get: успех", slog.String("user_id", string(user.ID)))
+	log.Info().Str("profile_user_id", string(user.ID)).Msg("profile.Get: успех")
 	return withAvatarURL(user), nil
 }
 
 func (u *ProfileUsecase) Update(ctx context.Context, sessionUserID, requestedID models.UserID, in ProfileUpdateInput) (models.User, error) {
-	log := logger.FromContext(ctx, u.log)
-	log.Info("profile.Update: старт", slog.String("user_id", string(requestedID)))
+	log := zerolog.Ctx(ctx)
+	log.Info().Str("layer", "usecase").Str("operation", "profile.update").Msg("начало сценария")
 
 	if err := ensureOwner(sessionUserID, requestedID); err != nil {
-		log.Info("profile.Update: доступ запрещён", slog.String("session_user_id", string(sessionUserID)))
+		log.Info().Str("session_user_id", string(sessionUserID)).Msg("profile.Update: доступ запрещён")
 		return models.User{}, err
 	}
 
 	form := validation.ProfileUpdate(validation.ProfileUpdateInput(in))
 	if len(form.Fields) > 0 {
-		log.Info("profile.Update: ошибка валидации", slog.String("user_id", string(sessionUserID)))
+		log.Info().Str("profile_user_id", string(sessionUserID)).Msg("profile.Update: ошибка валидации")
 		return models.User{}, &models.ValidationError{Fields: form.Fields}
 	}
 
@@ -99,75 +92,66 @@ func (u *ProfileUsecase) Update(ctx context.Context, sessionUserID, requestedID 
 
 	user, err := u.profiles.UpdateProfile(ctx, sessionUserID, form.Email, form.DisplayName)
 	if errors.Is(err, models.ErrEmailTaken) {
-		log.Info("profile.Update: email занят", slog.String("user_id", string(sessionUserID)))
+		log.Info().Str("profile_user_id", string(sessionUserID)).Msg("profile.Update: email занят")
 		return models.User{}, models.ErrEmailTaken
 	}
 	if errors.Is(err, models.ErrUserNotFound) {
-		log.Info("profile.Update: пользователь не найден", slog.String("user_id", string(sessionUserID)))
+		log.Info().Str("profile_user_id", string(sessionUserID)).Msg("profile.Update: пользователь не найден")
 		return models.User{}, models.ErrUnauthorized
 	}
 	if err != nil {
-		log.Error("profile.Update: обновление профиля", slog.Any("error", err), slog.String("user_id", string(sessionUserID)))
+		log.Error().Err(err).Str("profile_user_id", string(sessionUserID)).Msg("profile.Update: обновление профиля")
 		return models.User{}, fmt.Errorf("update profile: %w", err)
 	}
-	log.Info("profile.Update: успех", slog.String("user_id", string(user.ID)))
+	log.Info().Str("profile_user_id", string(user.ID)).Msg("profile.Update: успех")
 	return withAvatarURL(user), nil
 }
 
 func (u *ProfileUsecase) UploadAvatar(ctx context.Context, sessionUserID, requestedID models.UserID, mimeType string, size int64, body io.Reader) (models.User, error) {
-	log := logger.FromContext(ctx, u.log)
-	log.Info("profile.UploadAvatar: старт",
-		slog.String("user_id", string(requestedID)),
-		slog.String("mime_type", mimeType),
-		slog.Int64("size", size),
-	)
+	log := zerolog.Ctx(ctx)
+	log.Info().Str("layer", "usecase").Str("operation", "profile.upload_avatar").Msg("начало сценария")
 
 	if err := ensureOwner(sessionUserID, requestedID); err != nil {
-		log.Info("profile.UploadAvatar: доступ запрещён", slog.String("session_user_id", string(sessionUserID)))
+		log.Info().Str("session_user_id", string(sessionUserID)).Msg("profile.UploadAvatar: доступ запрещён")
 		return models.User{}, err
 	}
 	if size <= 0 || size > MaxAvatarBytes {
-		log.Info("profile.UploadAvatar: некорректный размер", slog.Int64("size", size))
+		log.Info().Int64("size", size).Msg("profile.UploadAvatar: некорректный размер")
 		return models.User{}, models.ErrInvalidAvatar
 	}
 
 	ext, err := avatarExtension(mimeType)
 	if err != nil {
-		log.Info("profile.UploadAvatar: некорректный тип файла", slog.String("mime_type", mimeType))
+		log.Info().Str("mime_type", mimeType).Msg("profile.UploadAvatar: некорректный тип файла")
 		return models.User{}, err
 	}
 
 	key := path.Join("images", "avatars", uuid.New().String()+"."+ext)
 	if err := u.blobs.Save(key, io.LimitReader(body, size+1)); err != nil {
-		log.Error("profile.UploadAvatar: сохранение файла", slog.Any("error", err), slog.String("key", key))
+		log.Error().Err(err).Str("key", key).Msg("profile.UploadAvatar: сохранение файла")
 		return models.User{}, fmt.Errorf("save avatar: %w", err)
 	}
-	log.Info("profile.UploadAvatar: файл сохранён", slog.String("key", key))
+	log.Info().Str("key", key).Msg("profile.UploadAvatar: файл сохранён")
 
-	file, err := u.media.Create(ctx, models.MediaFile{
+	user, err := u.profiles.SaveAvatar(ctx, sessionUserID, models.MediaFile{
 		StorageKey: key,
 		MIMEType:   mimeType,
 		ByteSize:   size,
 	})
 	if err != nil {
-		_ = u.blobs.Remove(key)
-		log.Error("profile.UploadAvatar: создание media", slog.Any("error", err), slog.String("key", key))
-		return models.User{}, fmt.Errorf("create media: %w", err)
+		if removeErr := u.blobs.Remove(key); removeErr != nil {
+			log.Error().Err(removeErr).Str("key", key).Msg("не удалось удалить файл после ошибки сохранения аватара")
+		}
 	}
-	log.Info("profile.UploadAvatar: media создан", slog.String("media_id", string(file.ID)))
-
-	user, err := u.profiles.SetAvatar(ctx, sessionUserID, file.ID)
 	if errors.Is(err, models.ErrUserNotFound) {
-		_ = u.blobs.Remove(key)
-		log.Info("profile.UploadAvatar: пользователь не найден", slog.String("user_id", string(sessionUserID)))
+		log.Info().Str("profile_user_id", string(sessionUserID)).Msg("profile.UploadAvatar: пользователь не найден")
 		return models.User{}, models.ErrUnauthorized
 	}
 	if err != nil {
-		_ = u.blobs.Remove(key)
-		log.Error("profile.UploadAvatar: установка аватара", slog.Any("error", err), slog.String("user_id", string(sessionUserID)))
+		log.Error().Err(err).Str("profile_user_id", string(sessionUserID)).Msg("profile.UploadAvatar: установка аватара")
 		return models.User{}, fmt.Errorf("set avatar: %w", err)
 	}
-	log.Info("profile.UploadAvatar: успех", slog.String("user_id", string(user.ID)), slog.String("media_id", string(file.ID)))
+	log.Info().Str("profile_user_id", string(user.ID)).Msg("profile.UploadAvatar: успех")
 	return withAvatarURL(user), nil
 }
 

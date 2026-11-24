@@ -215,3 +215,7 @@ func TestProfileUploadAvatar(t *testing.T) {
 		t.Fatalf("avatar_url=%v", got.AvatarURL)
 	}
 }
+
+func (r *countingUsers) SaveAvatar(ctx context.Context, id models.UserID, file models.MediaFile) (models.User, error) {
+	return r.inner.SaveAvatar(ctx, id, file)
+}

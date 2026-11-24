@@ -17,7 +17,18 @@ func TestAccountRepository(t *testing.T) {
 	sessions := postgres.NewSessionRepo(pool)
 	owner := sessionTestUser(t, pool)
 	other := sessionTestUser(t, pool)
+	catalogOwner := sessionTestUser(t, pool)
+	// Назначение служебного аккаунта должно работать с произвольным UUID.
+	if _, err := pool.Exec(ctx, `UPDATE account SET system_key=NULL WHERE system_key='catalog_owner'`); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := pool.Exec(ctx, `UPDATE account SET system_key='catalog_owner' WHERE id=$1`, string(catalogOwner.ID)); err != nil {
+		t.Fatal(err)
+	}
 	const oldHash = "integration-test-hash"
+	if err := repo.DeleteAccount(ctx, catalogOwner.ID, oldHash); !errors.Is(err, models.ErrForbidden) {
+		t.Fatalf("protected catalog owner: %v", err)
+	}
 	if _, err := repo.ChangeEmail(ctx, owner.ID, "stale-hash", "new@example.test"); !errors.Is(err, models.ErrCurrentPassword) {
 		t.Fatalf("stale hash: %v", err)
 	}
@@ -77,7 +88,7 @@ func TestAccountRepository(t *testing.T) {
 		t.Fatalf("other user changed: %v", err)
 	}
 	var uploader string
-	if err := pool.QueryRow(ctx, `SELECT uploader_id::text FROM track WHERE id=$1`, trackID).Scan(&uploader); err != nil || uploader != "10000000-0000-4000-8000-000000000001" {
+	if err := pool.QueryRow(ctx, `SELECT uploader_id::text FROM track WHERE id=$1`, trackID).Scan(&uploader); err != nil || uploader != string(catalogOwner.ID) {
 		t.Fatalf("shared track was not retained: uploader=%s err=%v", uploader, err)
 	}
 	for _, table := range []string{"auth_session", "playlist", "listening_event", "favorite_track"} {

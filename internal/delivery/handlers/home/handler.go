@@ -2,8 +2,9 @@ package home
 
 import (
 	"context"
-	"log"
 	"net/http"
+
+	"github.com/rs/zerolog"
 
 	"2026_2_Na_Vse_200/internal/delivery/response"
 	"2026_2_Na_Vse_200/internal/models"
@@ -25,11 +26,11 @@ func New(catalog CatalogUsecase) *Handler {
 func (h *Handler) Home(w http.ResponseWriter, r *http.Request) {
 	result, err := h.catalog.Home(r.Context())
 	if err != nil {
-		log.Printf("ошибка чтения каталога: %v", err)
-		response.WriteError(w, http.StatusInternalServerError, models.CodeInternal, models.MsgInternal)
+		zerolog.Ctx(r.Context()).Error().Err(err).Str("operation", "catalog.home").Msg("ошибка чтения каталога")
+		response.WriteError(r.Context(), w, http.StatusInternalServerError, models.CodeInternal, models.MsgInternal)
 		return
 	}
-	response.WriteJSON(w, http.StatusOK, homeResponse{
+	response.WriteJSON(r.Context(), w, http.StatusOK, homeResponse{
 		Tracks:  newTrackResponses(result.Tracks),
 		Artists: newArtistResponses(result.Artists),
 		Albums:  newAlbumResponses(result.Albums),
