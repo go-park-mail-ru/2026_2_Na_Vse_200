@@ -46,14 +46,18 @@ func (h *ArtistHandler) Artist(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	response.WriteJSON(w, http.StatusOK, struct {
-		artistResponse
+		ArtistResponse
 		Biography string          `json:"biography"`
-		Tracks    []trackResponse `json:"tracks"`
-		Albums    []albumResponse `json:"albums"`
+		Tracks    []TrackResponse `json:"tracks"`
+		Albums    []AlbumResponse `json:"albums"`
 	}{
-		artistResponse: artistResponse{ID: string(result.Artist.ID), Name: result.Artist.Name, ImageURL: optionalString(result.Artist.ImageURL)},
-		Biography:      result.Artist.Biography,
-		Tracks:         newTrackResponses(result.Tracks),
-		Albums:         newAlbumResponses(result.Albums),
+		ArtistResponse: ArtistResponse{
+			ID:       string(result.Artist.ID),
+			Name:     result.Artist.Name,
+			ImageURL: optionalString(result.Artist.ImageURL),
+		},
+		Biography: result.Artist.Biography,
+		Tracks:    NewTrackResponses(result.Tracks),
+		Albums:    NewAlbumResponses(result.Albums),
 	})
 }

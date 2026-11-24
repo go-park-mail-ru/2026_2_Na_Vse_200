@@ -1,12 +1,13 @@
 package home
 
 type homeResponse struct {
-	Tracks  []trackResponse  `json:"tracks"`
-	Artists []artistResponse `json:"artists"`
-	Albums  []albumResponse  `json:"albums"`
+	Tracks  []TrackResponse  `json:"tracks"`
+	Artists []ArtistResponse `json:"artists"`
+	Albums  []AlbumResponse  `json:"albums"`
 }
 
-type trackResponse struct {
+// TrackResponse represents a catalog track in the API.
+type TrackResponse struct {
 	ID         string              `json:"id"`
 	Title      string              `json:"title"`
 	DurationMS int                 `json:"duration_ms"`
@@ -14,13 +15,15 @@ type trackResponse struct {
 	Artists    []artistRefResponse `json:"artists"`
 }
 
-type artistResponse struct {
+// ArtistResponse represents a catalog artist in the API.
+type ArtistResponse struct {
 	ID       string  `json:"id"`
 	Name     string  `json:"name"`
 	ImageURL *string `json:"image_url"`
 }
 
-type albumResponse struct {
+// AlbumResponse represents a catalog album in the API.
+type AlbumResponse struct {
 	ID          string              `json:"id"`
 	Title       string              `json:"title"`
 	ReleaseDate *string             `json:"release_date"`

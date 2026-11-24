@@ -3,17 +3,19 @@ package favorites
 import (
 	"context"
 	"errors"
-	"log"
+	"log/slog"
 	"net/http"
 	"uuid"
 
+	"2026_2_Na_Vse_200/internal/delivery/handlers/home"
 	"2026_2_Na_Vse_200/internal/delivery/middleware"
 	"2026_2_Na_Vse_200/internal/delivery/response"
+	"2026_2_Na_Vse_200/internal/logger"
 	"2026_2_Na_Vse_200/internal/models"
 )
 
 type Repository interface {
-	FavoriteIDs(context.Context, models.UserID) ([]string, error)
+	FavoriteTracks(context.Context, models.UserID) ([]models.Track, error)
 	SetFavorite(context.Context, models.UserID, models.TrackID, bool) error
 }
 type Handler struct{ repo Repository }
@@ -27,16 +29,22 @@ func (h *Handler) List(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	ids, err := h.repo.FavoriteIDs(r.Context(), session.UserID)
+	tracks, err := h.repo.FavoriteTracks(r.Context(), session.UserID)
 	if err != nil {
-		log.Printf("list favorites: %v", err)
+		logger.FromContext(r.Context(), nil).ErrorContext(r.Context(), "list favorites", slog.Any("error", err))
 		response.WriteError(w, http.StatusInternalServerError, models.CodeInternal, models.MsgInternal)
 		return
 	}
 
+	ids := make([]string, 0, len(tracks))
+	for _, track := range tracks {
+		ids = append(ids, string(track.ID))
+	}
+	w.Header().Set("Cache-Control", "private, no-store")
 	response.WriteJSON(w, http.StatusOK, struct {
-		TrackIDs []string `json:"track_ids"`
-	}{ids})
+		TrackIDs []string             `json:"track_ids"`
+		Tracks   []home.TrackResponse `json:"tracks"`
+	}{TrackIDs: ids, Tracks: home.NewTrackResponses(tracks)})
 }
 
 func (h *Handler) Set(w http.ResponseWriter, r *http.Request) {
@@ -58,7 +66,7 @@ func (h *Handler) Set(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err != nil {
-		log.Printf("update favorite: %v", err)
+		logger.FromContext(r.Context(), nil).ErrorContext(r.Context(), "update favorite", slog.Any("error", err))
 		response.WriteError(w, http.StatusInternalServerError, models.CodeInternal, models.MsgInternal)
 		return
 	}
