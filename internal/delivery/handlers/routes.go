@@ -19,15 +19,16 @@ import (
 const sessionCookieName = "session_id"
 
 type Deps struct {
-	Music     music.Repository
-	Playlists *playlist.Handler
-	Favorites favorites.Repository
-	Auth      auth.Usecase
-	Catalog   home.CatalogUsecase
-	Profile   profile.ProfileUsecase
-	Account   profile.AccountUsecase
-	Artist    artist.ArtistUsecase
-	Media     *media.MediaHandler
+	Music              music.Repository
+	Playlists          *playlist.Handler
+	Favorites          favorites.Repository
+	Auth               auth.Usecase
+	Catalog            home.CatalogUsecase
+	Profile            profile.ProfileUsecase
+	Account            profile.AccountUsecase
+	Artist             artist.ArtistUsecase
+	Media              *media.MediaHandler
+	CheckProfileAccess profile.CheckAccess
 }
 
 type API struct {
@@ -49,8 +50,8 @@ func New(cfg *config.Config, deps *Deps) *API {
 		auth:           deps.Auth,
 		authH:          auth.New(cfg, deps.Auth),
 		home:           home.New(deps.Catalog),
-		profile:        profile.NewProfileHandler(deps.Profile),
-		account:        profile.NewAccountHandler(deps.Account, cfg),
+		profile:        profile.NewProfileHandler(deps.Profile, deps.CheckProfileAccess),
+		account:        profile.NewAccountHandler(deps.Account, cfg, deps.CheckProfileAccess),
 		accountEnabled: deps.Account != nil,
 		artist:         artist.NewArtistHandler(deps.Artist),
 		media:          deps.Media,

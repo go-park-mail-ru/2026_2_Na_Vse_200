@@ -98,11 +98,13 @@ func newRepositoryTestAPI(cfg *config.Config, deps *repositoryTestDeps) *API {
 		profiles = value
 	}
 
+	sessions := authusecase.NewSessionManager(deps.Sessions, auth.NewSessionID, time.Now, cfg.SessionTTL)
 	return New(cfg, &Deps{
-		Auth:    authusecase.NewAuthUsecase(deps.Users, deps.Sessions, deps.Hasher, auth.NewSessionID, time.Now, cfg.SessionTTL),
-		Catalog: catalogusecase.New(deps.Catalog),
-		Profile: profileusecase.NewProfileUsecase(deps.Users, profiles, blobs),
-		Artist:  artistusecase.NewArtistUsecase(artists),
-		Media:   media.NewMediaHandler(mediaRepo, blobs),
+		Auth:               authusecase.NewAuthUsecase(deps.Users, sessions, deps.Hasher),
+		CheckProfileAccess: sessions.CheckProfileAccess,
+		Catalog:            catalogusecase.New(deps.Catalog),
+		Profile:            profileusecase.NewProfileUsecase(deps.Users, profiles, blobs),
+		Artist:             artistusecase.NewArtistUsecase(artists),
+		Media:              media.NewMediaHandler(mediaRepo, blobs),
 	})
 }

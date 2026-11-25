@@ -20,12 +20,13 @@ type AccountUsecase interface {
 }
 
 type AccountHandler struct {
-	usecase AccountUsecase
-	cfg     *config.Config
+	usecase     AccountUsecase
+	cfg         *config.Config
+	checkAccess CheckAccess
 }
 
-func NewAccountHandler(usecase AccountUsecase, cfg *config.Config) *AccountHandler {
-	return &AccountHandler{usecase: usecase, cfg: cfg}
+func NewAccountHandler(usecase AccountUsecase, cfg *config.Config, checkAccess CheckAccess) *AccountHandler {
+	return &AccountHandler{usecase: usecase, cfg: cfg, checkAccess: checkAccess}
 }
 
 type accountRequest struct {
@@ -45,8 +46,7 @@ func (h *AccountHandler) request(w http.ResponseWriter, r *http.Request) (models
 	if !ok {
 		return "", "", req, false
 	}
-	if id != session.UserID {
-		response.WriteError(r.Context(), w, 403, models.CodeForbidden, models.MsgForbidden)
+	if !h.checkAccess.authorize(w, r, session.ID, id) {
 		return "", "", req, false
 	}
 	decoder := json.NewDecoder(http.MaxBytesReader(w, r.Body, 16384))

@@ -30,12 +30,15 @@ type ProfileUsecase interface {
 	UploadAvatar(ctx context.Context, sessionUserID, requestedID models.UserID, mimeType string, size int64, body io.Reader) (models.User, error)
 }
 
+type CheckAccess func(context.Context, models.SessionID, models.UserID) error
+
 type ProfileHandler struct {
-	usecase ProfileUsecase
+	usecase     ProfileUsecase
+	checkAccess CheckAccess
 }
 
-func NewProfileHandler(usecase ProfileUsecase) *ProfileHandler {
-	return &ProfileHandler{usecase: usecase}
+func NewProfileHandler(usecase ProfileUsecase, checkAccess CheckAccess) *ProfileHandler {
+	return &ProfileHandler{usecase: usecase, checkAccess: checkAccess}
 }
 
 func (h *ProfileHandler) Get(w http.ResponseWriter, r *http.Request) {
@@ -46,6 +49,9 @@ func (h *ProfileHandler) Get(w http.ResponseWriter, r *http.Request) {
 	}
 	requestedID, ok := parseUserID(w, r)
 	if !ok {
+		return
+	}
+	if !h.checkAccess.authorize(w, r, session.ID, requestedID) {
 		return
 	}
 
@@ -86,6 +92,9 @@ func (h *ProfileHandler) Update(w http.ResponseWriter, r *http.Request) {
 	})
 	if len(form.Fields) > 0 {
 		response.WriteFieldsError(r.Context(), w, http.StatusBadRequest, models.CodeValidationFailed, models.MsgValidationFailed, form.Fields)
+		return
+	}
+	if !h.checkAccess.authorize(w, r, session.ID, requestedID) {
 		return
 	}
 
@@ -143,6 +152,9 @@ func (h *ProfileHandler) UploadAvatar(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
+	if !h.checkAccess.authorize(w, r, session.ID, requestedID) {
+		return
+	}
 
 	user, err := h.usecase.UploadAvatar(
 		r.Context(),
@@ -169,6 +181,10 @@ type updateRequest struct {
 	DisplayName string `json:"display_name"`
 }
 
+func (check CheckAccess) authorize(w http.ResponseWriter, r *http.Request, sessionID models.SessionID, id models.UserID) bool {
+	return writeProfileError(r.Context(), w, check(r.Context(), sessionID, id), "проверка доступа к профилю")
+}
+
 func parseUserID(w http.ResponseWriter, r *http.Request) (models.UserID, bool) {
 	id, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {
@@ -188,7 +204,7 @@ func writeProfileError(ctx context.Context, w http.ResponseWriter, err error, ca
 		response.WriteFieldsError(ctx, w, http.StatusBadRequest, models.CodeValidationFailed, models.MsgValidationFailed, validationErr.Fields)
 	case errors.Is(err, models.ErrForbidden):
 		response.WriteError(ctx, w, http.StatusForbidden, models.CodeForbidden, models.MsgForbidden)
-	case errors.Is(err, models.ErrUnauthorized):
+	case errors.Is(err, models.ErrUnauthorized), errors.Is(err, models.ErrSessionNotFound), errors.Is(err, models.ErrSessionExpired):
 		response.WriteError(ctx, w, http.StatusUnauthorized, models.CodeUnauthorized, models.MsgUnauthorized)
 	case errors.Is(err, models.ErrEmailTaken):
 		response.WriteError(ctx, w, http.StatusConflict, models.CodeEmailTaken, models.MsgEmailTaken)

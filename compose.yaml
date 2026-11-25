@@ -36,12 +36,38 @@ services:
         condition: service_healthy
     restart: "no"
 
+  auth:
+    <<: *backend
+    entrypoint: ["/app/auth"]
+    command: []
+    environment:
+      <<: *database-connection
+      AUTH_GRPC_ADDR: ":50051"
+      AUTH_METRICS_ADDR: ":9092"
+      APP_SESSION_TTL: ${APP_SESSION_TTL:-24h}
+      APP_SHUTDOWN_TIMEOUT: ${APP_SHUTDOWN_TIMEOUT:-10s}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      LOG_FORMAT: ${LOG_FORMAT:-json}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test: ["CMD", "/app/auth", "-check", "127.0.0.1:50051"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+      start_period: 5s
+    stop_grace_period: 15s
+    restart: unless-stopped
+
   server:
     <<: *backend
     command: ["server"]
     environment:
       <<: *database-connection
       APP_ADDR: ":8080"
+      AUTH_GRPC_TARGET: "auth:50051"
+      APP_METRICS_ADDR: ":9091"
       MEDIA_ROOT: /app/media
       APP_ALLOWED_ORIGIN: ${APP_ALLOWED_ORIGIN:-}
       APP_COOKIE_SECURE: ${APP_COOKIE_SECURE:-false}
@@ -56,8 +82,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
-      migrate:
-        condition: service_completed_successfully
+      auth:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "wget", "--spider", "--quiet", "http://127.0.0.1:8080/health"]
       interval: 10s

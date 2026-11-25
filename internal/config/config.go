@@ -13,7 +13,6 @@ type Config struct {
 	LogLevel        string
 	LogFormat       string
 	Addr            string
-	MetricsAddr     string
 	AllowedOrigin   string // Пустое значение означает отсутствие отдельного origin для фронтенда.
 	AllowedMethods  string
 	AllowedHeaders  string
@@ -22,20 +21,27 @@ type Config struct {
 	ShutdownTimeout time.Duration
 	PostgreSQLDSN   string
 	MediaRoot       string
+	AuthTarget      string
+	AuthListenAddr  string
+	MetricsAddr     string
+	AuthMetricsAddr string
 }
 
 // Load читает настройки из окружения и возвращает ошибку при неверном формате значения.
 func Load() (cfg Config, err error) {
 	cfg = Config{
-		LogLevel:       getEnv("LOG_LEVEL", "info"),
-		LogFormat:      getEnv("LOG_FORMAT", "json"),
-		Addr:           getEnv("APP_ADDR", ":8080"),
-		MetricsAddr:    getEnv("APP_METRICS_ADDR", ""),
-		AllowedOrigin:  getEnv("APP_ALLOWED_ORIGIN", ""),
-		AllowedMethods: getEnv("APP_ALLOWED_METHODS", "GET, POST, PUT, DELETE, OPTIONS"),
-		AllowedHeaders: getEnv("APP_ALLOWED_HEADERS", "Content-Type, X-CSRF-Token"),
-		PostgreSQLDSN:  getEnv("POSTGRES_DSN", ""),
-		MediaRoot:      getEnv("MEDIA_ROOT", "data/media"),
+		LogLevel:        getEnv("LOG_LEVEL", "info"),
+		LogFormat:       getEnv("LOG_FORMAT", "json"),
+		Addr:            getEnv("APP_ADDR", ":8080"),
+		AllowedOrigin:   getEnv("APP_ALLOWED_ORIGIN", ""),
+		AllowedMethods:  getEnv("APP_ALLOWED_METHODS", "GET, POST, PUT, DELETE, OPTIONS"),
+		AllowedHeaders:  getEnv("APP_ALLOWED_HEADERS", "Content-Type, X-CSRF-Token"),
+		PostgreSQLDSN:   getEnv("POSTGRES_DSN", ""),
+		MediaRoot:       getEnv("MEDIA_ROOT", "data/media"),
+		AuthTarget:      getEnv("AUTH_GRPC_TARGET", "127.0.0.1:50051"),
+		AuthListenAddr:  getEnv("AUTH_GRPC_ADDR", "127.0.0.1:50051"),
+		MetricsAddr:     getEnv("APP_METRICS_ADDR", ""),
+		AuthMetricsAddr: getEnv("AUTH_METRICS_ADDR", "127.0.0.1:9092"),
 	}
 
 	cfg.CookieSecure, err = getBool("APP_COOKIE_SECURE", false)

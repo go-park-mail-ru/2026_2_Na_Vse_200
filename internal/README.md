@@ -1,13 +1,15 @@
 ﻿# Разработка
 
-Быстрый запуск — в [основном README](../README.md), тесты и покрытие — в [tests/README.md](../tests/README.md).
+Тесты и покрытие описаны в [tests/README.md](../tests/README.md).
 
 ## Структура
 
 | Каталог | Назначение |
 |---|---|
 | `cmd/app` | Точка входа, команды `server` и `migrate` |
-| `internal/app` | Сборка зависимостей и запуск сервера |
+| `cmd/auth` | Точка входа сервиса сессий и проверки доступа |
+| `api/auth/v1` | Контракт Auth gRPC и сгенерированный Go-код |
+| `internal/app` | Сборка зависимостей и запуск HTTP и Auth |
 | `internal/delivery` | HTTP-обработчики, маршруты, middleware и JSON-ответы |
 | `internal/usecase` | Бизнес-логика |
 | `internal/usecase/ports` | Интерфейсы зависимостей и директивы генерации моков |
@@ -22,9 +24,9 @@
 | `internal/migration` | Выполнение миграций |
 | `db/migrations` | SQL-миграции |
 
-Запрос проходит через обработчик, usecase и репозиторий. Usecase работает через интерфейсы и не зависит от HTTP или драйвера БД. Зависимости собираются в `internal/app`.
+HTTP-сервер вызывает Auth по gRPC для выдачи, проверки и отзыва сессий, а также для проверки доступа к профилю. Обработчики плейлистов получают идентификатор пользователя из проверенной сессии и работают с плейлистами этого пользователя.
 
-Ошибки авторизации и HTTP-запросы логируются через `slog`. SQL-запросы логирует `QueryTracer` в `internal/repository/postgres`: текст запроса, длительность, число строк и SQLSTATE при ошибке PostgreSQL. Параметры SQL не выводятся. Логи обработки одного HTTP-запроса связаны общим `request_id`.
+HTTP и Auth пишут структурированные логи через zerolog. HTTP `X-Request-ID` передаётся в gRPC metadata под именем `request_id` и связывает логи обоих процессов.
 
 ## Запуск без Docker
 
@@ -32,6 +34,12 @@
 
 ```bash
 go run ./cmd/app migrate up
+go run ./cmd/auth
+```
+
+В другом терминале с тем же `POSTGRES_DSN` и `APP_SESSION_TTL` запустите HTTP-сервер.
+
+```bash
 go run ./cmd/app server
 ```
 
@@ -43,6 +51,10 @@ go run ./cmd/app server
 |---|---|---|
 | `POSTGRES_DSN` | обязательно | Подключение к PostgreSQL |
 | `APP_ADDR` | `:8080` | Адрес HTTP-сервера |
+| `AUTH_GRPC_ADDR` | `127.0.0.1:50051` | Адрес gRPC-сервера Auth |
+| `AUTH_GRPC_TARGET` | `127.0.0.1:50051` | Адрес Auth для HTTP-сервера |
+| `APP_METRICS_ADDR` | Пусто | Адрес общих HTTP- и gRPC-метрик HTTP-сервера. Пустое значение отключает endpoint при локальном запуске. |
+| `AUTH_METRICS_ADDR` | `127.0.0.1:9092` | Адрес метрик Auth |
 | `APP_ALLOWED_ORIGIN` | пусто | Разрешённый origin фронтенда для CORS |
 | `APP_ALLOWED_METHODS` | `GET, POST, PUT, DELETE, OPTIONS` | Методы для CORS |
 | `APP_ALLOWED_HEADERS` | `Content-Type, X-CSRF-Token` | Заголовки для CORS |
@@ -66,10 +78,24 @@ docker compose up --build -d
 ```bash
 docker compose run --rm migrate version
 docker compose logs migrate
-docker compose logs -f server
+docker compose logs -f server auth
 ```
 
 Порты меняются через `DOCKER_HTTP_PORT` и `DOCKER_POSTGRES_PORT`. PostgreSQL хранится в именованном volume, медиа — в каталоге `media/`, подключённом к контейнеру. Подробности — в [инструкции БД](../db/README.md).
+
+Auth использует доверенное внутреннее соединение. В Compose HTTP-сервер отдаёт HTTP- и gRPC-метрики вместе на `server:9091/metrics`. Конфигурация мониторинга переносит этот endpoint на `server:9090/metrics`, откуда его опрашивает Prometheus. Метрики самого Auth доступны на `auth:9092/metrics`.
+
+## Генерация контракта Auth
+
+Из корня репозитория запустите следующие команды с `protoc` 34.1. Каталог `bin` из официального дистрибутива `protoc` и каталог Go-бинарников должны быть в `PATH`.
+
+```text
+go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.11
+go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.6.0
+protoc -I . --go_out=. --go_opt=paths=source_relative --go-grpc_out=. --go-grpc_opt=paths=source_relative api/auth/v1/auth.proto
+```
+
+Сгенерированные `auth.pb.go` и `auth_grpc.pb.go` хранятся рядом с контрактом. Если `protoc` не находит стандартные импорты Google, передайте дополнительный `-I` с путём к каталогу `include` из дистрибутива.
 
 ## Проверки перед PR
 

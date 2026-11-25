@@ -33,6 +33,10 @@ func NewHTTPMetrics(service string) *HTTPMetrics {
 	return metrics
 }
 
+func (m *HTTPMetrics) Gatherer() prometheus.Gatherer {
+	return m.registry
+}
+
 func (m *HTTPMetrics) Handler() http.Handler {
 	return promhttp.HandlerFor(m.registry, promhttp.HandlerOpts{})
 }

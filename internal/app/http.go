@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"2026_2_Na_Vse_200/internal/auth"
+	"2026_2_Na_Vse_200/internal/authrpc"
 	"2026_2_Na_Vse_200/internal/config"
 	"2026_2_Na_Vse_200/internal/delivery/handlers"
 	"2026_2_Na_Vse_200/internal/delivery/handlers/media"
@@ -25,7 +26,13 @@ import (
 	"github.com/rs/zerolog"
 )
 
-func newHandler(cfg config.Config, pool *pgxpool.Pool, sessions *postgres.SessionRepo, logger zerolog.Logger, metrics *middleware.HTTPMetrics) (http.Handler, error) {
+func newHandler(
+	cfg config.Config,
+	pool *pgxpool.Pool,
+	sessions *authrpc.Client,
+	logger zerolog.Logger,
+	metrics *middleware.HTTPMetrics,
+) (http.Handler, error) {
 	blobs, err := storage.NewLocal(cfg.MediaRoot)
 	if err != nil {
 		return nil, err
@@ -36,22 +43,21 @@ func newHandler(cfg config.Config, pool *pgxpool.Pool, sessions *postgres.Sessio
 	catalog := postgres.NewCatalogRepo(pool)
 	tracks := postgres.NewTrackRepo(pool)
 	api := handlers.New(&cfg, &handlers.Deps{
-		Favorites: tracks,
-		Music:     catalog,
-		Playlists: playlist.New(postgres.NewPlaylistRepo(pool, blobs), blobs),
-		Account:   accountusecase.NewAccountUsecase(users, users, auth.NewBcryptHasher()),
-		Auth: authusecase.NewAuthUsecase(
-			users, sessions, auth.NewBcryptHasher(), auth.NewSessionID, time.Now, cfg.SessionTTL,
-		),
-		Catalog: catalogusecase.New(catalog),
-		Profile: profileusecase.NewProfileUsecase(users, users, blobs),
-		Artist:  artistusecase.NewArtistUsecase(postgres.NewArtistRepo(pool)),
-		Media:   media.NewMediaHandler(mediaRepo, blobs, tracks),
+		Favorites:          tracks,
+		Music:              catalog,
+		Playlists:          playlist.New(postgres.NewPlaylistRepo(pool, blobs), blobs),
+		Account:            accountusecase.NewAccountUsecase(users, users, auth.NewBcryptHasher()),
+		Auth:               authusecase.NewAuthUsecase(users, sessions, auth.NewBcryptHasher()),
+		CheckProfileAccess: sessions.CheckProfileAccess,
+		Catalog:            catalogusecase.New(catalog),
+		Profile:            profileusecase.NewProfileUsecase(users, users, blobs),
+		Artist:             artistusecase.NewArtistUsecase(postgres.NewArtistRepo(pool)),
+		Media:              media.NewMediaHandler(mediaRepo, blobs, tracks),
 	})
 	return metrics.Wrap(
 		api.Routes(),
 		middleware.WithRequestID,
-		middleware.WithLogging(logger, "monolith/middleware"),
+		middleware.WithLogging(logger, "http/middleware"),
 		middleware.WithRecover(),
 		middleware.WithCORS(cfg.AllowedOrigin, cfg.AllowedMethods, cfg.AllowedHeaders),
 		middleware.WithCSRF,
@@ -73,7 +79,7 @@ func newServer(addr string, handler http.Handler) *http.Server {
 func serve(ctx context.Context, server *http.Server, timeout time.Duration, logger zerolog.Logger) error {
 	serverErrors := make(chan error, 1)
 	go func() {
-		logger.Info().Str("addr", server.Addr).Str("handled_by", "monolith/server").Msg("запуск сервера")
+		logger.Info().Str("addr", server.Addr).Msg("запуск HTTP-сервера")
 		err := server.ListenAndServe()
 		if errors.Is(err, http.ErrServerClosed) {
 			err = nil

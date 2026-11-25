@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"time"
 
 	"github.com/rs/zerolog"
 
@@ -40,37 +39,24 @@ type Result struct {
 
 // Usecase выполняет сценарии авторизации через переданные зависимости.
 type Usecase struct {
-	users        ports.UserRepository
-	sessions     ports.SessionRepository
-	hasher       ports.PasswordHasher
-	newSessionID func() models.SessionID
-	now          func() time.Time
-	ttl          time.Duration
+	users    ports.UserRepository
+	sessions Sessions
+	hasher   ports.PasswordHasher
 }
 
 func NewAuthUsecase(
 	users ports.UserRepository,
-	sessions ports.SessionRepository,
+	sessions Sessions,
 	hasher ports.PasswordHasher,
-	newSessionID func() models.SessionID,
-	now func() time.Time,
-	ttl time.Duration,
 ) *Usecase {
-	return &Usecase{
-		users:        users,
-		sessions:     sessions,
-		hasher:       hasher,
-		newSessionID: newSessionID,
-		now:          now,
-		ttl:          ttl,
-	}
+	return &Usecase{users: users, sessions: sessions, hasher: hasher}
 }
 
 func (u *Usecase) signIn(ctx context.Context, user models.User) (Result, error) {
 	log := zerolog.Ctx(ctx)
 	log.Info().Str("layer", "usecase").Str("operation", "auth.sign_in").Msg("начало сценария")
-	session := models.Session{ID: u.newSessionID(), UserID: user.ID, ExpiresAt: u.now().Add(u.ttl)}
-	if err := u.sessions.Create(ctx, session); err != nil {
+	session, err := u.sessions.CreateSession(ctx, user.ID)
+	if err != nil {
 		log.Error().Err(err).Str("user_id", string(user.ID)).Msg("auth.signIn: создание сессии")
 		return Result{}, fmt.Errorf("create session: %w", err)
 	}
@@ -136,10 +122,7 @@ func (u *Usecase) Login(ctx context.Context, in LoginInput) (Result, error) {
 func (u *Usecase) SessionByID(ctx context.Context, id models.SessionID) (models.Session, error) {
 	log := zerolog.Ctx(ctx)
 	log.Info().Str("layer", "usecase").Str("operation", "auth.session_by_id").Msg("начало сценария")
-	if id == "" {
-		return models.Session{}, models.ErrSessionNotFound
-	}
-	session, err := u.sessions.GetByID(ctx, id)
+	session, err := u.sessions.GetSession(ctx, id)
 	if errors.Is(err, models.ErrSessionNotFound) || errors.Is(err, models.ErrSessionExpired) {
 		log.Info().Err(err).Msg("auth.SessionByID: сессия недоступна")
 		return models.Session{}, err
@@ -147,10 +130,6 @@ func (u *Usecase) SessionByID(ctx context.Context, id models.SessionID) (models.
 	if err != nil {
 		log.Error().Err(err).Msg("auth.SessionByID: чтение сессии")
 		return models.Session{}, fmt.Errorf("read session: %w", err)
-	}
-	if session.IsExpired(u.now()) {
-		log.Info().Msg("auth.SessionByID: сессия истекла")
-		return models.Session{}, models.ErrSessionExpired
 	}
 	return session, nil
 }
@@ -185,7 +164,7 @@ func (u *Usecase) Logout(ctx context.Context, id models.SessionID) error {
 	if id == "" {
 		return nil
 	}
-	if err := u.sessions.Delete(ctx, id); err != nil {
+	if err := u.sessions.DeleteSession(ctx, id); err != nil {
 		log.Error().Err(err).Msg("auth.Logout: удаление сессии")
 		return fmt.Errorf("delete session: %w", err)
 	}

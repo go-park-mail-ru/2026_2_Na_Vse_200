@@ -96,7 +96,7 @@ docker compose ps -a
 docker compose logs migrate
 ```
 
-Compose запускает PostgreSQL, затем миграции и сервер. Успешно завершившийся контейнер `migrate` со статусом `Exited (0)` — нормальный результат. Сервер не стартует, если миграции завершились ошибкой. API доступно на `http://localhost:8080`; порт API и порт PostgreSQL можно изменить через `DOCKER_HTTP_PORT` и `DOCKER_POSTGRES_PORT`. Для локальной разработки используется пароль `DOCKER_POSTGRES_PASSWORD` (по умолчанию `music_local_dev`).
+Compose запускает PostgreSQL, применяет миграции и ждёт готовности Auth по gRPC перед стартом HTTP-сервера. Успешно завершившийся контейнер `migrate` со статусом `Exited (0)` — нормальный результат. API доступно на `http://localhost:8080`. Порт API и порт PostgreSQL можно изменить через `DOCKER_HTTP_PORT` и `DOCKER_POSTGRES_PORT`. Для локальной разработки используется пароль `DOCKER_POSTGRES_PASSWORD` (по умолчанию `music_local_dev`).
 
 ### Команды миграций в Docker
 

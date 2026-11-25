@@ -8,9 +8,11 @@ COPY go.mod go.sum ./
 RUN go mod download
 
 COPY cmd ./cmd
+COPY api ./api
 COPY internal ./internal
 COPY db/migrations ./db/migrations
 RUN go build -trimpath -ldflags="-s -w" -o /out/app ./cmd/app
+RUN go build -trimpath -ldflags="-s -w" -o /out/auth ./cmd/auth
 
 FROM alpine:3.24 AS runtime
 RUN apk add --no-cache ca-certificates \
@@ -20,7 +22,7 @@ RUN apk add --no-cache ca-certificates \
     && chown -R app:app /data/media
 
 WORKDIR /app
-COPY --from=build /out/app ./
+COPY --from=build /out/ ./
 RUN mkdir -p /app/media && chown app:app /app/media
 USER app:app
 

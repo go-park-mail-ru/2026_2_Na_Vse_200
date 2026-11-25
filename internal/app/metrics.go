@@ -1,32 +1,37 @@
 package app
 
 import (
-	"errors"
+	"context"
 	"fmt"
-	"net"
-	"net/http"
 	"time"
 
+	"2026_2_Na_Vse_200/internal/rpcmetrics"
 	"github.com/rs/zerolog"
+	"golang.org/x/sync/errgroup"
 )
 
-func startMetrics(addr string, handler http.Handler, logger zerolog.Logger) (func(), error) {
-	listener, err := net.Listen("tcp", addr)
-	if err != nil {
-		return nil, fmt.Errorf("запуск сервера метрик: %w", err)
-	}
-	mux := http.NewServeMux()
-	mux.Handle("GET /metrics", handler)
-	server := &http.Server{Handler: mux, ReadHeaderTimeout: 3 * time.Second, WriteTimeout: 10 * time.Second}
-	done := make(chan struct{})
-	go func() {
-		defer close(done)
-		if err := server.Serve(listener); err != nil && !errors.Is(err, http.ErrServerClosed) {
-			logger.Error().Err(err).Msg("сервер метрик остановлен с ошибкой")
+func runWithMetrics(
+	ctx context.Context,
+	addr string,
+	metrics *rpcmetrics.Metrics,
+	timeout time.Duration,
+	logger zerolog.Logger,
+	run func(context.Context) error,
+) error {
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+	group, ctx := errgroup.WithContext(ctx)
+	group.Go(func() error {
+		server := newServer(addr, metrics.Handler())
+		server.WriteTimeout = 5 * time.Second
+		if err := serve(ctx, server, timeout, logger); err != nil {
+			return fmt.Errorf("сервер метрик: %w", err)
 		}
-	}()
-	return func() {
-		_ = server.Close()
-		<-done
-	}, nil
+		return nil
+	})
+	group.Go(func() error {
+		defer cancel()
+		return run(ctx)
+	})
+	return group.Wait()
 }

@@ -49,7 +49,8 @@ func (h hasherStub) Hash(v string) (string, error)       { return h.hash(v) }
 func (h hasherStub) Verify(v, hash string) (bool, error) { return h.verify(v, hash) }
 
 func newUsecase(users ports.UserRepository, sessions ports.SessionRepository, hasher ports.PasswordHasher) *Usecase {
-	return NewAuthUsecase(users, sessions, hasher, func() models.SessionID { return "session" }, func() time.Time { return time.Unix(1000, 0) }, time.Hour)
+	manager := NewSessionManager(sessions, func() models.SessionID { return "session" }, func() time.Time { return time.Unix(1000, 0) }, time.Hour)
+	return NewAuthUsecase(users, manager, hasher)
 }
 
 func TestSignupNormalizesAndCreatesSession(t *testing.T) {
