@@ -75,35 +75,6 @@ func (r *TrackRepo) GetAudio(ctx context.Context, id models.TrackID) (models.Med
 	return file, err
 }
 
-// FavoriteIDs возвращает ID опубликованных треков из избранного пользователя.
-func (r *TrackRepo) FavoriteIDs(ctx context.Context, account models.UserID) ([]string, error) {
-	ctx = withDBOperation(ctx, "favorites.list")
-	const query = `
-	 SELECT f.track_id::text
-	 FROM favorite_track f
-	 JOIN track t ON t.id = f.track_id
-	 WHERE f.account_id = $1::uuid AND t.status = 'published'
-	 ORDER BY f.track_id`
-
-	rows, err := r.pool.Query(ctx, query, string(account))
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-
-	ids := make([]string, 0)
-	for rows.Next() {
-		var id string
-		if err := rows.Scan(&id); err != nil {
-			return nil, err
-		}
-
-		ids = append(ids, id)
-	}
-
-	return ids, rows.Err()
-}
-
 func (r *TrackRepo) SetFavorite(ctx context.Context, account models.UserID, track models.TrackID, liked bool) error {
 	ctx = withDBOperation(ctx, "favorites.set")
 	return pgx.BeginFunc(ctx, r.pool, func(tx pgx.Tx) error {

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"os"
+	"strings"
 	"uuid"
 
 	"github.com/rs/zerolog"
@@ -42,6 +43,10 @@ func (h *MediaHandler) Get(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	file, err := h.media.GetByID(r.Context(), models.MediaFileID(id.String()))
+	if err == nil && strings.HasPrefix(file.StorageKey, models.PlaylistCoverPrefix) {
+		http.NotFound(w, r)
+		return
+	}
 	h.serve(w, r, file, err)
 }
 func (h *MediaHandler) Audio(w http.ResponseWriter, r *http.Request) {

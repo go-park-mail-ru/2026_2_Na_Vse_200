@@ -31,8 +31,8 @@ func (h *Handler) Home(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	response.WriteJSON(r.Context(), w, http.StatusOK, homeResponse{
-		Tracks:  newTrackResponses(result.Tracks),
-		Artists: newArtistResponses(result.Artists),
-		Albums:  newAlbumResponses(result.Albums),
+		Tracks:  NewTrackResponses(result.Tracks),
+		Artists: NewArtistResponses(result.Artists),
+		Albums:  NewAlbumResponses(result.Albums),
 	})
 }

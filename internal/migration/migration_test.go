@@ -76,7 +76,7 @@ func TestEmbeddedMigrationsRoundTrip(t *testing.T) {
 		t.Fatal(err)
 	}
 	version, dirty, err := runner.Version()
-	if err != nil || version != 6 || dirty {
+	if err != nil || version != 7 || dirty {
 		t.Fatalf("version=%d dirty=%t error=%v", version, dirty, err)
 	}
 	if err := applyMigrations(ctx, runner, command{action: "up"}); err != nil {
@@ -86,12 +86,38 @@ func TestEmbeddedMigrationsRoundTrip(t *testing.T) {
 		t.Fatal(err)
 	}
 	version, dirty, err = runner.Version()
-	if err != nil || version != 5 || dirty {
+	if err != nil || version != 6 || dirty {
 		t.Fatalf("version=%d dirty=%t error=%v", version, dirty, err)
+	}
+	if _, err := db.ExecContext(ctx, `
+		WITH uploader AS (SELECT id FROM account LIMIT 1),
+		audio AS (
+			INSERT INTO media_file (storage_key, mime_type, byte_size, duration_ms)
+			VALUES ('audio/migration.wav', 'audio/wav', 16, 1000) RETURNING id
+		),
+		t AS (
+			INSERT INTO track (uploader_id, title, audio_file_id)
+			SELECT uploader.id, 'Migration track', audio.id FROM uploader CROSS JOIN audio RETURNING id
+		),
+		p AS (
+			INSERT INTO playlist (owner_id, title) SELECT id, 'Migration playlist' FROM uploader RETURNING id
+		)
+		INSERT INTO playlist_item (playlist_id, track_id, position)
+		SELECT p.id, t.id, position FROM p CROSS JOIN t CROSS JOIN (VALUES (2), (5)) AS positions(position)
+	`); err != nil {
+		t.Fatal(err)
 	}
 	if err := applyMigrations(ctx, runner, command{action: "up"}); err != nil {
 		t.Fatal(err)
 	}
+	var count, position int
+	if err := db.QueryRowContext(ctx, "SELECT count(*), min(position) FROM playlist_item").Scan(&count, &position); err != nil {
+		t.Fatal(err)
+	}
+	if count != 1 || position != 2 {
+		t.Fatalf("expected one row at original position 2, got count=%d position=%d", count, position)
+	}
+
 }
 
 func TestFailedMigrationRollsBack(t *testing.T) {
