@@ -18,7 +18,7 @@ func Run(ctx context.Context, cfg config.Config) error {
 		return err
 	}
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
-	pool, err := connectPostgres(ctx, cfg.PostgreSQLDSN, logger)
+	pool, err := connectPostgres(ctx, cfg.PostgreSQLDSN, cfg.PoolAcquireTimeout, logger)
 	if err != nil {
 		return err
 	}
@@ -44,7 +44,7 @@ func Run(ctx context.Context, cfg config.Config) error {
 	return serve(ctx, server, cfg.ShutdownTimeout, logger)
 }
 
-func connectPostgres(ctx context.Context, dsn string, logger *slog.Logger) (*pgxpool.Pool, error) {
+func connectPostgres(ctx context.Context, dsn string, acquireTimeout time.Duration, logger *slog.Logger) (*pgxpool.Pool, error) {
 	if dsn == "" {
 		return nil, errors.New("конфигурация: POSTGRES_DSN не задан")
 	}
@@ -52,7 +52,7 @@ func connectPostgres(ctx context.Context, dsn string, logger *slog.Logger) (*pgx
 	if err != nil {
 		return nil, fmt.Errorf("postgresql: %w", err)
 	}
-	poolConfig.ConnConfig.Tracer = &postgres.QueryTracer{Log: logger}
+	poolConfig.ConnConfig.Tracer = &postgres.QueryTracer{Log: logger, AcquireTimeout: acquireTimeout}
 	pool, err := pgxpool.NewWithConfig(ctx, poolConfig)
 	if err != nil {
 		return nil, fmt.Errorf("postgresql: %w", err)

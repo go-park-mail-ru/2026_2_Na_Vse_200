@@ -1,7 +1,5 @@
 BEGIN;
 SET LOCAL application_name = 'music-check-lock-waiter';
-SET LOCAL statement_timeout = '15s';
-SET LOCAL lock_timeout = '10s';
 
 DO $$
 BEGIN

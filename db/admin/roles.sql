@@ -108,4 +108,9 @@ ALTER ROLE music_monitor IN DATABASE music SET search_path = pg_catalog;
 ALTER ROLE music_monitor IN DATABASE music SET statement_timeout = '5s';
 ALTER ROLE music_monitor IN DATABASE music SET default_transaction_read_only = on;
 
+CREATE SCHEMA IF NOT EXISTS db_metrics;
+REVOKE ALL ON SCHEMA db_metrics FROM PUBLIC;
+GRANT USAGE ON SCHEMA db_metrics TO music_monitor;
+CREATE EXTENSION IF NOT EXISTS pg_stat_statements WITH SCHEMA db_metrics;
+
 COMMIT;

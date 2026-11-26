@@ -19,7 +19,7 @@ x-pg-client: &pg-client
 services:
   db:
     image: postgres:18-alpine
-    command: ["postgres", "-c", "config_file=/etc/postgresql/music.conf"]
+    command: ["postgres", "-c", "config_file=/etc/postgresql/music.conf", "-c", "hba_file=/etc/postgresql/music_hba.conf"]
     environment:
       POSTGRES_USER: music
       POSTGRES_DB: music
@@ -30,6 +30,8 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql
       - ./db/admin/postgresql.conf:/etc/postgresql/music.conf:ro
+      - ./db/admin/diagnostics.conf:/etc/postgresql/diagnostics.conf:ro
+      - ./db/admin/pg_hba.conf:/etc/postgresql/music_hba.conf:ro
     logging:
       driver: json-file
       options:
@@ -56,6 +58,7 @@ services:
       MUSIC_MONITOR_PASSWORD: ${MUSIC_MONITOR_PASSWORD:-music_monitor_local_dev}
     volumes:
       - ./db/admin/roles.sql:/admin/roles.sql:ro
+      - ./db/checks:/checks:ro
     depends_on:
       db:
         condition: service_healthy
@@ -92,6 +95,7 @@ services:
     environment:
       POSTGRES_DSN: "postgres://music_api@db:5432/music?sslmode=disable&application_name=music-api&connect_timeout=5&pool_max_conns=${MUSIC_API_POOL_MAX_CONNS:-8}"
       PGPASSWORD: ${MUSIC_API_PASSWORD:-music_api_local_dev}
+      MUSIC_API_POOL_ACQUIRE_TIMEOUT: ${MUSIC_API_POOL_ACQUIRE_TIMEOUT:-250ms}
       APP_ADDR: ":8080"
       MEDIA_ROOT: /app/media
       APP_ALLOWED_ORIGIN: ${APP_ALLOWED_ORIGIN:-}
