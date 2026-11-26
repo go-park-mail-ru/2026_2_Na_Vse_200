@@ -12,6 +12,7 @@ import (
 	"uuid"
 
 	"2026_2_Na_Vse_200/auth-microservice/repository"
+	"2026_2_Na_Vse_200/auth-microservice/sessions"
 	"2026_2_Na_Vse_200/db/migrations"
 	"2026_2_Na_Vse_200/internal/models"
 	"2026_2_Na_Vse_200/internal/repository/postgres"
@@ -41,18 +42,19 @@ func TestSessionRepository(t *testing.T) {
 		if err != nil {
 			t.Fatalf("GetByID through a new pool: %v", err)
 		}
-		if got.ID != session.ID || got.UserID != session.UserID || !got.ExpiresAt.Equal(session.ExpiresAt) {
+		if got.ID != session.ID || got.UserID != session.UserID ||
+			got.CredentialVersion != session.CredentialVersion || !got.ExpiresAt.Equal(session.ExpiresAt) {
 			t.Fatalf("stored session = %+v, want %+v", got, session)
 		}
 	})
 
 	t.Run("unknown and malformed IDs", func(t *testing.T) {
-		for _, id := range []models.SessionID{models.SessionID(uuid.New().String()), "invalid-session", ""} {
+		for _, id := range []sessions.SessionID{sessions.SessionID(uuid.New().String()), "invalid-session", ""} {
 			got, err := repo.GetByID(ctx, id)
-			if !errors.Is(err, models.ErrSessionNotFound) {
+			if !errors.Is(err, sessions.ErrSessionNotFound) {
 				t.Errorf("GetByID(%q): %v, want ErrSessionNotFound", id, err)
 			}
-			if got != (models.Session{}) {
+			if got != (sessions.Session{}) {
 				t.Errorf("GetByID(%q) returned a session on failure: %+v", id, got)
 			}
 			if err := repo.Delete(ctx, id); err != nil {
@@ -68,10 +70,10 @@ func TestSessionRepository(t *testing.T) {
 			t.Fatalf("Create expired session: %v", err)
 		}
 		got, err := repo.GetByID(ctx, session.ID)
-		if !errors.Is(err, models.ErrSessionExpired) {
+		if !errors.Is(err, sessions.ErrSessionExpired) {
 			t.Fatalf("GetByID expired: %v, want ErrSessionExpired", err)
 		}
-		if got != (models.Session{}) {
+		if got != (sessions.Session{}) {
 			t.Fatalf("expired session leaked to caller: %+v", got)
 		}
 
@@ -80,7 +82,7 @@ func TestSessionRepository(t *testing.T) {
 		if _, err := pool.Exec(ctx, boundaryQuery, string(session.ID)); err != nil {
 			t.Fatalf("set expiry to database time: %v", err)
 		}
-		if _, err := repo.GetByID(ctx, session.ID); !errors.Is(err, models.ErrSessionExpired) {
+		if _, err := repo.GetByID(ctx, session.ID); !errors.Is(err, sessions.ErrSessionExpired) {
 			t.Fatalf("session whose deadline has been reached: %v, want ErrSessionExpired", err)
 		}
 	})
@@ -94,7 +96,7 @@ func TestSessionRepository(t *testing.T) {
 		if err := repo.Delete(ctx, session.ID); err != nil {
 			t.Fatalf("Delete: %v", err)
 		}
-		if _, err := repo.GetByID(ctx, session.ID); !errors.Is(err, models.ErrSessionNotFound) {
+		if _, err := repo.GetByID(ctx, session.ID); !errors.Is(err, sessions.ErrSessionNotFound) {
 			t.Fatalf("GetByID after logout: %v, want ErrSessionNotFound", err)
 		}
 		if err := repo.Delete(ctx, session.ID); err != nil {
@@ -106,21 +108,21 @@ func TestSessionRepository(t *testing.T) {
 		owner := sessionTestUser(t, pool)
 		active := sessionTestValue(owner.ID, time.Now().Add(time.Hour))
 		expired := sessionTestValue(owner.ID, time.Now().Add(-time.Hour))
-		for _, session := range []models.Session{active, expired} {
+		for _, session := range []sessions.Session{active, expired} {
 			if err := repo.Create(ctx, session); err != nil {
 				t.Fatalf("Create: %v", err)
 			}
 		}
-		if err := repo.DeleteExpired(ctx); err != nil {
-			t.Fatalf("DeleteExpired: %v", err)
+		if err := repo.DeleteInactive(ctx); err != nil {
+			t.Fatalf("DeleteInactive: %v", err)
 		}
 		if _, err := repo.GetByID(ctx, active.ID); err != nil {
 			t.Fatalf("active session must survive cleanup: %v", err)
 		}
-		if _, err := repo.GetByID(ctx, expired.ID); !errors.Is(err, models.ErrSessionNotFound) {
+		if _, err := repo.GetByID(ctx, expired.ID); !errors.Is(err, sessions.ErrSessionNotFound) {
 			t.Fatalf("cleaned session: %v, want ErrSessionNotFound", err)
 		}
-		if err := repo.DeleteExpired(ctx); err != nil {
+		if err := repo.DeleteInactive(ctx); err != nil {
 			t.Fatalf("repeated cleanup: %v", err)
 		}
 	})
@@ -133,7 +135,7 @@ func TestSessionRepository(t *testing.T) {
 			t.Fatalf("Create: %v", err)
 		}
 		duplicate := original
-		duplicate.UserID = otherOwner.ID
+		duplicate.UserID = sessions.UserID(otherOwner.ID)
 		duplicate.ExpiresAt = original.ExpiresAt.Add(time.Hour)
 		var pgErr *pgconn.PgError
 		if err := repo.Create(ctx, duplicate); !errors.As(err, &pgErr) || pgErr.Code != "23505" {
@@ -150,9 +152,8 @@ func TestSessionRepository(t *testing.T) {
 
 	t.Run("account foreign key and cascading deletion", func(t *testing.T) {
 		missing := sessionTestValue(models.UserID(uuid.New().String()), time.Now().Add(time.Hour))
-		var pgErr *pgconn.PgError
-		if err := repo.Create(ctx, missing); !errors.As(err, &pgErr) || pgErr.Code != "23503" {
-			t.Fatalf("Create with unknown account: %v, want foreign key violation", err)
+		if err := repo.Create(ctx, missing); !errors.Is(err, sessions.ErrCredentialsChanged) {
+			t.Fatalf("Create with unknown account: %v, want ErrCredentialsChanged", err)
 		}
 		owner := sessionTestUser(t, pool)
 		session := sessionTestValue(owner.ID, time.Now().Add(time.Hour))
@@ -163,7 +164,7 @@ func TestSessionRepository(t *testing.T) {
 		if _, err := pool.Exec(ctx, deleteAccountQuery, string(owner.ID)); err != nil {
 			t.Fatalf("delete account: %v", err)
 		}
-		if _, err := repo.GetByID(ctx, session.ID); !errors.Is(err, models.ErrSessionNotFound) {
+		if _, err := repo.GetByID(ctx, session.ID); !errors.Is(err, sessions.ErrSessionNotFound) {
 			t.Fatalf("session after account deletion: %v, want ErrSessionNotFound", err)
 		}
 	})
@@ -179,7 +180,7 @@ func TestSessionRepository(t *testing.T) {
 			{"Create", func() error { return repo.Create(canceled, session) }},
 			{"GetByID", func() error { _, err := repo.GetByID(canceled, session.ID); return err }},
 			{"Delete", func() error { return repo.Delete(canceled, session.ID) }},
-			{"DeleteExpired", func() error { return repo.DeleteExpired(canceled) }},
+			{"DeleteInactive", func() error { return repo.DeleteInactive(canceled) }},
 		}
 		for _, check := range checks {
 			if err := check.run(); !errors.Is(err, context.Canceled) {
@@ -200,11 +201,11 @@ func TestSessionRepository(t *testing.T) {
 			{"Create", func() error { return closedRepo.Create(ctx, session) }},
 			{"GetByID", func() error { _, err := closedRepo.GetByID(ctx, session.ID); return err }},
 			{"Delete", func() error { return closedRepo.Delete(ctx, session.ID) }},
-			{"DeleteExpired", func() error { return closedRepo.DeleteExpired(ctx) }},
+			{"DeleteInactive", func() error { return closedRepo.DeleteInactive(ctx) }},
 		}
 		for _, check := range checks {
 			err := check.run()
-			if err == nil || errors.Is(err, models.ErrSessionNotFound) || errors.Is(err, models.ErrSessionExpired) {
+			if err == nil || errors.Is(err, sessions.ErrSessionNotFound) || errors.Is(err, sessions.ErrSessionExpired) {
 				t.Errorf("%s must preserve the database failure, got %v", check.name, err)
 			}
 		}
@@ -212,6 +213,11 @@ func TestSessionRepository(t *testing.T) {
 }
 
 func sessionTestDatabase(t *testing.T) (*pgxpool.Pool, func(*testing.T) *pgxpool.Pool) {
+	t.Helper()
+	return sessionTestDatabaseBefore(t, "")
+}
+
+func sessionTestDatabaseBefore(t *testing.T, before string) (*pgxpool.Pool, func(*testing.T) *pgxpool.Pool) {
 	t.Helper()
 	dsn := os.Getenv("TEST_POSTGRES_DSN")
 	if dsn == "" {
@@ -260,15 +266,23 @@ func sessionTestDatabase(t *testing.T) (*pgxpool.Pool, func(*testing.T) *pgxpool
 		t.Fatalf("find SQL migrations: %v, files=%v", err, files)
 	}
 	for _, file := range files {
-		sql, err := migrations.Files.ReadFile(file)
-		if err != nil {
-			t.Fatalf("read %s: %v", file, err)
+		if file == before {
+			break
 		}
-		if _, err := pool.Exec(ctx, string(sql), pgx.QueryExecModeSimpleProtocol); err != nil {
-			t.Fatalf("apply %s to isolated schema: %v", file, err)
-		}
+		applySessionTestMigration(t, ctx, pool, file)
 	}
 	return pool, openPool
+}
+
+func applySessionTestMigration(t *testing.T, ctx context.Context, pool *pgxpool.Pool, file string) {
+	t.Helper()
+	sql, err := migrations.Files.ReadFile(file)
+	if err != nil {
+		t.Fatalf("read %s: %v", file, err)
+	}
+	if _, err := pool.Exec(ctx, string(sql), pgx.QueryExecModeSimpleProtocol); err != nil {
+		t.Fatalf("apply %s to isolated schema: %v", file, err)
+	}
 }
 
 func sessionTestUser(t *testing.T, pool *pgxpool.Pool) models.User {
@@ -284,10 +298,11 @@ func sessionTestUser(t *testing.T, pool *pgxpool.Pool) models.User {
 	return user
 }
 
-func sessionTestValue(owner models.UserID, expiresAt time.Time) models.Session {
-	return models.Session{
-		ID:        models.SessionID(uuid.New().String()),
-		UserID:    owner,
-		ExpiresAt: expiresAt.UTC().Truncate(time.Microsecond),
+func sessionTestValue(owner models.UserID, expiresAt time.Time) sessions.Session {
+	return sessions.Session{
+		ID:                sessions.SessionID(uuid.New().String()),
+		UserID:            sessions.UserID(owner),
+		ExpiresAt:         expiresAt.UTC().Truncate(time.Microsecond),
+		CredentialVersion: 1,
 	}
 }

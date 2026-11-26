@@ -9,7 +9,7 @@ import (
 	"time"
 
 	"2026_2_Na_Vse_200/internal/config"
-	"2026_2_Na_Vse_200/internal/httpserver"
+	"2026_2_Na_Vse_200/pkg/httpserver"
 
 	"github.com/rs/zerolog"
 )

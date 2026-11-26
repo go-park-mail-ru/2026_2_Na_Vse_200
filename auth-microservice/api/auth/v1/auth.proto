@@ -16,6 +16,7 @@ service AuthService {
 
 message CreateSessionRequest {
   string user_id = 1;
+  int64 credential_version = 2;
 }
 
 message SessionRequest {

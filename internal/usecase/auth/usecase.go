@@ -37,9 +37,11 @@ type Result struct {
 	Session models.Session
 }
 
+//go:generate go run go.uber.org/mock/mockgen@v0.6.0 -destination=mocks/mock_sessions.go -package=mocks . Sessions
+
 // Sessions управляет сессиями для HTTP-сценариев входа и выхода.
 type Sessions interface {
-	CreateSession(context.Context, models.UserID) (models.Session, error)
+	CreateSession(ctx context.Context, userID models.UserID, credentialVersion int64) (models.Session, error)
 	GetSession(context.Context, models.SessionID) (models.Session, error)
 	DeleteSession(context.Context, models.SessionID) error
 }
@@ -62,7 +64,11 @@ func NewAuthUsecase(
 func (u *Usecase) signIn(ctx context.Context, user models.User) (Result, error) {
 	log := zerolog.Ctx(ctx)
 	log.Info().Str("layer", "usecase").Str("operation", "auth.sign_in").Msg("начало сценария")
-	session, err := u.sessions.CreateSession(ctx, user.ID)
+	session, err := u.sessions.CreateSession(ctx, user.ID, user.CredentialVersion)
+	if errors.Is(err, ErrInvalidCredentials) {
+		log.Info().Str("user_id", string(user.ID)).Msg("auth.signIn: учётные данные изменились")
+		return Result{}, ErrInvalidCredentials
+	}
 	if err != nil {
 		log.Error().Err(err).Str("user_id", string(user.ID)).Msg("auth.signIn: создание сессии")
 		return Result{}, fmt.Errorf("create session: %w", err)

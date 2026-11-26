@@ -6,7 +6,7 @@ import (
 	"time"
 	"uuid"
 
-	"2026_2_Na_Vse_200/internal/logger"
+	"2026_2_Na_Vse_200/pkg/logger"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rs/zerolog"

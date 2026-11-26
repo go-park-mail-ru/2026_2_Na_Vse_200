@@ -3,7 +3,7 @@ package config
 import (
 	"time"
 
-	"2026_2_Na_Vse_200/internal/env"
+	"2026_2_Na_Vse_200/pkg/env"
 )
 
 type Config struct {

@@ -8,7 +8,7 @@ import (
 	"time"
 
 	"2026_2_Na_Vse_200/internal/delivery/middleware"
-	"2026_2_Na_Vse_200/internal/rpcmetrics"
+	"2026_2_Na_Vse_200/pkg/rpcmetrics"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rs/zerolog"

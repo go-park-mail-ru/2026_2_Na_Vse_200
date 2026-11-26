@@ -15,6 +15,7 @@ import (
 	"2026_2_Na_Vse_200/internal/config"
 	"2026_2_Na_Vse_200/internal/delivery/middleware"
 	"2026_2_Na_Vse_200/internal/models"
+	authusecase "2026_2_Na_Vse_200/internal/usecase/auth"
 	"2026_2_Na_Vse_200/internal/usecase/ports"
 )
 
@@ -246,15 +247,15 @@ func TestSignupStorageFailure(t *testing.T) {
 	}
 }
 
-type failingSessionRepo struct {
-	ports.SessionRepository
+type failingSessions struct {
+	authusecase.Sessions
 }
 
-func (failingSessionRepo) Create(ctx context.Context, session models.Session) error {
-	return errStorageDown
+func (failingSessions) CreateSession(context.Context, models.UserID, int64) (models.Session, error) {
+	return models.Session{}, errStorageDown
 }
 
-func newHandlerWithSessions(sessions ports.SessionRepository) http.Handler {
+func newHandlerWithSessions(sessions authusecase.Sessions) http.Handler {
 	api := newRepositoryTestAPI(&testConfig, &repositoryTestDeps{
 		Users:    &authUsersFixture{},
 		Sessions: sessions,
@@ -269,7 +270,7 @@ func TestSignupSessionFailure(t *testing.T) {
 	users := &authUsersFixture{}
 	api := newRepositoryTestAPI(&testConfig, &repositoryTestDeps{
 		Users:    users,
-		Sessions: failingSessionRepo{},
+		Sessions: failingSessions{},
 		Hasher:   auth.NewBcryptHasherWithCost(auth.MinCost),
 	})
 	handler := middleware.Chain(api.Routes(), middleware.WithJSONErrors)
@@ -429,7 +430,7 @@ func TestLoginSessionFailure(t *testing.T) {
 		t.Fatalf("подготовка аккаунта: %v", err)
 	}
 
-	api := newRepositoryTestAPI(&testConfig, &repositoryTestDeps{Users: users, Sessions: failingSessionRepo{}, Hasher: hasher})
+	api := newRepositoryTestAPI(&testConfig, &repositoryTestDeps{Users: users, Sessions: failingSessions{}, Hasher: hasher})
 	handler := middleware.Chain(api.Routes(), middleware.WithJSONErrors)
 
 	w := postJSON(t, handler, "/api/v1/auth/login",
@@ -464,7 +465,7 @@ func TestSignupCreatesUsableSession(t *testing.T) {
 		t.Fatalf("тело не разобралось: %v, тело: %s", err, w.Body.String())
 	}
 
-	session, err := sessions.GetByID(context.Background(), models.SessionID(sessionCookie(t, w).Value))
+	session, err := sessions.GetSession(context.Background(), models.SessionID(sessionCookie(t, w).Value))
 	if err != nil {
 		t.Fatalf("сессия из cookie не нашлась в хранилище: %v", err)
 	}
@@ -540,15 +541,9 @@ func TestMeUnauthorizedCases(t *testing.T) {
 	})
 	handler := middleware.Chain(api.Routes(), middleware.WithJSONErrors)
 
-	ctx := context.Background()
 	expired := models.Session{ID: models.SessionID(uuid.New().String()), UserID: models.UserID(uuid.New().String()), ExpiresAt: time.Now().Add(-time.Minute)}
 	orphan := models.Session{ID: models.SessionID(uuid.New().String()), UserID: models.UserID(uuid.New().String()), ExpiresAt: time.Now().Add(time.Hour)}
-
-	for _, session := range []models.Session{expired, orphan} {
-		if err := sessions.Create(ctx, session); err != nil {
-			t.Fatalf("подготовка сессии: %v", err)
-		}
-	}
+	sessions.sessions = []models.Session{expired, orphan}
 
 	tests := []struct {
 		name   string
@@ -594,22 +589,22 @@ func TestLogoutWithoutSession(t *testing.T) {
 	}
 }
 
-type brokenSessionRepo struct {
-	ports.SessionRepository
+type brokenSessions struct {
+	authusecase.Sessions
 }
 
-func (brokenSessionRepo) GetByID(ctx context.Context, id models.SessionID) (models.Session, error) {
+func (brokenSessions) GetSession(context.Context, models.SessionID) (models.Session, error) {
 	return models.Session{}, errStorageDown
 }
 
-func (brokenSessionRepo) Delete(ctx context.Context, id models.SessionID) error {
+func (brokenSessions) DeleteSession(context.Context, models.SessionID) error {
 	return errStorageDown
 }
 
 // Ошибка БД должна давать 500, а не ответ об отсутствии авторизации.
 func TestSessionStorageFailure(t *testing.T) {
 
-	handler := newHandlerWithSessions(brokenSessionRepo{})
+	handler := newHandlerWithSessions(brokenSessions{})
 	cookie := &http.Cookie{Name: _sessionCookieName, Value: uuid.New().String()}
 
 	tests := []struct {

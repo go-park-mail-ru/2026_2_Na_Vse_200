@@ -8,6 +8,7 @@ import (
 	"2026_2_Na_Vse_200/internal/models"
 	"2026_2_Na_Vse_200/internal/usecase/ports"
 	"2026_2_Na_Vse_200/internal/validation"
+	"2026_2_Na_Vse_200/pkg/postgres"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -19,7 +20,7 @@ var _ ports.ArtistRepository = (*ArtistRepo)(nil)
 func NewArtistRepo(pool *pgxpool.Pool) *ArtistRepo { return &ArtistRepo{pool: pool} }
 
 func (r *ArtistRepo) GetByID(ctx context.Context, id models.ArtistID) (models.Artist, error) {
-	ctx = WithDBOperation(ctx, "artists.get_by_id")
+	ctx = postgres.WithDBOperation(ctx, "artists.get_by_id")
 	const query = `
  SELECT id::text, name, biography, image_file_id::text
  FROM artist WHERE id = $1::uuid`
@@ -42,7 +43,7 @@ func (r *ArtistRepo) GetByID(ctx context.Context, id models.ArtistID) (models.Ar
 
 // Лимит применяется до присоединения исполнителей, чтобы вернуть целые карточки треков.
 func (r *ArtistRepo) Tracks(ctx context.Context, id models.ArtistID, limit, offset int) ([]models.Track, error) {
-	ctx = WithDBOperation(ctx, "artists.tracks")
+	ctx = postgres.WithDBOperation(ctx, "artists.tracks")
 	const query = `
  WITH selected_tracks AS (
   SELECT t.id, t.title, t.audio_file_id, t.cover_file_id, t.created_at
@@ -64,7 +65,7 @@ func (r *ArtistRepo) Tracks(ctx context.Context, id models.ArtistID, limit, offs
 }
 
 func (r *ArtistRepo) Albums(ctx context.Context, id models.ArtistID, limit, offset int) ([]models.Album, error) {
-	ctx = WithDBOperation(ctx, "artists.albums")
+	ctx = postgres.WithDBOperation(ctx, "artists.albums")
 	const query = `
  WITH selected_albums AS (
   SELECT al.id, al.title, al.release_date, al.cover_file_id, al.created_at

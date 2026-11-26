@@ -9,17 +9,17 @@ import (
 	"github.com/rs/zerolog"
 )
 
-// cleanupExpiredSessions удаляет истёкшие сессии при запуске и раз в час.
-func cleanupExpiredSessions(ctx context.Context, logger zerolog.Logger, sessions *repository.SessionRepo) {
+// cleanupInactiveSessions удаляет истёкшие и отозванные сессии при запуске и раз в час.
+func cleanupInactiveSessions(ctx context.Context, logger zerolog.Logger, sessions *repository.SessionRepo) {
 	ticker := time.NewTicker(time.Hour)
 	defer ticker.Stop()
 
 	for {
 		cleanupCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
-		err := sessions.DeleteExpired(cleanupCtx)
+		err := sessions.DeleteInactive(cleanupCtx)
 		cancel()
 		if err != nil && ctx.Err() == nil {
-			logger.Error().Err(err).Str("operation", "sessions.cleanup").Msg("не удалось очистить истёкшие сессии")
+			logger.Error().Err(err).Str("operation", "sessions.cleanup").Msg("не удалось очистить неактивные сессии")
 		}
 
 		select {

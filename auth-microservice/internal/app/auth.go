@@ -11,8 +11,8 @@ import (
 	"2026_2_Na_Vse_200/auth-microservice/internal/config"
 	"2026_2_Na_Vse_200/auth-microservice/repository"
 	"2026_2_Na_Vse_200/auth-microservice/sessions"
-	"2026_2_Na_Vse_200/internal/repository/postgres"
-	"2026_2_Na_Vse_200/internal/rpcmetrics"
+	"2026_2_Na_Vse_200/pkg/postgres"
+	"2026_2_Na_Vse_200/pkg/rpcmetrics"
 	"github.com/rs/zerolog"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
@@ -47,7 +47,7 @@ func RunAuth(ctx context.Context, cfg config.Config, logger zerolog.Logger) erro
 	cleanupDone := make(chan struct{})
 	go func() {
 		defer close(cleanupDone)
-		cleanupExpiredSessions(cleanupCtx, logger, repo)
+		cleanupInactiveSessions(cleanupCtx, logger, repo)
 	}()
 	defer func() {
 		cancelCleanup()
@@ -98,7 +98,7 @@ func serveAuth(
 func CheckAuth(ctx context.Context, addr string) error {
 	ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
 	defer cancel()
-	conn, err := authrpc.Dial(addr)
+	conn, err := authv1.Dial(addr)
 	if err != nil {
 		return err
 	}

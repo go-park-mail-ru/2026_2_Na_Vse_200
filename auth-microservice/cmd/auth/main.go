@@ -9,7 +9,7 @@ import (
 
 	"2026_2_Na_Vse_200/auth-microservice/internal/app"
 	"2026_2_Na_Vse_200/auth-microservice/internal/config"
-	"2026_2_Na_Vse_200/internal/logger"
+	"2026_2_Na_Vse_200/pkg/logger"
 )
 
 func main() {

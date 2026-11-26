@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"time"
 
-	"2026_2_Na_Vse_200/internal/env"
+	"2026_2_Na_Vse_200/pkg/env"
 )
 
 // Config содержит настройки приложения.

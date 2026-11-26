@@ -3,7 +3,6 @@ package app
 import (
 	"net/http"
 
-	"2026_2_Na_Vse_200/auth-microservice/authrpc"
 	"2026_2_Na_Vse_200/internal/auth"
 	"2026_2_Na_Vse_200/internal/config"
 	"2026_2_Na_Vse_200/internal/delivery/handlers"
@@ -25,7 +24,7 @@ import (
 func newHandler(
 	cfg config.Config,
 	pool *pgxpool.Pool,
-	sessions *authrpc.Client,
+	sessions *authClient,
 	logger zerolog.Logger,
 	metrics *middleware.HTTPMetrics,
 ) (http.Handler, error) {

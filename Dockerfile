@@ -10,6 +10,7 @@ RUN go mod download
 COPY cmd ./cmd
 COPY auth-microservice ./auth-microservice
 COPY internal ./internal
+COPY pkg ./pkg
 COPY db/migrations ./db/migrations
 RUN go build -trimpath -ldflags="-s -w" -o /out/app ./cmd/app
 RUN go build -trimpath -ldflags="-s -w" -o /out/auth ./auth-microservice/cmd/auth

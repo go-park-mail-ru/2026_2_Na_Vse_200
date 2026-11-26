@@ -24,10 +24,11 @@ const (
 )
 
 type CreateSessionRequest struct {
-	state         protoimpl.MessageState `protogen:"open.v1"`
-	UserId        string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	state             protoimpl.MessageState `protogen:"open.v1"`
+	UserId            string                 `protobuf:"bytes,1,opt,name=user_id,json=userId,proto3" json:"user_id,omitempty"`
+	CredentialVersion int64                  `protobuf:"varint,2,opt,name=credential_version,json=credentialVersion,proto3" json:"credential_version,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
 }
 
 func (x *CreateSessionRequest) Reset() {
@@ -65,6 +66,13 @@ func (x *CreateSessionRequest) GetUserId() string {
 		return x.UserId
 	}
 	return ""
+}
+
+func (x *CreateSessionRequest) GetCredentialVersion() int64 {
+	if x != nil {
+		return x.CredentialVersion
+	}
+	return 0
 }
 
 type SessionRequest struct {
@@ -227,9 +235,10 @@ var File_auth_microservice_api_auth_v1_auth_proto protoreflect.FileDescriptor
 
 const file_auth_microservice_api_auth_v1_auth_proto_rawDesc = "" +
 	"\n" +
-	"(auth-microservice/api/auth/v1/auth.proto\x12\aauth.v1\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"/\n" +
+	"(auth-microservice/api/auth/v1/auth.proto\x12\aauth.v1\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"^\n" +
 	"\x14CreateSessionRequest\x12\x17\n" +
-	"\auser_id\x18\x01 \x01(\tR\x06userId\"/\n" +
+	"\auser_id\x18\x01 \x01(\tR\x06userId\x12-\n" +
+	"\x12credential_version\x18\x02 \x01(\x03R\x11credentialVersion\"/\n" +
 	"\x0eSessionRequest\x12\x1d\n" +
 	"\n" +
 	"session_id\x18\x01 \x01(\tR\tsessionId\"`\n" +

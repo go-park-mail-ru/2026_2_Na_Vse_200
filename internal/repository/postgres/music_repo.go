@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"2026_2_Na_Vse_200/internal/models"
+	"2026_2_Na_Vse_200/pkg/postgres"
 )
 
 const _trackProjection = `
@@ -41,7 +42,7 @@ const (
 
 // Search returns a page of matches for each requested catalog entity kind.
 func (r *CatalogRepo) Search(ctx context.Context, query models.SearchQuery) (models.SearchResult, error) {
-	ctx = WithDBOperation(ctx, "catalog.search")
+	ctx = postgres.WithDBOperation(ctx, "catalog.search")
 	terms := strings.Fields(strings.ReplaceAll(strings.ToLower(query.Text), "ё", "е"))
 	var result models.SearchResult
 	if query.Kind == models.SearchAll || query.Kind == models.SearchTracks {
@@ -92,7 +93,7 @@ func (r *CatalogRepo) Search(ctx context.Context, query models.SearchQuery) (mod
 
 // Album returns a catalog album and its published tracks in album order.
 func (r *CatalogRepo) Album(ctx context.Context, id models.AlbumID) (models.AlbumPage, error) {
-	ctx = WithDBOperation(ctx, "catalog.album")
+	ctx = postgres.WithDBOperation(ctx, "catalog.album")
 	albums, err := readAlbums(ctx, r.pool, `
 		WITH selected_albums AS (SELECT * FROM album WHERE id = $1::uuid)
 		`+_albumProjection+` ORDER BY a.name, a.id`, string(id))
@@ -113,7 +114,7 @@ func (r *CatalogRepo) Album(ctx context.Context, id models.AlbumID) (models.Albu
 
 // FavoriteTracks returns the published tracks liked by the given account.
 func (r *TrackRepo) FavoriteTracks(ctx context.Context, owner models.UserID) ([]models.Track, error) {
-	ctx = WithDBOperation(ctx, "favorites.list")
+	ctx = postgres.WithDBOperation(ctx, "favorites.list")
 	return readTracks(ctx, r.pool, `
 		WITH selected_tracks AS (
 			SELECT t.* FROM favorite_track f JOIN track t ON t.id = f.track_id

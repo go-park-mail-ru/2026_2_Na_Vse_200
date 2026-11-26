@@ -7,6 +7,7 @@ import (
 
 	"2026_2_Na_Vse_200/internal/models"
 	"2026_2_Na_Vse_200/internal/usecase/ports"
+	"2026_2_Na_Vse_200/pkg/postgres"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -33,11 +34,11 @@ func NewUserRepo(pool *pgxpool.Pool) *UserRepo {
 
 // Create сохраняет аккаунт. ID и время создания задаёт база данных.
 func (r *UserRepo) Create(ctx context.Context, user models.User) (models.User, error) {
-	ctx = WithDBOperation(ctx, "users.create")
+	ctx = postgres.WithDBOperation(ctx, "users.create")
 	const query = `
 		INSERT INTO account (email, password_hash, display_name, avatar_file_id)
 		VALUES ($1, $2, $3, $4)
-		RETURNING id, created_at`
+		RETURNING id, created_at, credential_version`
 
 	var id string
 	var avatar any
@@ -47,7 +48,7 @@ func (r *UserRepo) Create(ctx context.Context, user models.User) (models.User, e
 
 	err := pgx.BeginFunc(ctx, r.transactions, func(tx pgx.Tx) error {
 		return tx.QueryRow(ctx, query, user.Email, user.PasswordHash, user.DisplayName, avatar).
-			Scan(&id, &user.CreatedAt)
+			Scan(&id, &user.CreatedAt, &user.CredentialVersion)
 	})
 	if err != nil {
 		if isEmailConflict(err) {
@@ -62,9 +63,9 @@ func (r *UserRepo) Create(ctx context.Context, user models.User) (models.User, e
 
 // GetByID возвращает пользователя или models.ErrUserNotFound.
 func (r *UserRepo) GetByID(ctx context.Context, id models.UserID) (models.User, error) {
-	ctx = WithDBOperation(ctx, "users.get_by_id")
+	ctx = postgres.WithDBOperation(ctx, "users.get_by_id")
 	const query = `
-		SELECT id, email, password_hash, display_name, avatar_file_id::text, created_at
+		SELECT id, email, password_hash, display_name, avatar_file_id::text, created_at, credential_version
 		FROM account
 		WHERE id = $1::uuid`
 
@@ -80,9 +81,9 @@ func (r *UserRepo) GetByID(ctx context.Context, id models.UserID) (models.User, 
 
 // GetByEmail ищет пользователя по нормализованному email и возвращает его с хешем пароля.
 func (r *UserRepo) GetByEmail(ctx context.Context, email string) (models.User, error) {
-	ctx = WithDBOperation(ctx, "users.get_by_email")
+	ctx = postgres.WithDBOperation(ctx, "users.get_by_email")
 	const query = `
-		SELECT id, email, password_hash, display_name, avatar_file_id::text, created_at
+		SELECT id, email, password_hash, display_name, avatar_file_id::text, created_at, credential_version
 		FROM account
 		WHERE email = $1`
 
@@ -102,7 +103,8 @@ func scanUser(row pgx.Row) (models.User, error) {
 		id           string
 		avatarFileID *string
 	)
-	err := row.Scan(&id, &user.Email, &user.PasswordHash, &user.DisplayName, &avatarFileID, &user.CreatedAt)
+	err := row.Scan(&id, &user.Email, &user.PasswordHash, &user.DisplayName,
+		&avatarFileID, &user.CreatedAt, &user.CredentialVersion)
 	if err != nil {
 		return models.User{}, err
 	}

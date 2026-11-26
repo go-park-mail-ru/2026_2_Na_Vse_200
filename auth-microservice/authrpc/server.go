@@ -7,7 +7,6 @@ import (
 
 	authv1 "2026_2_Na_Vse_200/auth-microservice/api/auth/v1"
 	"2026_2_Na_Vse_200/auth-microservice/sessions"
-	"2026_2_Na_Vse_200/internal/models"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -28,7 +27,11 @@ func (s *Server) CreateSession(ctx context.Context, req *authv1.CreateSessionReq
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid user ID")
 	}
-	session, err := s.sessions.CreateSession(ctx, models.UserID(userID.String()))
+	version := req.GetCredentialVersion()
+	if version <= 0 {
+		return nil, status.Error(codes.InvalidArgument, "invalid credential version")
+	}
+	session, err := s.sessions.CreateSession(ctx, sessions.UserID(userID.String()), version)
 	if err != nil {
 		return nil, sessionStatus(err)
 	}
@@ -36,7 +39,7 @@ func (s *Server) CreateSession(ctx context.Context, req *authv1.CreateSessionReq
 }
 
 func (s *Server) GetSession(ctx context.Context, req *authv1.SessionRequest) (*authv1.Session, error) {
-	session, err := s.sessions.GetSession(ctx, models.SessionID(req.GetSessionId()))
+	session, err := s.sessions.GetSession(ctx, sessions.SessionID(req.GetSessionId()))
 	if err != nil {
 		return nil, sessionStatus(err)
 	}
@@ -44,7 +47,7 @@ func (s *Server) GetSession(ctx context.Context, req *authv1.SessionRequest) (*a
 }
 
 func (s *Server) DeleteSession(ctx context.Context, req *authv1.SessionRequest) (*emptypb.Empty, error) {
-	if err := s.sessions.DeleteSession(ctx, models.SessionID(req.GetSessionId())); err != nil {
+	if err := s.sessions.DeleteSession(ctx, sessions.SessionID(req.GetSessionId())); err != nil {
 		return nil, sessionStatus(err)
 	}
 	return &emptypb.Empty{}, nil
@@ -55,13 +58,13 @@ func (s *Server) CheckProfileAccess(ctx context.Context, req *authv1.CheckProfil
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, "invalid target user ID")
 	}
-	if err := s.sessions.CheckProfileAccess(ctx, models.SessionID(req.GetSessionId()), models.UserID(id.String())); err != nil {
+	if err := s.sessions.CheckProfileAccess(ctx, sessions.SessionID(req.GetSessionId()), sessions.UserID(id.String())); err != nil {
 		return nil, sessionStatus(err)
 	}
 	return &emptypb.Empty{}, nil
 }
 
-func encodeSession(session models.Session) *authv1.Session {
+func encodeSession(session sessions.Session) *authv1.Session {
 	return &authv1.Session{
 		Id:        string(session.ID),
 		UserId:    string(session.UserID),
@@ -71,9 +74,13 @@ func encodeSession(session models.Session) *authv1.Session {
 
 func sessionStatus(err error) error {
 	switch {
-	case errors.Is(err, models.ErrSessionNotFound), errors.Is(err, models.ErrSessionExpired):
+	case errors.Is(err, sessions.ErrCredentialsChanged):
+		return status.Error(codes.Unauthenticated, "credentials changed")
+	case errors.Is(err, sessions.ErrSessionNotFound),
+		errors.Is(err, sessions.ErrSessionExpired),
+		errors.Is(err, sessions.ErrSessionRevoked):
 		return status.Error(codes.Unauthenticated, "invalid session")
-	case errors.Is(err, models.ErrForbidden):
+	case errors.Is(err, sessions.ErrForbidden):
 		return status.Error(codes.PermissionDenied, "profile access denied")
 	case errors.Is(err, context.Canceled), errors.Is(err, context.DeadlineExceeded):
 		return status.FromContextError(err).Err()

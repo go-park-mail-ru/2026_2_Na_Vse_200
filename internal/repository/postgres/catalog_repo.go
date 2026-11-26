@@ -7,6 +7,7 @@ import (
 
 	"2026_2_Na_Vse_200/internal/models"
 	"2026_2_Na_Vse_200/internal/usecase/ports"
+	"2026_2_Na_Vse_200/pkg/postgres"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -52,7 +53,7 @@ func NewCatalogRepo(pool *pgxpool.Pool) *CatalogRepo {
 
 // HomeArtists возвращает исполнителей, начиная с новых.
 func (r *CatalogRepo) HomeArtists(ctx context.Context, limit int) ([]models.Artist, error) {
-	ctx = WithDBOperation(ctx, "catalog.home_artists")
+	ctx = postgres.WithDBOperation(ctx, "catalog.home_artists")
 	artists := make([]models.Artist, 0)
 	if limit <= 0 {
 		return artists, nil
@@ -97,7 +98,7 @@ func readArtists(ctx context.Context, db catalogReader, query string, args ...an
 
 // HomeTracks возвращает опубликованные треки с исполнителями, начиная с новых.
 func (r *CatalogRepo) HomeTracks(ctx context.Context, limit int) ([]models.Track, error) {
-	ctx = WithDBOperation(ctx, "catalog.home_tracks")
+	ctx = postgres.WithDBOperation(ctx, "catalog.home_tracks")
 	tracks := make([]models.Track, 0)
 	if limit <= 0 {
 		return tracks, nil
@@ -161,7 +162,7 @@ func readTracks(ctx context.Context, pool catalogReader, query string, args ...a
 
 // HomeAlbums возвращает альбомы с исполнителями, начиная с новых.
 func (r *CatalogRepo) HomeAlbums(ctx context.Context, limit int) ([]models.Album, error) {
-	ctx = WithDBOperation(ctx, "catalog.home_albums")
+	ctx = postgres.WithDBOperation(ctx, "catalog.home_albums")
 	albums := make([]models.Album, 0)
 	if limit <= 0 {
 		return albums, nil

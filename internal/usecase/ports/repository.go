@@ -6,7 +6,7 @@ import (
 	"2026_2_Na_Vse_200/internal/models"
 )
 
-//go:generate go run go.uber.org/mock/mockgen@v0.6.0 -destination=mocks/mock_repository.go -package=mocks . UserRepository,SessionRepository,CatalogRepository
+//go:generate go run go.uber.org/mock/mockgen@v0.6.0 -destination=mocks/mock_repository.go -package=mocks . UserRepository,CatalogRepository
 //go:generate go run go.uber.org/mock/mockgen@v0.6.0 -destination=mocks/mock_hasher.go -package=mocks . PasswordHasher
 
 // UserRepository хранит аккаунты.
@@ -20,16 +20,6 @@ type UserRepository interface {
 
 	// GetByEmail ищет пользователя по нормализованному email и возвращает его с хешем пароля.
 	GetByEmail(ctx context.Context, email string) (models.User, error)
-}
-
-// SessionRepository хранит сессии.
-type SessionRepository interface {
-	Create(ctx context.Context, session models.Session) error
-
-	GetByID(ctx context.Context, id models.SessionID) (models.Session, error)
-
-	// Delete удаляет сессию. Отсутствующий или некорректный ID не считается ошибкой.
-	Delete(ctx context.Context, id models.SessionID) error
 }
 
 // CatalogRepository читает карточки каталога для главной страницы.

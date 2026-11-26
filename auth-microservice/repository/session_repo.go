@@ -6,37 +6,44 @@ import (
 	"fmt"
 	"uuid"
 
-	"2026_2_Na_Vse_200/internal/models"
-	"2026_2_Na_Vse_200/internal/repository/postgres"
-	"2026_2_Na_Vse_200/internal/usecase/ports"
+	"2026_2_Na_Vse_200/auth-microservice/sessions"
+	"2026_2_Na_Vse_200/pkg/postgres"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 const createSessionQuery = `
-	INSERT INTO auth_session (id, account_id, expires_at)
-	VALUES ($1, $2, $3)`
+	INSERT INTO auth_session (id, account_id, expires_at, credential_version)
+	SELECT $1::uuid, id, $3::timestamptz, credential_version
+	FROM account
+	WHERE id = $2 AND credential_version = $4
+	FOR SHARE`
 
 const getSessionQuery = `
-	SELECT id::text, account_id::text, expires_at,
-		expires_at <= statement_timestamp() AS expired
-	FROM auth_session
-	WHERE id = $1`
+	SELECT session.id::text, session.account_id::text, session.expires_at,
+		session.credential_version, session.expires_at <= statement_timestamp() AS expired,
+		session.credential_version <> account.credential_version AS revoked
+	FROM auth_session AS session
+	JOIN account ON account.id = session.account_id
+	WHERE session.id = $1`
 
 const deleteSessionQuery = `
 	DELETE FROM auth_session
 	WHERE id = $1`
 
-const deleteExpiredSessionsQuery = `
-	DELETE FROM auth_session
-	WHERE expires_at <= statement_timestamp()`
+const deleteInactiveSessionsQuery = `
+	DELETE FROM auth_session AS session
+	USING account
+	WHERE account.id = session.account_id
+	  AND (session.expires_at <= statement_timestamp() OR
+	       session.credential_version <> account.credential_version)`
 
 // SessionRepo хранит сессии в PostgreSQL.
 type SessionRepo struct {
 	pool *pgxpool.Pool
 }
 
-var _ ports.SessionRepository = (*SessionRepo)(nil)
+var _ sessions.Repository = (*SessionRepo)(nil)
 
 // NewSessionRepo создаёт репозиторий сессий.
 func NewSessionRepo(pool *pgxpool.Pool) *SessionRepo {
@@ -44,53 +51,59 @@ func NewSessionRepo(pool *pgxpool.Pool) *SessionRepo {
 }
 
 // Create сохраняет сессию с идентификатором, заданным вызывающим кодом.
-func (r *SessionRepo) Create(ctx context.Context, session models.Session) error {
+func (r *SessionRepo) Create(ctx context.Context, session sessions.Session) error {
 	ctx = postgres.WithDBOperation(ctx, "sessions.create")
-	if err := pgx.BeginFunc(ctx, r.pool, func(tx pgx.Tx) error {
-		_, err := tx.Exec(ctx, createSessionQuery, string(session.ID), string(session.UserID), session.ExpiresAt)
-		return err
-	}); err != nil {
+	// FOR SHARE synchronizes issuance with password changes on the account row.
+	tag, err := r.pool.Exec(ctx, createSessionQuery,
+		string(session.ID), string(session.UserID), session.ExpiresAt, session.CredentialVersion)
+	if err != nil {
 		return fmt.Errorf("insert auth session: %w", err)
+	}
+	if tag.RowsAffected() == 0 {
+		return sessions.ErrCredentialsChanged
 	}
 	return nil
 }
 
-// GetByID возвращает сессию, проверяя срок действия по времени БД.
-func (r *SessionRepo) GetByID(ctx context.Context, id models.SessionID) (models.Session, error) {
+// GetByID проверяет срок действия сессии и версию учётных данных.
+func (r *SessionRepo) GetByID(ctx context.Context, id sessions.SessionID) (sessions.Session, error) {
 	ctx = postgres.WithDBOperation(ctx, "sessions.get_by_id")
 	if err := ctx.Err(); err != nil {
-		return models.Session{}, err
+		return sessions.Session{}, err
 	}
 
 	sessionID, err := uuid.Parse(string(id))
 	if err != nil {
-		return models.Session{}, models.ErrSessionNotFound
+		return sessions.Session{}, sessions.ErrSessionNotFound
 	}
 
 	var (
-		session           models.Session
+		session           sessions.Session
 		storedID, account string
-		expired           bool
+		expired, revoked  bool
 	)
 	err = r.pool.QueryRow(ctx, getSessionQuery, sessionID.String()).
-		Scan(&storedID, &account, &session.ExpiresAt, &expired)
+		Scan(&storedID, &account, &session.ExpiresAt, &session.CredentialVersion, &expired, &revoked)
 	if err != nil {
 		if errors.Is(err, pgx.ErrNoRows) {
-			return models.Session{}, models.ErrSessionNotFound
+			return sessions.Session{}, sessions.ErrSessionNotFound
 		}
-		return models.Session{}, fmt.Errorf("select auth session by id: %w", err)
+		return sessions.Session{}, fmt.Errorf("select auth session by id: %w", err)
 	}
 	if expired {
-		return models.Session{}, models.ErrSessionExpired
+		return sessions.Session{}, sessions.ErrSessionExpired
+	}
+	if revoked {
+		return sessions.Session{}, sessions.ErrSessionRevoked
 	}
 
-	session.ID = models.SessionID(storedID)
-	session.UserID = models.UserID(account)
+	session.ID = sessions.SessionID(storedID)
+	session.UserID = sessions.UserID(account)
 	return session, nil
 }
 
 // Delete удаляет сессию. Отсутствующий или некорректный ID не считается ошибкой.
-func (r *SessionRepo) Delete(ctx context.Context, id models.SessionID) error {
+func (r *SessionRepo) Delete(ctx context.Context, id sessions.SessionID) error {
 	ctx = postgres.WithDBOperation(ctx, "sessions.delete")
 	if err := ctx.Err(); err != nil {
 		return err
@@ -110,14 +123,14 @@ func (r *SessionRepo) Delete(ctx context.Context, id models.SessionID) error {
 	return nil
 }
 
-// DeleteExpired удаляет все истёкшие сессии.
-func (r *SessionRepo) DeleteExpired(ctx context.Context) error {
-	ctx = postgres.WithDBOperation(ctx, "sessions.delete_expired")
+// DeleteInactive удаляет истёкшие и отозванные сессии.
+func (r *SessionRepo) DeleteInactive(ctx context.Context) error {
+	ctx = postgres.WithDBOperation(ctx, "sessions.delete_inactive")
 	if err := pgx.BeginFunc(ctx, r.pool, func(tx pgx.Tx) error {
-		_, err := tx.Exec(ctx, deleteExpiredSessionsQuery)
+		_, err := tx.Exec(ctx, deleteInactiveSessionsQuery)
 		return err
 	}); err != nil {
-		return fmt.Errorf("delete expired auth sessions: %w", err)
+		return fmt.Errorf("delete inactive auth sessions: %w", err)
 	}
 	return nil
 }

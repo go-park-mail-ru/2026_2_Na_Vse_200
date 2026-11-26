@@ -5,12 +5,12 @@ import (
 	"fmt"
 	"time"
 
-	"2026_2_Na_Vse_200/auth-microservice/authrpc"
+	authv1 "2026_2_Na_Vse_200/auth-microservice/api/auth/v1"
 	"2026_2_Na_Vse_200/internal/config"
 	"2026_2_Na_Vse_200/internal/delivery/middleware"
-	"2026_2_Na_Vse_200/internal/httpserver"
-	"2026_2_Na_Vse_200/internal/repository/postgres"
-	"2026_2_Na_Vse_200/internal/rpcmetrics"
+	"2026_2_Na_Vse_200/pkg/httpserver"
+	"2026_2_Na_Vse_200/pkg/postgres"
+	"2026_2_Na_Vse_200/pkg/rpcmetrics"
 	"github.com/rs/zerolog"
 	"google.golang.org/grpc"
 )
@@ -27,7 +27,7 @@ func Run(ctx context.Context, cfg config.Config, logger zerolog.Logger) error {
 	defer pool.Close()
 
 	metrics := rpcmetrics.New("music-api")
-	conn, err := authrpc.Dial(cfg.AuthTarget,
+	conn, err := authv1.Dial(cfg.AuthTarget,
 		grpc.WithDisableRetry(),
 		grpc.WithChainUnaryInterceptor(withAuthTimeout, metrics.Client),
 	)
@@ -37,7 +37,7 @@ func Run(ctx context.Context, cfg config.Config, logger zerolog.Logger) error {
 	defer conn.Close()
 
 	httpMetrics := middleware.NewHTTPMetrics("monolith")
-	handler, err := newHandler(cfg, pool, authrpc.NewClient(conn), logger, httpMetrics)
+	handler, err := newHandler(cfg, pool, newAuthClient(conn), logger, httpMetrics)
 	if err != nil {
 		return err
 	}

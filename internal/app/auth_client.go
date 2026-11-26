@@ -1,4 +1,4 @@
-package authrpc
+package app
 
 import (
 	"context"
@@ -6,28 +6,41 @@ import (
 
 	authv1 "2026_2_Na_Vse_200/auth-microservice/api/auth/v1"
 	"2026_2_Na_Vse_200/internal/models"
+	authusecase "2026_2_Na_Vse_200/internal/usecase/auth"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
 
-type Client struct {
+type authClient struct {
 	rpc authv1.AuthServiceClient
 }
 
-func NewClient(conn grpc.ClientConnInterface) *Client {
-	return &Client{rpc: authv1.NewAuthServiceClient(conn)}
+var _ authusecase.Sessions = (*authClient)(nil)
+
+func newAuthClient(conn grpc.ClientConnInterface) *authClient {
+	return &authClient{rpc: authv1.NewAuthServiceClient(conn)}
 }
 
-func (c *Client) CreateSession(ctx context.Context, userID models.UserID) (models.Session, error) {
-	session, err := c.rpc.CreateSession(ctx, &authv1.CreateSessionRequest{UserId: string(userID)})
+func (c *authClient) CreateSession(
+	ctx context.Context,
+	userID models.UserID,
+	credentialVersion int64,
+) (models.Session, error) {
+	session, err := c.rpc.CreateSession(ctx, &authv1.CreateSessionRequest{
+		UserId:            string(userID),
+		CredentialVersion: credentialVersion,
+	})
+	if status.Code(err) == codes.Unauthenticated {
+		return models.Session{}, authusecase.ErrInvalidCredentials
+	}
 	if err != nil {
 		return models.Session{}, err
 	}
 	return decodeSession(session)
 }
 
-func (c *Client) GetSession(ctx context.Context, id models.SessionID) (models.Session, error) {
+func (c *authClient) GetSession(ctx context.Context, id models.SessionID) (models.Session, error) {
 	session, err := c.rpc.GetSession(ctx, &authv1.SessionRequest{SessionId: string(id)})
 	if status.Code(err) == codes.Unauthenticated {
 		return models.Session{}, models.ErrSessionNotFound
@@ -38,12 +51,12 @@ func (c *Client) GetSession(ctx context.Context, id models.SessionID) (models.Se
 	return decodeSession(session)
 }
 
-func (c *Client) DeleteSession(ctx context.Context, id models.SessionID) error {
+func (c *authClient) DeleteSession(ctx context.Context, id models.SessionID) error {
 	_, err := c.rpc.DeleteSession(ctx, &authv1.SessionRequest{SessionId: string(id)})
 	return err
 }
 
-func (c *Client) CheckProfileAccess(ctx context.Context, id models.SessionID, target models.UserID) error {
+func (c *authClient) CheckProfileAccess(ctx context.Context, id models.SessionID, target models.UserID) error {
 	_, err := c.rpc.CheckProfileAccess(ctx, &authv1.CheckProfileAccessRequest{
 		SessionId:    string(id),
 		TargetUserId: string(target),
