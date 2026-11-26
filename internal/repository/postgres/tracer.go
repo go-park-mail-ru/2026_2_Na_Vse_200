@@ -14,7 +14,8 @@ import (
 
 // QueryTracer пишет результат и длительность SQL-запроса без его параметров.
 type QueryTracer struct {
-	Log *slog.Logger
+	Log            *slog.Logger
+	AcquireTimeout time.Duration
 }
 
 type queryKey struct{}

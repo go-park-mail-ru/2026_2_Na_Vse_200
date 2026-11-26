@@ -9,6 +9,7 @@
 coverage.*
 *.coverprofile
 profile.cov
+/db/diagnostics-output/
 
 # Локальные настройки рабочей области Go.
 go.work

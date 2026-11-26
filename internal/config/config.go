@@ -10,15 +10,16 @@ import (
 
 // Config содержит настройки приложения.
 type Config struct {
-	Addr            string
-	AllowedOrigin   string // Пустое значение означает отсутствие отдельного origin для фронтенда.
-	AllowedMethods  string
-	AllowedHeaders  string
-	CookieSecure    bool
-	SessionTTL      time.Duration
-	ShutdownTimeout time.Duration
-	PostgreSQLDSN   string
-	MediaRoot       string
+	Addr               string
+	AllowedOrigin      string // Пустое значение означает отсутствие отдельного origin для фронтенда.
+	AllowedMethods     string
+	AllowedHeaders     string
+	CookieSecure       bool
+	SessionTTL         time.Duration
+	ShutdownTimeout    time.Duration
+	PostgreSQLDSN      string
+	PoolAcquireTimeout time.Duration
+	MediaRoot          string
 }
 
 // Load читает настройки из окружения и возвращает ошибку при неверном формате значения.
@@ -43,6 +44,10 @@ func Load() (cfg Config, err error) {
 	}
 
 	cfg.ShutdownTimeout, err = getDuration("APP_SHUTDOWN_TIMEOUT", 10*time.Second)
+	if err != nil {
+		return Config{}, err
+	}
+	cfg.PoolAcquireTimeout, err = getDuration("MUSIC_API_POOL_ACQUIRE_TIMEOUT", 250*time.Millisecond)
 	if err != nil {
 		return Config{}, err
 	}

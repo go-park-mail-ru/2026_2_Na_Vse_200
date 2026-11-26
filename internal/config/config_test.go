@@ -12,6 +12,7 @@ func TestLoadDefaults(t *testing.T) {
 	t.Setenv("APP_COOKIE_SECURE", "")
 	t.Setenv("APP_SESSION_TTL", "")
 	t.Setenv("APP_SHUTDOWN_TIMEOUT", "")
+	t.Setenv("MUSIC_API_POOL_ACQUIRE_TIMEOUT", "")
 	t.Setenv("POSTGRES_DSN", "")
 	t.Setenv("MEDIA_ROOT", "")
 
@@ -35,6 +36,9 @@ func TestLoadDefaults(t *testing.T) {
 	if cfg.ShutdownTimeout != 10*time.Second {
 		t.Errorf("ShutdownTimeout = %v, ожидалось %v", cfg.ShutdownTimeout, 10*time.Second)
 	}
+	if cfg.PoolAcquireTimeout != 250*time.Millisecond {
+		t.Errorf("PoolAcquireTimeout = %v, ожидалось 250ms", cfg.PoolAcquireTimeout)
+	}
 
 	if cfg.CookieSecure {
 		t.Error("CookieSecure = true, локально по http:// браузер такую cookie не примет")
@@ -51,6 +55,7 @@ func TestLoadFromEnv(t *testing.T) {
 	t.Setenv("APP_COOKIE_SECURE", "true")
 	t.Setenv("APP_SESSION_TTL", "1h30m")
 	t.Setenv("APP_SHUTDOWN_TIMEOUT", "5s")
+	t.Setenv("MUSIC_API_POOL_ACQUIRE_TIMEOUT", "400ms")
 	t.Setenv("POSTGRES_DSN", "postgres://user:pass@localhost:5432/navse200")
 
 	cfg, err := Load()
@@ -73,6 +78,9 @@ func TestLoadFromEnv(t *testing.T) {
 	if cfg.ShutdownTimeout != 5*time.Second {
 		t.Errorf("ShutdownTimeout = %v, ожидалось %v", cfg.ShutdownTimeout, 5*time.Second)
 	}
+	if cfg.PoolAcquireTimeout != 400*time.Millisecond {
+		t.Errorf("PoolAcquireTimeout = %v, ожидалось 400ms", cfg.PoolAcquireTimeout)
+	}
 
 	if cfg.PostgreSQLDSN == "" {
 		t.Error("PostgreSQLDSN пуст, ожидалась строка подключения из окружения")
@@ -92,6 +100,7 @@ func TestLoadInvalidValues(t *testing.T) {
 		{name: "срок сессии не разбирается", key: "APP_SESSION_TTL", value: "сутки"},
 		{name: "срок сессии отрицательный", key: "APP_SESSION_TTL", value: "-1h"},
 		{name: "таймаут остановки не разбирается", key: "APP_SHUTDOWN_TIMEOUT", value: "быстро"},
+		{name: "нулевой таймаут пула", key: "MUSIC_API_POOL_ACQUIRE_TIMEOUT", value: "0s"},
 		{name: "флаг cookie не разбирается", key: "APP_COOKIE_SECURE", value: "ага"},
 	}
 
