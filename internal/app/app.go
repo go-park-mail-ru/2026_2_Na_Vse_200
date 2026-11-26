@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"2026_2_Na_Vse_200/internal/config"
+	"2026_2_Na_Vse_200/internal/delivery/middleware"
 	"2026_2_Na_Vse_200/internal/repository/postgres"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/rs/zerolog"
@@ -24,11 +25,19 @@ func Run(ctx context.Context, cfg config.Config, logger zerolog.Logger) error {
 	defer pool.Close()
 
 	sessions := postgres.NewSessionRepo(pool)
-	handler, err := newHandler(cfg, pool, sessions, logger)
+	metrics := middleware.NewHTTPMetrics("monolith")
+	handler, err := newHandler(cfg, pool, sessions, logger, metrics)
 	if err != nil {
 		return err
 	}
 	server := newServer(cfg.Addr, handler)
+	if cfg.MetricsAddr != "" {
+		stopMetrics, err := startMetrics(cfg.MetricsAddr, metrics.Handler(), logger)
+		if err != nil {
+			return err
+		}
+		defer stopMetrics()
+	}
 	cleanupCtx, cancelCleanup := context.WithCancel(ctx)
 	cleanupDone := make(chan struct{})
 	go func() {

@@ -22,6 +22,8 @@ type errorInterceptor struct {
 	replaced bool
 }
 
+func (w *errorInterceptor) Unwrap() http.ResponseWriter { return w.ResponseWriter }
+
 func (w *errorInterceptor) WriteHeader(code int) {
 	switch code {
 	case http.StatusNotFound:

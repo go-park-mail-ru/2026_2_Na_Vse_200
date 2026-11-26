@@ -25,7 +25,7 @@ import (
 	"github.com/rs/zerolog"
 )
 
-func newHandler(cfg config.Config, pool *pgxpool.Pool, sessions *postgres.SessionRepo, logger zerolog.Logger) (http.Handler, error) {
+func newHandler(cfg config.Config, pool *pgxpool.Pool, sessions *postgres.SessionRepo, logger zerolog.Logger, metrics *middleware.HTTPMetrics) (http.Handler, error) {
 	blobs, err := storage.NewLocal(cfg.MediaRoot)
 	if err != nil {
 		return nil, err
@@ -48,7 +48,7 @@ func newHandler(cfg config.Config, pool *pgxpool.Pool, sessions *postgres.Sessio
 		Artist:  artistusecase.NewArtistUsecase(postgres.NewArtistRepo(pool)),
 		Media:   media.NewMediaHandler(mediaRepo, blobs, tracks),
 	})
-	return middleware.Chain(
+	return metrics.Wrap(
 		api.Routes(),
 		middleware.WithRequestID,
 		middleware.WithLogging(logger, "monolith/middleware"),
