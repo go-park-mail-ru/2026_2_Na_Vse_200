@@ -6,7 +6,7 @@ import (
 	"os"
 	"time"
 
-	"2026_2_Na_Vse_200/internal/auth"
+	"2026_2_Na_Vse_200/auth-microservice/sessions"
 	"2026_2_Na_Vse_200/internal/config"
 	"2026_2_Na_Vse_200/internal/delivery/handlers/media"
 	"2026_2_Na_Vse_200/internal/models"
@@ -98,10 +98,10 @@ func newRepositoryTestAPI(cfg *config.Config, deps *repositoryTestDeps) *API {
 		profiles = value
 	}
 
-	sessions := authusecase.NewSessionManager(deps.Sessions, auth.NewSessionID, time.Now, cfg.SessionTTL)
+	manager := sessions.NewSessionManager(deps.Sessions, sessions.NewSessionID, time.Now, cfg.SessionTTL)
 	return New(cfg, &Deps{
-		Auth:               authusecase.NewAuthUsecase(deps.Users, sessions, deps.Hasher),
-		CheckProfileAccess: sessions.CheckProfileAccess,
+		Auth:               authusecase.NewAuthUsecase(deps.Users, manager, deps.Hasher),
+		CheckProfileAccess: manager.CheckProfileAccess,
 		Catalog:            catalogusecase.New(deps.Catalog),
 		Profile:            profileusecase.NewProfileUsecase(deps.Users, profiles, blobs),
 		Artist:             artistusecase.NewArtistUsecase(artists),

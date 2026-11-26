@@ -2,7 +2,7 @@
 // versions:
 // 	protoc-gen-go v1.36.11
 // 	protoc        v7.34.1
-// source: api/auth/v1/auth.proto
+// source: auth-microservice/api/auth/v1/auth.proto
 
 package authv1
 
@@ -32,7 +32,7 @@ type CreateSessionRequest struct {
 
 func (x *CreateSessionRequest) Reset() {
 	*x = CreateSessionRequest{}
-	mi := &file_api_auth_v1_auth_proto_msgTypes[0]
+	mi := &file_auth_microservice_api_auth_v1_auth_proto_msgTypes[0]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -44,7 +44,7 @@ func (x *CreateSessionRequest) String() string {
 func (*CreateSessionRequest) ProtoMessage() {}
 
 func (x *CreateSessionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_auth_v1_auth_proto_msgTypes[0]
+	mi := &file_auth_microservice_api_auth_v1_auth_proto_msgTypes[0]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -57,7 +57,7 @@ func (x *CreateSessionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CreateSessionRequest.ProtoReflect.Descriptor instead.
 func (*CreateSessionRequest) Descriptor() ([]byte, []int) {
-	return file_api_auth_v1_auth_proto_rawDescGZIP(), []int{0}
+	return file_auth_microservice_api_auth_v1_auth_proto_rawDescGZIP(), []int{0}
 }
 
 func (x *CreateSessionRequest) GetUserId() string {
@@ -76,7 +76,7 @@ type SessionRequest struct {
 
 func (x *SessionRequest) Reset() {
 	*x = SessionRequest{}
-	mi := &file_api_auth_v1_auth_proto_msgTypes[1]
+	mi := &file_auth_microservice_api_auth_v1_auth_proto_msgTypes[1]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -88,7 +88,7 @@ func (x *SessionRequest) String() string {
 func (*SessionRequest) ProtoMessage() {}
 
 func (x *SessionRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_auth_v1_auth_proto_msgTypes[1]
+	mi := &file_auth_microservice_api_auth_v1_auth_proto_msgTypes[1]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -101,7 +101,7 @@ func (x *SessionRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use SessionRequest.ProtoReflect.Descriptor instead.
 func (*SessionRequest) Descriptor() ([]byte, []int) {
-	return file_api_auth_v1_auth_proto_rawDescGZIP(), []int{1}
+	return file_auth_microservice_api_auth_v1_auth_proto_rawDescGZIP(), []int{1}
 }
 
 func (x *SessionRequest) GetSessionId() string {
@@ -121,7 +121,7 @@ type CheckProfileAccessRequest struct {
 
 func (x *CheckProfileAccessRequest) Reset() {
 	*x = CheckProfileAccessRequest{}
-	mi := &file_api_auth_v1_auth_proto_msgTypes[2]
+	mi := &file_auth_microservice_api_auth_v1_auth_proto_msgTypes[2]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -133,7 +133,7 @@ func (x *CheckProfileAccessRequest) String() string {
 func (*CheckProfileAccessRequest) ProtoMessage() {}
 
 func (x *CheckProfileAccessRequest) ProtoReflect() protoreflect.Message {
-	mi := &file_api_auth_v1_auth_proto_msgTypes[2]
+	mi := &file_auth_microservice_api_auth_v1_auth_proto_msgTypes[2]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -146,7 +146,7 @@ func (x *CheckProfileAccessRequest) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use CheckProfileAccessRequest.ProtoReflect.Descriptor instead.
 func (*CheckProfileAccessRequest) Descriptor() ([]byte, []int) {
-	return file_api_auth_v1_auth_proto_rawDescGZIP(), []int{2}
+	return file_auth_microservice_api_auth_v1_auth_proto_rawDescGZIP(), []int{2}
 }
 
 func (x *CheckProfileAccessRequest) GetSessionId() string {
@@ -174,7 +174,7 @@ type Session struct {
 
 func (x *Session) Reset() {
 	*x = Session{}
-	mi := &file_api_auth_v1_auth_proto_msgTypes[3]
+	mi := &file_auth_microservice_api_auth_v1_auth_proto_msgTypes[3]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -186,7 +186,7 @@ func (x *Session) String() string {
 func (*Session) ProtoMessage() {}
 
 func (x *Session) ProtoReflect() protoreflect.Message {
-	mi := &file_api_auth_v1_auth_proto_msgTypes[3]
+	mi := &file_auth_microservice_api_auth_v1_auth_proto_msgTypes[3]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -199,7 +199,7 @@ func (x *Session) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use Session.ProtoReflect.Descriptor instead.
 func (*Session) Descriptor() ([]byte, []int) {
-	return file_api_auth_v1_auth_proto_rawDescGZIP(), []int{3}
+	return file_auth_microservice_api_auth_v1_auth_proto_rawDescGZIP(), []int{3}
 }
 
 func (x *Session) GetId() string {
@@ -223,11 +223,11 @@ func (x *Session) GetExpiresAt() *timestamppb.Timestamp {
 	return nil
 }
 
-var File_api_auth_v1_auth_proto protoreflect.FileDescriptor
+var File_auth_microservice_api_auth_v1_auth_proto protoreflect.FileDescriptor
 
-const file_api_auth_v1_auth_proto_rawDesc = "" +
+const file_auth_microservice_api_auth_v1_auth_proto_rawDesc = "" +
 	"\n" +
-	"\x16api/auth/v1/auth.proto\x12\aauth.v1\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"/\n" +
+	"(auth-microservice/api/auth/v1/auth.proto\x12\aauth.v1\x1a\x1bgoogle/protobuf/empty.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"/\n" +
 	"\x14CreateSessionRequest\x12\x17\n" +
 	"\auser_id\x18\x01 \x01(\tR\x06userId\"/\n" +
 	"\x0eSessionRequest\x12\x1d\n" +
@@ -247,22 +247,22 @@ const file_api_auth_v1_auth_proto_rawDesc = "" +
 	"\n" +
 	"GetSession\x12\x17.auth.v1.SessionRequest\x1a\x10.auth.v1.Session\x12@\n" +
 	"\rDeleteSession\x12\x17.auth.v1.SessionRequest\x1a\x16.google.protobuf.Empty\x12P\n" +
-	"\x12CheckProfileAccess\x12\".auth.v1.CheckProfileAccessRequest\x1a\x16.google.protobuf.EmptyB&Z$2026_2_Na_Vse_200/api/auth/v1;authv1b\x06proto3"
+	"\x12CheckProfileAccess\x12\".auth.v1.CheckProfileAccessRequest\x1a\x16.google.protobuf.EmptyB8Z62026_2_Na_Vse_200/auth-microservice/api/auth/v1;authv1b\x06proto3"
 
 var (
-	file_api_auth_v1_auth_proto_rawDescOnce sync.Once
-	file_api_auth_v1_auth_proto_rawDescData []byte
+	file_auth_microservice_api_auth_v1_auth_proto_rawDescOnce sync.Once
+	file_auth_microservice_api_auth_v1_auth_proto_rawDescData []byte
 )
 
-func file_api_auth_v1_auth_proto_rawDescGZIP() []byte {
-	file_api_auth_v1_auth_proto_rawDescOnce.Do(func() {
-		file_api_auth_v1_auth_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_api_auth_v1_auth_proto_rawDesc), len(file_api_auth_v1_auth_proto_rawDesc)))
+func file_auth_microservice_api_auth_v1_auth_proto_rawDescGZIP() []byte {
+	file_auth_microservice_api_auth_v1_auth_proto_rawDescOnce.Do(func() {
+		file_auth_microservice_api_auth_v1_auth_proto_rawDescData = protoimpl.X.CompressGZIP(unsafe.Slice(unsafe.StringData(file_auth_microservice_api_auth_v1_auth_proto_rawDesc), len(file_auth_microservice_api_auth_v1_auth_proto_rawDesc)))
 	})
-	return file_api_auth_v1_auth_proto_rawDescData
+	return file_auth_microservice_api_auth_v1_auth_proto_rawDescData
 }
 
-var file_api_auth_v1_auth_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
-var file_api_auth_v1_auth_proto_goTypes = []any{
+var file_auth_microservice_api_auth_v1_auth_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
+var file_auth_microservice_api_auth_v1_auth_proto_goTypes = []any{
 	(*CreateSessionRequest)(nil),      // 0: auth.v1.CreateSessionRequest
 	(*SessionRequest)(nil),            // 1: auth.v1.SessionRequest
 	(*CheckProfileAccessRequest)(nil), // 2: auth.v1.CheckProfileAccessRequest
@@ -270,7 +270,7 @@ var file_api_auth_v1_auth_proto_goTypes = []any{
 	(*timestamppb.Timestamp)(nil),     // 4: google.protobuf.Timestamp
 	(*emptypb.Empty)(nil),             // 5: google.protobuf.Empty
 }
-var file_api_auth_v1_auth_proto_depIdxs = []int32{
+var file_auth_microservice_api_auth_v1_auth_proto_depIdxs = []int32{
 	4, // 0: auth.v1.Session.expires_at:type_name -> google.protobuf.Timestamp
 	0, // 1: auth.v1.AuthService.CreateSession:input_type -> auth.v1.CreateSessionRequest
 	1, // 2: auth.v1.AuthService.GetSession:input_type -> auth.v1.SessionRequest
@@ -287,26 +287,26 @@ var file_api_auth_v1_auth_proto_depIdxs = []int32{
 	0, // [0:1] is the sub-list for field type_name
 }
 
-func init() { file_api_auth_v1_auth_proto_init() }
-func file_api_auth_v1_auth_proto_init() {
-	if File_api_auth_v1_auth_proto != nil {
+func init() { file_auth_microservice_api_auth_v1_auth_proto_init() }
+func file_auth_microservice_api_auth_v1_auth_proto_init() {
+	if File_auth_microservice_api_auth_v1_auth_proto != nil {
 		return
 	}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
-			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_auth_v1_auth_proto_rawDesc), len(file_api_auth_v1_auth_proto_rawDesc)),
+			RawDescriptor: unsafe.Slice(unsafe.StringData(file_auth_microservice_api_auth_v1_auth_proto_rawDesc), len(file_auth_microservice_api_auth_v1_auth_proto_rawDesc)),
 			NumEnums:      0,
 			NumMessages:   4,
 			NumExtensions: 0,
 			NumServices:   1,
 		},
-		GoTypes:           file_api_auth_v1_auth_proto_goTypes,
-		DependencyIndexes: file_api_auth_v1_auth_proto_depIdxs,
-		MessageInfos:      file_api_auth_v1_auth_proto_msgTypes,
+		GoTypes:           file_auth_microservice_api_auth_v1_auth_proto_goTypes,
+		DependencyIndexes: file_auth_microservice_api_auth_v1_auth_proto_depIdxs,
+		MessageInfos:      file_auth_microservice_api_auth_v1_auth_proto_msgTypes,
 	}.Build()
-	File_api_auth_v1_auth_proto = out.File
-	file_api_auth_v1_auth_proto_goTypes = nil
-	file_api_auth_v1_auth_proto_depIdxs = nil
+	File_auth_microservice_api_auth_v1_auth_proto = out.File
+	file_auth_microservice_api_auth_v1_auth_proto_goTypes = nil
+	file_auth_microservice_api_auth_v1_auth_proto_depIdxs = nil
 }

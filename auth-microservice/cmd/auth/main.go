@@ -7,8 +7,8 @@ import (
 	"os/signal"
 	"syscall"
 
-	"2026_2_Na_Vse_200/internal/app"
-	"2026_2_Na_Vse_200/internal/config"
+	"2026_2_Na_Vse_200/auth-microservice/internal/app"
+	"2026_2_Na_Vse_200/auth-microservice/internal/config"
 	"2026_2_Na_Vse_200/internal/logger"
 )
 

@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	authv1 "2026_2_Na_Vse_200/api/auth/v1"
+	authv1 "2026_2_Na_Vse_200/auth-microservice/api/auth/v1"
 	"2026_2_Na_Vse_200/internal/models"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"

@@ -1,4 +1,4 @@
-package postgres
+package repository
 
 import (
 	"context"
@@ -7,6 +7,7 @@ import (
 	"uuid"
 
 	"2026_2_Na_Vse_200/internal/models"
+	"2026_2_Na_Vse_200/internal/repository/postgres"
 	"2026_2_Na_Vse_200/internal/usecase/ports"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -44,7 +45,7 @@ func NewSessionRepo(pool *pgxpool.Pool) *SessionRepo {
 
 // Create сохраняет сессию с идентификатором, заданным вызывающим кодом.
 func (r *SessionRepo) Create(ctx context.Context, session models.Session) error {
-	ctx = withDBOperation(ctx, "sessions.create")
+	ctx = postgres.WithDBOperation(ctx, "sessions.create")
 	if err := pgx.BeginFunc(ctx, r.pool, func(tx pgx.Tx) error {
 		_, err := tx.Exec(ctx, createSessionQuery, string(session.ID), string(session.UserID), session.ExpiresAt)
 		return err
@@ -56,7 +57,7 @@ func (r *SessionRepo) Create(ctx context.Context, session models.Session) error 
 
 // GetByID возвращает сессию, проверяя срок действия по времени БД.
 func (r *SessionRepo) GetByID(ctx context.Context, id models.SessionID) (models.Session, error) {
-	ctx = withDBOperation(ctx, "sessions.get_by_id")
+	ctx = postgres.WithDBOperation(ctx, "sessions.get_by_id")
 	if err := ctx.Err(); err != nil {
 		return models.Session{}, err
 	}
@@ -90,7 +91,7 @@ func (r *SessionRepo) GetByID(ctx context.Context, id models.SessionID) (models.
 
 // Delete удаляет сессию. Отсутствующий или некорректный ID не считается ошибкой.
 func (r *SessionRepo) Delete(ctx context.Context, id models.SessionID) error {
-	ctx = withDBOperation(ctx, "sessions.delete")
+	ctx = postgres.WithDBOperation(ctx, "sessions.delete")
 	if err := ctx.Err(); err != nil {
 		return err
 	}
@@ -111,7 +112,7 @@ func (r *SessionRepo) Delete(ctx context.Context, id models.SessionID) error {
 
 // DeleteExpired удаляет все истёкшие сессии.
 func (r *SessionRepo) DeleteExpired(ctx context.Context) error {
-	ctx = withDBOperation(ctx, "sessions.delete_expired")
+	ctx = postgres.WithDBOperation(ctx, "sessions.delete_expired")
 	if err := pgx.BeginFunc(ctx, r.pool, func(tx pgx.Tx) error {
 		_, err := tx.Exec(ctx, deleteExpiredSessionsQuery)
 		return err

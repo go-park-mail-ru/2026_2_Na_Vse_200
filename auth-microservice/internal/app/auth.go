@@ -6,36 +6,35 @@ import (
 	"net"
 	"time"
 
-	authv1 "2026_2_Na_Vse_200/api/auth/v1"
-	"2026_2_Na_Vse_200/internal/auth"
-	"2026_2_Na_Vse_200/internal/authrpc"
-	"2026_2_Na_Vse_200/internal/config"
+	authv1 "2026_2_Na_Vse_200/auth-microservice/api/auth/v1"
+	"2026_2_Na_Vse_200/auth-microservice/authrpc"
+	"2026_2_Na_Vse_200/auth-microservice/internal/config"
+	"2026_2_Na_Vse_200/auth-microservice/repository"
+	"2026_2_Na_Vse_200/auth-microservice/sessions"
 	"2026_2_Na_Vse_200/internal/repository/postgres"
 	"2026_2_Na_Vse_200/internal/rpcmetrics"
-	authusecase "2026_2_Na_Vse_200/internal/usecase/auth"
 	"github.com/rs/zerolog"
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/health"
 	healthv1 "google.golang.org/grpc/health/grpc_health_v1"
 )
 
 func RunAuth(ctx context.Context, cfg config.Config, logger zerolog.Logger) error {
 	ctx = logger.WithContext(ctx)
-	pool, err := connectPostgres(ctx, cfg.PostgreSQLDSN)
+	pool, err := postgres.Connect(ctx, cfg.PostgreSQLDSN)
 	if err != nil {
 		return err
 	}
 	defer pool.Close()
 
-	listener, err := net.Listen("tcp", cfg.AuthListenAddr)
+	listener, err := net.Listen("tcp", cfg.ListenAddr)
 	if err != nil {
 		return fmt.Errorf("запуск gRPC-сервера Auth: %w", err)
 	}
 	defer listener.Close()
 
-	repo := postgres.NewSessionRepo(pool)
-	manager := authusecase.NewSessionManager(repo, auth.NewSessionID, time.Now, cfg.SessionTTL)
+	repo := repository.NewSessionRepo(pool)
+	manager := sessions.NewSessionManager(repo, sessions.NewSessionID, time.Now, cfg.SessionTTL)
 	metrics := rpcmetrics.New("music-auth")
 	server := grpc.NewServer(grpc.UnaryInterceptor(metrics.Server(logger)))
 	defer server.Stop()
@@ -55,7 +54,7 @@ func RunAuth(ctx context.Context, cfg config.Config, logger zerolog.Logger) erro
 		<-cleanupDone
 	}()
 
-	return runWithMetrics(ctx, cfg.AuthMetricsAddr, metrics, cfg.ShutdownTimeout, logger, func(ctx context.Context) error {
+	return metrics.RunWithServer(ctx, cfg.MetricsAddr, cfg.ShutdownTimeout, logger, func(ctx context.Context) error {
 		logger.Info().Str("addr", listener.Addr().String()).Msg("запуск gRPC-сервера Auth")
 		return serveAuth(ctx, server, healthServer, listener, cfg.ShutdownTimeout)
 	})
@@ -99,7 +98,7 @@ func serveAuth(
 func CheckAuth(ctx context.Context, addr string) error {
 	ctx, cancel := context.WithTimeout(ctx, 2*time.Second)
 	defer cancel()
-	conn, err := dialAuth(addr)
+	conn, err := authrpc.Dial(addr)
 	if err != nil {
 		return err
 	}
@@ -115,15 +114,4 @@ func CheckAuth(ctx context.Context, addr string) error {
 		return fmt.Errorf("Auth не готов: %s", reply.GetStatus())
 	}
 	return nil
-}
-
-func dialAuth(target string, options ...grpc.DialOption) (*grpc.ClientConn, error) {
-	direct := []grpc.DialOption{
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
-		// Auth's internal address must resolve inside the application network.
-		grpc.WithNoProxy(),
-		// Compose provides address records for Auth. Service settings are local.
-		grpc.WithDisableServiceConfig(),
-	}
-	return grpc.NewClient(target, append(direct, options...)...)
 }

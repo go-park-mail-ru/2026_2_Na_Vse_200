@@ -1,19 +1,18 @@
-package app
+package rpcmetrics
 
 import (
 	"context"
 	"fmt"
 	"time"
 
-	"2026_2_Na_Vse_200/internal/rpcmetrics"
+	"2026_2_Na_Vse_200/internal/httpserver"
 	"github.com/rs/zerolog"
 	"golang.org/x/sync/errgroup"
 )
 
-func runWithMetrics(
+func (m *Metrics) RunWithServer(
 	ctx context.Context,
 	addr string,
-	metrics *rpcmetrics.Metrics,
 	timeout time.Duration,
 	logger zerolog.Logger,
 	run func(context.Context) error,
@@ -22,9 +21,9 @@ func runWithMetrics(
 	defer cancel()
 	group, ctx := errgroup.WithContext(ctx)
 	group.Go(func() error {
-		server := newServer(addr, metrics.Handler())
+		server := httpserver.New(addr, m.Handler())
 		server.WriteTimeout = 5 * time.Second
-		if err := serve(ctx, server, timeout, logger); err != nil {
+		if err := httpserver.Serve(ctx, server, timeout, logger); err != nil {
 			return fmt.Errorf("сервер метрик: %w", err)
 		}
 		return nil

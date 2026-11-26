@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"2026_2_Na_Vse_200/auth-microservice/sessions"
 	"2026_2_Na_Vse_200/internal/models"
 	"2026_2_Na_Vse_200/internal/usecase/ports"
 )
@@ -48,8 +49,8 @@ type hasherStub struct {
 func (h hasherStub) Hash(v string) (string, error)       { return h.hash(v) }
 func (h hasherStub) Verify(v, hash string) (bool, error) { return h.verify(v, hash) }
 
-func newUsecase(users ports.UserRepository, sessions ports.SessionRepository, hasher ports.PasswordHasher) *Usecase {
-	manager := NewSessionManager(sessions, func() models.SessionID { return "session" }, func() time.Time { return time.Unix(1000, 0) }, time.Hour)
+func newUsecase(users ports.UserRepository, repo ports.SessionRepository, hasher ports.PasswordHasher) *Usecase {
+	manager := sessions.NewSessionManager(repo, func() models.SessionID { return "session" }, func() time.Time { return time.Unix(1000, 0) }, time.Hour)
 	return NewAuthUsecase(users, manager, hasher)
 }
 

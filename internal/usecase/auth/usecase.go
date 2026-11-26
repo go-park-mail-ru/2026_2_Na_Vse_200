@@ -37,6 +37,13 @@ type Result struct {
 	Session models.Session
 }
 
+// Sessions управляет сессиями для HTTP-сценариев входа и выхода.
+type Sessions interface {
+	CreateSession(context.Context, models.UserID) (models.Session, error)
+	GetSession(context.Context, models.SessionID) (models.Session, error)
+	DeleteSession(context.Context, models.SessionID) error
+}
+
 // Usecase выполняет сценарии авторизации через переданные зависимости.
 type Usecase struct {
 	users    ports.UserRepository

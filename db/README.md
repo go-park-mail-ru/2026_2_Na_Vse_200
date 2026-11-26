@@ -43,7 +43,7 @@
 В [internal/repository/postgres/](../internal/repository/postgres/) находятся:
 
 - user_repo.go — создание пользователя и поиск по ID или email;
-- session_repo.go — сохранение, чтение, удаление сессии и очистка истёкших сессий;
+- [Репозиторий Auth](../auth-microservice/repository/session_repo.go) — сохранение, чтение, удаление сессии и очистка истёкших сессий;
 - catalog_repo.go — чтение треков, исполнителей и альбомов для главной страницы.
 - profile_repo.go — методы UserRepo для изменения имени и привязки аватара;
 - account_repo.go — смена email, смена пароля с отзывом сессий и удаление аккаунта в транзакциях;

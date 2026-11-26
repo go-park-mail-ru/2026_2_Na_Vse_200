@@ -33,7 +33,7 @@ func (r *UserRepo) changeAccount(ctx context.Context, id models.UserID, expected
 }
 
 func (r *UserRepo) ChangeEmail(ctx context.Context, id models.UserID, expectedHash, email string) (models.User, error) {
-	ctx = withDBOperation(ctx, "account.change_email")
+	ctx = WithDBOperation(ctx, "account.change_email")
 	var user models.User
 	err := r.changeAccount(ctx, id, expectedHash, func(tx pgx.Tx) error {
 		var err error
@@ -48,7 +48,7 @@ func (r *UserRepo) ChangeEmail(ctx context.Context, id models.UserID, expectedHa
 }
 
 func (r *UserRepo) ChangePassword(ctx context.Context, id models.UserID, expectedHash, nextHash string) error {
-	ctx = withDBOperation(ctx, "account.change_password")
+	ctx = WithDBOperation(ctx, "account.change_password")
 	return r.changeAccount(ctx, id, expectedHash, func(tx pgx.Tx) error {
 		if _, err := tx.Exec(ctx, `UPDATE account SET password_hash=$2 WHERE id=$1::uuid`, string(id), nextHash); err != nil {
 			return err
@@ -59,7 +59,7 @@ func (r *UserRepo) ChangePassword(ctx context.Context, id models.UserID, expecte
 }
 
 func (r *UserRepo) DeleteAccount(ctx context.Context, id models.UserID, expectedHash string) error {
-	ctx = withDBOperation(ctx, "account.delete")
+	ctx = WithDBOperation(ctx, "account.delete")
 	return r.changeAccount(ctx, id, expectedHash, func(tx pgx.Tx) error {
 		var catalogOwner string
 		if err := tx.QueryRow(ctx, "SELECT id::text FROM account WHERE system_key=$1 FOR SHARE", "catalog_owner").Scan(&catalogOwner); err != nil {

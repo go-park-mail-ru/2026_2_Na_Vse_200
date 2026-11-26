@@ -7,15 +7,19 @@
 | Каталог | Назначение |
 |---|---|
 | `cmd/app` | Точка входа, команды `server` и `migrate` |
-| `cmd/auth` | Точка входа сервиса сессий и проверки доступа |
-| `api/auth/v1` | Контракт Auth gRPC и сгенерированный Go-код |
-| `internal/app` | Сборка зависимостей и запуск HTTP и Auth |
+| `auth-microservice/cmd/auth` | Точка входа сервиса сессий и проверки доступа |
+| `auth-microservice/api/auth/v1` | Контракт Auth gRPC и сгенерированный Go-код |
+| `auth-microservice/authrpc` | gRPC-клиент и сервер Auth |
+| `auth-microservice/internal` | Настройки и запуск Auth |
+| `auth-microservice/sessions` | Управление сессиями и проверка доступа к профилю |
+| `auth-microservice/repository` | Хранение сессий в PostgreSQL |
+| `internal/app` | Сборка зависимостей и запуск HTTP-сервера |
 | `internal/delivery` | HTTP-обработчики, маршруты, middleware и JSON-ответы |
 | `internal/usecase` | Бизнес-логика |
 | `internal/usecase/ports` | Интерфейсы зависимостей и директивы генерации моков |
 | `internal/repository/postgres` | Репозитории PostgreSQL |
 | `internal/models` | Модели и общие ошибки |
-| `internal/auth` | Хеширование паролей и генерация ID сессий |
+| `internal/auth` | Хеширование паролей |
 | `internal/storage` | Хранение файлов на диске |
 | `internal/config` | Чтение настроек из окружения |
 | `internal/logger` | Настройка логирования |
@@ -28,13 +32,15 @@ HTTP-сервер вызывает Auth по gRPC для выдачи, пров�
 
 HTTP и Auth пишут структурированные логи через zerolog. HTTP `X-Request-ID` передаётся в gRPC metadata под именем `request_id` и связывает логи обоих процессов.
 
+Auth пишет результат каждой операции сессий с полями `operation` и `outcome`. Успешные вызовы видны на `info`, причины отказа в доступе — на `debug`, ошибки хранилища — на `error`. Идентификатор сессии в логах отсутствует.
+
 ## Запуск без Docker
 
 Нужны Go и PostgreSQL. Задайте `POSTGRES_DSN` в окружении, затем выполните из корня проекта:
 
 ```bash
 go run ./cmd/app migrate up
-go run ./cmd/auth
+go run ./auth-microservice/cmd/auth
 ```
 
 В другом терминале с тем же `POSTGRES_DSN` и `APP_SESSION_TTL` запустите HTTP-сервер.
@@ -92,7 +98,7 @@ Auth использует доверенное внутреннее соедин
 ```text
 go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.11
 go install google.golang.org/grpc/cmd/protoc-gen-go-grpc@v1.6.0
-protoc -I . --go_out=. --go_opt=paths=source_relative --go-grpc_out=. --go-grpc_opt=paths=source_relative api/auth/v1/auth.proto
+protoc -I . --go_out=. --go_opt=paths=source_relative --go-grpc_out=. --go-grpc_opt=paths=source_relative auth-microservice/api/auth/v1/auth.proto
 ```
 
 Сгенерированные `auth.pb.go` и `auth_grpc.pb.go` хранятся рядом с контрактом. Если `protoc` не находит стандартные импорты Google, передайте дополнительный `-I` с путём к каталогу `include` из дистрибутива.

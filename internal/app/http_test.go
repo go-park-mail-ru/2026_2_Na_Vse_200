@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"2026_2_Na_Vse_200/internal/config"
+	"2026_2_Na_Vse_200/internal/httpserver"
 
 	"github.com/rs/zerolog"
 )
@@ -29,7 +30,7 @@ func TestServeWaitsForActiveRequest(t *testing.T) {
 	releaseRequest := make(chan struct{})
 	shutdownStarted := make(chan struct{})
 	address := make(chan string, 1)
-	server := newServer("127.0.0.1:0", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	server := httpserver.New("127.0.0.1:0", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		close(requestStarted)
 		<-releaseRequest
 		w.WriteHeader(http.StatusNoContent)
@@ -44,7 +45,7 @@ func TestServeWaitsForActiveRequest(t *testing.T) {
 	defer server.Close()
 	done := make(chan error, 1)
 	go func() {
-		done <- serve(ctx, server, 2*time.Second, zerolog.Nop())
+		done <- httpserver.Serve(ctx, server, 2*time.Second, zerolog.Nop())
 	}()
 	var addr string
 	select {
@@ -102,9 +103,9 @@ func TestServeWaitsForActiveRequest(t *testing.T) {
 }
 
 func TestServeInvalidAddress(t *testing.T) {
-	server := newServer("invalid::address", http.NotFoundHandler())
+	server := httpserver.New("invalid::address", http.NotFoundHandler())
 	logger := zerolog.Nop()
-	if err := serve(context.Background(), server, time.Second, logger); err == nil {
+	if err := httpserver.Serve(context.Background(), server, time.Second, logger); err == nil {
 		t.Fatal("invalid address accepted")
 	}
 }

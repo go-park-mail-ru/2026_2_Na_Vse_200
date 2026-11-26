@@ -11,6 +11,7 @@ import (
 	"time"
 	"uuid"
 
+	"2026_2_Na_Vse_200/auth-microservice/repository"
 	"2026_2_Na_Vse_200/db/migrations"
 	"2026_2_Na_Vse_200/internal/models"
 	"2026_2_Na_Vse_200/internal/repository/postgres"
@@ -22,7 +23,7 @@ import (
 // Каждый тест создаёт отдельную схему в базе, указанной в TEST_POSTGRES_DSN.
 func TestSessionRepository(t *testing.T) {
 	pool, openPool := sessionTestDatabase(t)
-	repo := postgres.NewSessionRepo(pool)
+	repo := repository.NewSessionRepo(pool)
 	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
 	t.Cleanup(cancel)
 
@@ -30,13 +31,13 @@ func TestSessionRepository(t *testing.T) {
 		owner := sessionTestUser(t, pool)
 		session := sessionTestValue(owner.ID, time.Now().Add(time.Hour))
 		writerPool := openPool(t)
-		if err := postgres.NewSessionRepo(writerPool).Create(ctx, session); err != nil {
+		if err := repository.NewSessionRepo(writerPool).Create(ctx, session); err != nil {
 			t.Fatalf("Create: %v", err)
 		}
 		writerPool.Close()
 
 		readerPool := openPool(t)
-		got, err := postgres.NewSessionRepo(readerPool).GetByID(ctx, session.ID)
+		got, err := repository.NewSessionRepo(readerPool).GetByID(ctx, session.ID)
 		if err != nil {
 			t.Fatalf("GetByID through a new pool: %v", err)
 		}
@@ -190,7 +191,7 @@ func TestSessionRepository(t *testing.T) {
 	t.Run("database failures are not authentication failures", func(t *testing.T) {
 		closedPool := openPool(t)
 		closedPool.Close()
-		closedRepo := postgres.NewSessionRepo(closedPool)
+		closedRepo := repository.NewSessionRepo(closedPool)
 		session := sessionTestValue(models.UserID(uuid.New().String()), time.Now().Add(time.Hour))
 		checks := []struct {
 			name string

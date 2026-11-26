@@ -2,10 +2,10 @@ package config
 
 import (
 	"fmt"
-	"os"
 	"strconv"
-	"strings"
 	"time"
+
+	"2026_2_Na_Vse_200/internal/env"
 )
 
 // Config содержит настройки приложения.
@@ -22,26 +22,22 @@ type Config struct {
 	PostgreSQLDSN   string
 	MediaRoot       string
 	AuthTarget      string
-	AuthListenAddr  string
 	MetricsAddr     string
-	AuthMetricsAddr string
 }
 
 // Load читает настройки из окружения и возвращает ошибку при неверном формате значения.
 func Load() (cfg Config, err error) {
 	cfg = Config{
-		LogLevel:        getEnv("LOG_LEVEL", "info"),
-		LogFormat:       getEnv("LOG_FORMAT", "json"),
-		Addr:            getEnv("APP_ADDR", ":8080"),
-		AllowedOrigin:   getEnv("APP_ALLOWED_ORIGIN", ""),
-		AllowedMethods:  getEnv("APP_ALLOWED_METHODS", "GET, POST, PUT, DELETE, OPTIONS"),
-		AllowedHeaders:  getEnv("APP_ALLOWED_HEADERS", "Content-Type, X-CSRF-Token"),
-		PostgreSQLDSN:   getEnv("POSTGRES_DSN", ""),
-		MediaRoot:       getEnv("MEDIA_ROOT", "data/media"),
-		AuthTarget:      getEnv("AUTH_GRPC_TARGET", "127.0.0.1:50051"),
-		AuthListenAddr:  getEnv("AUTH_GRPC_ADDR", "127.0.0.1:50051"),
-		MetricsAddr:     getEnv("APP_METRICS_ADDR", ""),
-		AuthMetricsAddr: getEnv("AUTH_METRICS_ADDR", "127.0.0.1:9092"),
+		LogLevel:       env.String("LOG_LEVEL", "info"),
+		LogFormat:      env.String("LOG_FORMAT", "json"),
+		Addr:           env.String("APP_ADDR", ":8080"),
+		AllowedOrigin:  env.String("APP_ALLOWED_ORIGIN", ""),
+		AllowedMethods: env.String("APP_ALLOWED_METHODS", "GET, POST, PUT, DELETE, OPTIONS"),
+		AllowedHeaders: env.String("APP_ALLOWED_HEADERS", "Content-Type, X-CSRF-Token"),
+		PostgreSQLDSN:  env.String("POSTGRES_DSN", ""),
+		MediaRoot:      env.String("MEDIA_ROOT", "data/media"),
+		AuthTarget:     env.String("AUTH_GRPC_TARGET", "127.0.0.1:50051"),
+		MetricsAddr:    env.String("APP_METRICS_ADDR", ""),
 	}
 
 	cfg.CookieSecure, err = getBool("APP_COOKIE_SECURE", false)
@@ -49,12 +45,12 @@ func Load() (cfg Config, err error) {
 		return Config{}, err
 	}
 
-	cfg.SessionTTL, err = getDuration("APP_SESSION_TTL", 24*time.Hour)
+	cfg.SessionTTL, err = env.Duration("APP_SESSION_TTL", 24*time.Hour)
 	if err != nil {
 		return Config{}, err
 	}
 
-	cfg.ShutdownTimeout, err = getDuration("APP_SHUTDOWN_TIMEOUT", 10*time.Second)
+	cfg.ShutdownTimeout, err = env.Duration("APP_SHUTDOWN_TIMEOUT", 10*time.Second)
 	if err != nil {
 		return Config{}, err
 	}
@@ -62,16 +58,8 @@ func Load() (cfg Config, err error) {
 	return cfg, nil
 }
 
-func getEnv(key, fallback string) string {
-	value := strings.TrimSpace(os.Getenv(key))
-	if value == "" {
-		return fallback
-	}
-	return value
-}
-
 func getBool(key string, fallback bool) (bool, error) {
-	raw := getEnv(key, "")
+	raw := env.String(key, "")
 	if raw == "" {
 		return fallback, nil
 	}
@@ -81,22 +69,4 @@ func getBool(key string, fallback bool) (bool, error) {
 		return false, fmt.Errorf("разбор %s: %w", key, err)
 	}
 	return value, nil
-}
-
-func getDuration(key string, fallback time.Duration) (time.Duration, error) {
-	raw := getEnv(key, "")
-	if raw == "" {
-		return fallback, nil
-	}
-
-	value, err := time.ParseDuration(raw)
-
-	switch {
-	case err != nil:
-		return 0, fmt.Errorf("разбор %s: %w", key, err)
-	case value <= 0:
-		return 0, fmt.Errorf("разбор %s: длительность должна быть положительной, получено %q", key, raw)
-	default:
-		return value, nil
-	}
 }

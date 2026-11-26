@@ -6,6 +6,7 @@ import (
 	"testing"
 	"time"
 
+	"2026_2_Na_Vse_200/auth-microservice/repository"
 	"2026_2_Na_Vse_200/internal/models"
 	"2026_2_Na_Vse_200/internal/repository/postgres"
 )
@@ -14,7 +15,7 @@ func TestAccountRepository(t *testing.T) {
 	pool, _ := sessionTestDatabase(t)
 	ctx := context.Background()
 	repo := postgres.NewUserRepo(pool)
-	sessions := postgres.NewSessionRepo(pool)
+	sessions := repository.NewSessionRepo(pool)
 	owner := sessionTestUser(t, pool)
 	other := sessionTestUser(t, pool)
 	catalogOwner := sessionTestUser(t, pool)

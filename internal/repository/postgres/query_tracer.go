@@ -20,7 +20,7 @@ type queryTrace struct {
 	statement string
 }
 
-func withDBOperation(ctx context.Context, operation string) context.Context {
+func WithDBOperation(ctx context.Context, operation string) context.Context {
 	return context.WithValue(ctx, dbOperationKey{}, operation)
 }
 

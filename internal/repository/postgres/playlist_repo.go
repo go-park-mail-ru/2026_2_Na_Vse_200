@@ -64,7 +64,7 @@ func scanPlaylist(row pgx.Row, target *models.PlaylistPage, extra ...any) error 
 
 // List returns playlist cards for the given owner.
 func (r *PlaylistRepo) List(ctx context.Context, owner models.UserID) ([]models.PlaylistPage, error) {
-	ctx = withDBOperation(ctx, "playlist.list")
+	ctx = WithDBOperation(ctx, "playlist.list")
 	rows, err := r.pool.Query(ctx, `
 		SELECT `+_playlistColumns+`, (
 			SELECT count(*) FROM playlist_item pi JOIN track t ON t.id = pi.track_id
@@ -126,7 +126,7 @@ func withPlaylistTracks(ctx context.Context, db catalogReader, playlist models.P
 
 // Get returns a playlist and its tracks by current or legacy ID.
 func (r *PlaylistRepo) Get(ctx context.Context, owner models.UserID, id string) (models.PlaylistPage, error) {
-	ctx = withDBOperation(ctx, "playlist.get")
+	ctx = WithDBOperation(ctx, "playlist.get")
 	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly})
 	if err != nil {
 		return models.PlaylistPage{}, err
@@ -146,7 +146,7 @@ func (r *PlaylistRepo) Save(
 	id string,
 	input models.PlaylistInput,
 ) (models.PlaylistPage, error) {
-	ctx = withDBOperation(ctx, "playlist.save")
+	ctx = WithDBOperation(ctx, "playlist.save")
 	result, err := r.save(ctx, owner, playlistWrite{id: id, input: input})
 	return result.Playlist, err
 }
@@ -159,7 +159,7 @@ func (r *PlaylistRepo) Import(
 	input models.PlaylistInput,
 	trackIDs []string,
 ) (models.PlaylistImportResult, error) {
-	ctx = withDBOperation(ctx, "playlist.import")
+	ctx = WithDBOperation(ctx, "playlist.import")
 	return r.save(ctx, owner, playlistWrite{legacyID: legacyID, input: input, trackIDs: trackIDs})
 }
 
@@ -398,7 +398,7 @@ func (r *PlaylistRepo) ChangeTracks(
 	id string,
 	change models.PlaylistTrackChange,
 ) (models.PlaylistPage, error) {
-	ctx = withDBOperation(ctx, "playlist.tracks.change")
+	ctx = WithDBOperation(ctx, "playlist.tracks.change")
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return models.PlaylistPage{}, err
@@ -430,7 +430,7 @@ func (r *PlaylistRepo) ChangeTracks(
 
 // Delete removes a playlist and its uploaded cover.
 func (r *PlaylistRepo) Delete(ctx context.Context, owner models.UserID, id string) error {
-	ctx = withDBOperation(ctx, "playlist.delete")
+	ctx = WithDBOperation(ctx, "playlist.delete")
 	tx, err := r.pool.Begin(ctx)
 	if err != nil {
 		return err
@@ -483,7 +483,7 @@ func (r *PlaylistRepo) removeBlob(ctx context.Context, key string) {
 
 // Cover returns the cover metadata when the playlist belongs to the given owner.
 func (r *PlaylistRepo) Cover(ctx context.Context, owner models.UserID, id, fileID string) (models.MediaFile, error) {
-	ctx = withDBOperation(ctx, "playlist.cover")
+	ctx = WithDBOperation(ctx, "playlist.cover")
 	tx, err := r.pool.BeginTx(ctx, pgx.TxOptions{IsoLevel: pgx.RepeatableRead, AccessMode: pgx.ReadOnly})
 	if err != nil {
 		return models.MediaFile{}, err

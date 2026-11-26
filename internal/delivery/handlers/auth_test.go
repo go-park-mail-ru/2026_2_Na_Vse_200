@@ -541,8 +541,8 @@ func TestMeUnauthorizedCases(t *testing.T) {
 	handler := middleware.Chain(api.Routes(), middleware.WithJSONErrors)
 
 	ctx := context.Background()
-	expired := models.Session{ID: auth.NewSessionID(), UserID: models.UserID(uuid.New().String()), ExpiresAt: time.Now().Add(-time.Minute)}
-	orphan := models.Session{ID: auth.NewSessionID(), UserID: models.UserID(uuid.New().String()), ExpiresAt: time.Now().Add(time.Hour)}
+	expired := models.Session{ID: models.SessionID(uuid.New().String()), UserID: models.UserID(uuid.New().String()), ExpiresAt: time.Now().Add(-time.Minute)}
+	orphan := models.Session{ID: models.SessionID(uuid.New().String()), UserID: models.UserID(uuid.New().String()), ExpiresAt: time.Now().Add(time.Hour)}
 
 	for _, session := range []models.Session{expired, orphan} {
 		if err := sessions.Create(ctx, session); err != nil {
@@ -555,7 +555,7 @@ func TestMeUnauthorizedCases(t *testing.T) {
 		cookie *http.Cookie
 	}{
 		{name: "cookie не прислана", cookie: nil},
-		{name: "сессия неизвестна", cookie: &http.Cookie{Name: _sessionCookieName, Value: string(auth.NewSessionID())}},
+		{name: "сессия неизвестна", cookie: &http.Cookie{Name: _sessionCookieName, Value: uuid.New().String()}},
 		{name: "сессия истекла", cookie: &http.Cookie{Name: _sessionCookieName, Value: string(expired.ID)}},
 		{name: "пользователь удалён", cookie: &http.Cookie{Name: _sessionCookieName, Value: string(orphan.ID)}},
 	}
@@ -610,7 +610,7 @@ func (brokenSessionRepo) Delete(ctx context.Context, id models.SessionID) error 
 func TestSessionStorageFailure(t *testing.T) {
 
 	handler := newHandlerWithSessions(brokenSessionRepo{})
-	cookie := &http.Cookie{Name: _sessionCookieName, Value: string(auth.NewSessionID())}
+	cookie := &http.Cookie{Name: _sessionCookieName, Value: uuid.New().String()}
 
 	tests := []struct {
 		name   string

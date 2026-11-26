@@ -5,9 +5,9 @@ import (
 	"errors"
 	"uuid"
 
-	authv1 "2026_2_Na_Vse_200/api/auth/v1"
+	authv1 "2026_2_Na_Vse_200/auth-microservice/api/auth/v1"
+	"2026_2_Na_Vse_200/auth-microservice/sessions"
 	"2026_2_Na_Vse_200/internal/models"
-	authusecase "2026_2_Na_Vse_200/internal/usecase/auth"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/types/known/emptypb"
@@ -16,10 +16,10 @@ import (
 
 type Server struct {
 	authv1.UnimplementedAuthServiceServer
-	sessions *authusecase.SessionManager
+	sessions *sessions.SessionManager
 }
 
-func NewServer(sessions *authusecase.SessionManager) *Server {
+func NewServer(sessions *sessions.SessionManager) *Server {
 	return &Server{sessions: sessions}
 }
 

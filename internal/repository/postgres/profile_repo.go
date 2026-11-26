@@ -13,7 +13,7 @@ import (
 var _ ports.ProfileRepository = (*UserRepo)(nil)
 
 func (r *UserRepo) UpdateProfile(ctx context.Context, id models.UserID, email, displayName string) (models.User, error) {
-	ctx = withDBOperation(ctx, "profile.update")
+	ctx = WithDBOperation(ctx, "profile.update")
 	const query = `
  UPDATE account SET display_name = $3
  WHERE id = $1::uuid AND email = $2
@@ -38,7 +38,7 @@ func (r *UserRepo) UpdateProfile(ctx context.Context, id models.UserID, email, d
 
 // SetAvatar привязывает уже сохранённый файл к пользователю.
 func (r *UserRepo) SetAvatar(ctx context.Context, id models.UserID, fileID models.MediaFileID) (models.User, error) {
-	ctx = withDBOperation(ctx, "profile.set_avatar")
+	ctx = WithDBOperation(ctx, "profile.set_avatar")
 	var user models.User
 	err := pgx.BeginFunc(ctx, r.transactions, func(tx pgx.Tx) error {
 		var err error
@@ -53,7 +53,7 @@ func (r *UserRepo) SetAvatar(ctx context.Context, id models.UserID, fileID model
 
 // SaveAvatar создаёт метаданные и привязывает аватар в одной транзакции.
 func (r *UserRepo) SaveAvatar(ctx context.Context, id models.UserID, file models.MediaFile) (models.User, error) {
-	ctx = withDBOperation(ctx, "profile.save_avatar")
+	ctx = WithDBOperation(ctx, "profile.save_avatar")
 	var user models.User
 	err := pgx.BeginFunc(ctx, r.transactions, func(tx pgx.Tx) error {
 		saved, err := createMedia(ctx, tx, file)
