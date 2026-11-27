@@ -3,6 +3,7 @@ package middleware
 import (
 	"context"
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 	"time"
@@ -39,8 +40,8 @@ func (m *HTTPMetrics) Handler() http.Handler {
 
 type metricsRouteKey struct{}
 
-// Wrap измеряет всю цепочку и получает шаблон маршрута после прохода через ServeMux.
-func (m *HTTPMetrics) Wrap(router http.Handler, middlewares ...Middleware) http.Handler {
+// Wrap измеряет запросы, включая ответы middleware до входа в ServeMux.
+func (m *HTTPMetrics) Wrap(router *http.ServeMux, middlewares ...Middleware) http.Handler {
 	next := Chain(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		pattern := r.Context().Value(metricsRouteKey{}).(*string)
 		defer func() { *pattern = r.Pattern }()
@@ -51,8 +52,12 @@ func (m *HTTPMetrics) Wrap(router http.Handler, middlewares ...Middleware) http.
 		var pattern string
 		writer := &statusWriter{ResponseWriter: w}
 		next.ServeHTTP(writer, r.WithContext(context.WithValue(r.Context(), metricsRouteKey{}, &pattern)))
+		duration := time.Since(started).Seconds()
 		if r.URL.Path == "/metrics" {
 			return
+		}
+		if pattern == "" {
+			pattern = findRoutePattern(router, r, writer.Header().Get("Allow"))
 		}
 		_, route, hasMethod := strings.Cut(pattern, " ")
 		if !hasMethod {
@@ -67,16 +72,50 @@ func (m *HTTPMetrics) Wrap(router http.Handler, middlewares ...Middleware) http.
 		}
 		method := boundedMethod(r.Method)
 		m.requests.WithLabelValues(method, route, strconv.Itoa(status)).Inc()
-		m.duration.WithLabelValues(method, route).Observe(time.Since(started).Seconds())
+		m.duration.WithLabelValues(method, route).Observe(duration)
 	})
 }
 
-func boundedMethod(method string) string {
-	switch method {
-	case http.MethodGet, http.MethodHead, http.MethodPost, http.MethodPut, http.MethodPatch,
-		http.MethodDelete, http.MethodConnect, http.MethodOptions, http.MethodTrace:
-		return method
-	default:
-		return "OTHER"
+var standardMethods = [...]string{
+	http.MethodGet, http.MethodHead, http.MethodPost, http.MethodPut, http.MethodPatch,
+	http.MethodDelete, http.MethodConnect, http.MethodOptions, http.MethodTrace,
+}
+
+func findRoutePattern(router *http.ServeMux, r *http.Request, allow string) string {
+	if _, pattern := router.Handler(r); pattern != "" {
+		return pattern
 	}
+
+	probe := *r
+	if r.Method == http.MethodOptions {
+		probe.Method = r.Header.Get("Access-Control-Request-Method")
+		if probe.Method != "" && probe.Method != http.MethodConnect {
+			if _, pattern := router.Handler(&probe); pattern != "" {
+				return pattern
+			}
+		}
+	}
+
+	methods := standardMethods[:]
+	if allow != "" {
+		methods = strings.Split(allow, ",")
+	}
+	for _, method := range methods {
+		probe.Method = strings.TrimSpace(method)
+		// Для CONNECT ServeMux может вернуть конкретный путь редиректа.
+		if probe.Method == r.Method || probe.Method == http.MethodConnect {
+			continue
+		}
+		if _, pattern := router.Handler(&probe); pattern != "" {
+			return pattern
+		}
+	}
+	return ""
+}
+
+func boundedMethod(method string) string {
+	if slices.Contains(standardMethods[:], method) {
+		return method
+	}
+	return "OTHER"
 }

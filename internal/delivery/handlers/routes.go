@@ -65,7 +65,7 @@ func New(cfg *config.Config, deps *Deps) *API {
 	return api
 }
 
-func (a *API) Routes() http.Handler {
+func (a *API) Routes() *http.ServeMux {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health", health.Health)
 	mux.HandleFunc("GET /api/v1/auth/csrf", a.authH.CSRF)
