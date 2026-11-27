@@ -5,7 +5,6 @@ import (
 	"time"
 	"uuid"
 
-	"2026_2_Na_Vse_200/internal/auth"
 	"2026_2_Na_Vse_200/internal/models"
 )
 
@@ -73,12 +72,17 @@ type authSessionsFixture struct {
 	sessions []models.Session
 }
 
-func (f *authSessionsFixture) Create(_ context.Context, session models.Session) error {
+func (f *authSessionsFixture) CreateSession(_ context.Context, userID models.UserID, _ int64) (models.Session, error) {
+	session := models.Session{
+		ID:        models.SessionID(uuid.New().String()),
+		UserID:    userID,
+		ExpiresAt: time.Now().Add(testConfig.SessionTTL),
+	}
 	f.sessions = append(f.sessions, session)
-	return nil
+	return session, nil
 }
 
-func (f *authSessionsFixture) GetByID(_ context.Context, id models.SessionID) (models.Session, error) {
+func (f *authSessionsFixture) GetSession(_ context.Context, id models.SessionID) (models.Session, error) {
 	for _, session := range f.sessions {
 		if session.ID == id {
 			if session.IsExpired(time.Now()) {
@@ -90,7 +94,7 @@ func (f *authSessionsFixture) GetByID(_ context.Context, id models.SessionID) (m
 	return models.Session{}, models.ErrSessionNotFound
 }
 
-func (f *authSessionsFixture) Delete(_ context.Context, id models.SessionID) error {
+func (f *authSessionsFixture) DeleteSession(_ context.Context, id models.SessionID) error {
 	for i, session := range f.sessions {
 		if session.ID == id {
 			f.sessions = append(f.sessions[:i], f.sessions[i+1:]...)
@@ -157,5 +161,5 @@ func (s artistRepoStub) Albums(context.Context, models.ArtistID, int, int) ([]mo
 }
 
 func (f *authUsersFixture) SaveAvatar(ctx context.Context, id models.UserID, file models.MediaFile) (models.User, error) {
-	return f.SetAvatar(ctx, id, models.MediaFileID(auth.NewSessionID()))
+	return f.SetAvatar(ctx, id, models.MediaFileID(uuid.New().String()))
 }

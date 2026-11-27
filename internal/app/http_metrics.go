@@ -7,8 +7,17 @@ import (
 	"net/http"
 	"time"
 
+	"2026_2_Na_Vse_200/internal/delivery/middleware"
+	"2026_2_Na_Vse_200/pkg/rpcmetrics"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/rs/zerolog"
 )
+
+func combinedMetrics(httpMetrics *middleware.HTTPMetrics, grpcMetrics *rpcmetrics.Metrics) http.Handler {
+	gatherers := prometheus.Gatherers{httpMetrics.Gatherer(), grpcMetrics.Gatherer()}
+	return promhttp.HandlerFor(gatherers, promhttp.HandlerOpts{})
+}
 
 func startMetrics(addr string, handler http.Handler, logger zerolog.Logger) (func(), error) {
 	listener, err := net.Listen("tcp", addr)

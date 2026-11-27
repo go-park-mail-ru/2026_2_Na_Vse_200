@@ -18,24 +18,24 @@ import (
 const insertUser = `
 	INSERT INTO account (email, password_hash, display_name, avatar_file_id)
 	VALUES ($1, $2, $3, $4)
-	RETURNING id, created_at`
+	RETURNING id, created_at, credential_version`
 
 const findUser = `
-	SELECT id, email, password_hash, display_name, avatar_file_id::text, created_at
+	SELECT id, email, password_hash, display_name, avatar_file_id::text, created_at, credential_version
 	FROM account
 	WHERE email = $1`
 
 const updateUser = `
 	UPDATE account SET display_name = $3
 	WHERE id = $1::uuid AND email = $2
-	RETURNING id::text, email, password_hash, display_name, avatar_file_id::text, created_at`
+	RETURNING id::text, email, password_hash, display_name, avatar_file_id::text, created_at, credential_version`
 
 const setAvatarQuery = `
 	UPDATE account SET avatar_file_id = $2::uuid
 	WHERE id = $1::uuid
-	RETURNING id::text, email, password_hash, display_name, avatar_file_id::text, created_at`
+	RETURNING id::text, email, password_hash, display_name, avatar_file_id::text, created_at, credential_version`
 
-var userCols = []string{"id", "email", "password_hash", "display_name", "avatar_file_id", "created_at"}
+var userCols = []string{"id", "email", "password_hash", "display_name", "avatar_file_id", "created_at", "credential_version"}
 
 type sqlDB struct {
 	db *sql.DB
@@ -115,7 +115,7 @@ func TestUserCreate(t *testing.T) {
 	mock.ExpectBegin()
 	mock.ExpectQuery(insertUser).
 		WithArgs(user.Email, user.PasswordHash, user.DisplayName, nil).
-		WillReturnRows(sqlmock.NewRows([]string{"id", "created_at"}).AddRow(id, created))
+		WillReturnRows(sqlmock.NewRows([]string{"id", "created_at", "credential_version"}).AddRow(id, created, 1))
 
 	mock.ExpectCommit()
 	got, err := repo.Create(context.Background(), user)
@@ -124,6 +124,7 @@ func TestUserCreate(t *testing.T) {
 	}
 	user.ID = models.UserID(id)
 	user.CreatedAt = created
+	user.CredentialVersion = 1
 	if !reflect.DeepEqual(got, user) {
 		t.Errorf("пользователь = %+v, ожидался %+v", got, user)
 	}
@@ -166,13 +167,14 @@ func TestUserCreateErrors(t *testing.T) {
 func TestUserGetByEmail(t *testing.T) {
 	avatar := models.MediaFileID("22222222-2222-4222-8222-222222222222")
 	user := models.User{
-		ID:           "11111111-1111-4111-8111-111111111111",
-		Email:        "andrey@example.com",
-		PasswordHash: "stored-hash",
-		DisplayName:  "Андрей",
-		AvatarFileID: &avatar,
-		AvatarURL:    "/api/v1/media/" + string(avatar),
-		CreatedAt:    time.Date(2026, 11, 3, 12, 0, 0, 0, time.UTC),
+		ID:                "11111111-1111-4111-8111-111111111111",
+		Email:             "andrey@example.com",
+		PasswordHash:      "stored-hash",
+		DisplayName:       "Андрей",
+		AvatarFileID:      &avatar,
+		AvatarURL:         "/api/v1/media/" + string(avatar),
+		CredentialVersion: 3,
+		CreatedAt:         time.Date(2026, 11, 3, 12, 0, 0, 0, time.UTC),
 	}
 	dbErr := errors.New("соединение потеряно")
 	tests := []struct {
@@ -185,7 +187,7 @@ func TestUserGetByEmail(t *testing.T) {
 		{
 			name: "найден",
 			rows: sqlmock.NewRows(userCols).AddRow(string(user.ID), user.Email,
-				user.PasswordHash, user.DisplayName, string(avatar), user.CreatedAt),
+				user.PasswordHash, user.DisplayName, string(avatar), user.CreatedAt, user.CredentialVersion),
 			want: user,
 		},
 		{name: "не найден", rows: sqlmock.NewRows(userCols), wantErr: models.ErrUserNotFound},
@@ -217,19 +219,20 @@ func TestUserUpdateProfile(t *testing.T) {
 	repo, mock := newUserMock(t)
 	avatar := models.MediaFileID("22222222-2222-4222-8222-222222222222")
 	want := models.User{
-		ID:           "11111111-1111-4111-8111-111111111111",
-		Email:        "andrey@example.com",
-		PasswordHash: "stored-hash",
-		DisplayName:  "Андрей",
-		AvatarFileID: &avatar,
-		AvatarURL:    "/api/v1/media/" + string(avatar),
-		CreatedAt:    time.Date(2026, 11, 3, 12, 0, 0, 0, time.UTC),
+		ID:                "11111111-1111-4111-8111-111111111111",
+		Email:             "andrey@example.com",
+		PasswordHash:      "stored-hash",
+		DisplayName:       "Андрей",
+		AvatarFileID:      &avatar,
+		AvatarURL:         "/api/v1/media/" + string(avatar),
+		CredentialVersion: 3,
+		CreatedAt:         time.Date(2026, 11, 3, 12, 0, 0, 0, time.UTC),
 	}
 	mock.ExpectBegin()
 	mock.ExpectQuery(updateUser).
 		WithArgs(string(want.ID), want.Email, want.DisplayName).
 		WillReturnRows(sqlmock.NewRows(userCols).AddRow(string(want.ID), want.Email,
-			want.PasswordHash, want.DisplayName, string(avatar), want.CreatedAt))
+			want.PasswordHash, want.DisplayName, string(avatar), want.CreatedAt, want.CredentialVersion))
 
 	mock.ExpectCommit()
 	got, err := repo.UpdateProfile(context.Background(), want.ID, want.Email, want.DisplayName)
@@ -246,19 +249,20 @@ func TestUserSetAvatar(t *testing.T) {
 	repo, mock := newUserMock(t)
 	avatar := models.MediaFileID("22222222-2222-4222-8222-222222222222")
 	want := models.User{
-		ID:           "11111111-1111-4111-8111-111111111111",
-		Email:        "andrey@example.com",
-		PasswordHash: "stored-hash",
-		DisplayName:  "Андрей",
-		AvatarFileID: &avatar,
-		AvatarURL:    "/api/v1/media/" + string(avatar),
-		CreatedAt:    time.Date(2026, 11, 3, 12, 0, 0, 0, time.UTC),
+		ID:                "11111111-1111-4111-8111-111111111111",
+		Email:             "andrey@example.com",
+		PasswordHash:      "stored-hash",
+		DisplayName:       "Андрей",
+		AvatarFileID:      &avatar,
+		AvatarURL:         "/api/v1/media/" + string(avatar),
+		CredentialVersion: 3,
+		CreatedAt:         time.Date(2026, 11, 3, 12, 0, 0, 0, time.UTC),
 	}
 	mock.ExpectBegin()
 	mock.ExpectQuery(setAvatarQuery).
 		WithArgs(string(want.ID), string(avatar)).
 		WillReturnRows(sqlmock.NewRows(userCols).AddRow(string(want.ID), want.Email,
-			want.PasswordHash, want.DisplayName, string(avatar), want.CreatedAt))
+			want.PasswordHash, want.DisplayName, string(avatar), want.CreatedAt, want.CredentialVersion))
 
 	mock.ExpectCommit()
 	got, err := repo.SetAvatar(context.Background(), want.ID, avatar)

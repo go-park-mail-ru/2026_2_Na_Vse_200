@@ -28,17 +28,22 @@ func (s usersStub) GetByID(ctx context.Context, v models.UserID) (models.User, e
 }
 
 type sessionsStub struct {
-	ports.SessionRepository
-	create func(context.Context, models.Session) error
+	create func(context.Context, models.UserID, int64) (models.Session, error)
 	get    func(context.Context, models.SessionID) (models.Session, error)
 	delete func(context.Context, models.SessionID) error
 }
 
-func (s sessionsStub) Create(ctx context.Context, v models.Session) error { return s.create(ctx, v) }
-func (s sessionsStub) GetByID(ctx context.Context, v models.SessionID) (models.Session, error) {
-	return s.get(ctx, v)
+func (s sessionsStub) CreateSession(ctx context.Context, userID models.UserID, credentialVersion int64) (models.Session, error) {
+	return s.create(ctx, userID, credentialVersion)
 }
-func (s sessionsStub) Delete(ctx context.Context, v models.SessionID) error { return s.delete(ctx, v) }
+
+func (s sessionsStub) GetSession(ctx context.Context, id models.SessionID) (models.Session, error) {
+	return s.get(ctx, id)
+}
+
+func (s sessionsStub) DeleteSession(ctx context.Context, id models.SessionID) error {
+	return s.delete(ctx, id)
+}
 
 type hasherStub struct {
 	hash   func(string) (string, error)
@@ -48,10 +53,6 @@ type hasherStub struct {
 func (h hasherStub) Hash(v string) (string, error)       { return h.hash(v) }
 func (h hasherStub) Verify(v, hash string) (bool, error) { return h.verify(v, hash) }
 
-func newUsecase(users ports.UserRepository, sessions ports.SessionRepository, hasher ports.PasswordHasher) *Usecase {
-	return NewAuthUsecase(users, sessions, hasher, func() models.SessionID { return "session" }, func() time.Time { return time.Unix(1000, 0) }, time.Hour)
-}
-
 func TestSignupNormalizesAndCreatesSession(t *testing.T) {
 	ctx := context.WithValue(context.Background(), struct{}{}, "request")
 	users := usersStub{create: func(gotCtx context.Context, v models.User) (models.User, error) {
@@ -59,15 +60,15 @@ func TestSignupNormalizesAndCreatesSession(t *testing.T) {
 			t.Fatalf("unexpected create: %+v", v)
 		}
 		v.ID = "user"
+		v.CredentialVersion = 1
 		return v, nil
 	}}
-	var saved models.Session
-	sessions := sessionsStub{create: func(gotCtx context.Context, v models.Session) error {
-		if gotCtx != ctx {
-			t.Fatal("context lost")
+	wantSession := models.Session{ID: "session", UserID: "user", ExpiresAt: time.Unix(4600, 0)}
+	sessions := sessionsStub{create: func(gotCtx context.Context, userID models.UserID, version int64) (models.Session, error) {
+		if gotCtx != ctx || userID != wantSession.UserID || version != 1 {
+			t.Fatalf("unexpected session request: user=%q version=%d", userID, version)
 		}
-		saved = v
-		return nil
+		return wantSession, nil
 	}}
 	hasher := hasherStub{hash: func(v string) (string, error) {
 		if v != "password1" {
@@ -75,17 +76,17 @@ func TestSignupNormalizesAndCreatesSession(t *testing.T) {
 		}
 		return "hash", nil
 	}}
-	result, err := newUsecase(users, sessions, hasher).Signup(ctx, SignupInput{Email: " USER@example.com ", DisplayName: " User ", Password: " password1 "})
+	result, err := NewAuthUsecase(users, sessions, hasher).Signup(ctx, SignupInput{Email: " USER@example.com ", DisplayName: " User ", Password: " password1 "})
 	if err != nil {
 		t.Fatal(err)
 	}
-	if result.User.ID != "user" || saved.UserID != "user" || saved.ID != "session" || !saved.ExpiresAt.Equal(time.Unix(1000, 0).Add(time.Hour)) || result.Session != saved {
-		t.Fatalf("result: %+v; session: %+v", result, saved)
+	if result.User.ID != "user" || result.Session != wantSession {
+		t.Fatalf("result: %+v; want session: %+v", result, wantSession)
 	}
 }
 
 func TestValidationBeforeDependencies(t *testing.T) {
-	u := newUsecase(nil, nil, nil)
+	u := NewAuthUsecase(nil, nil, nil)
 	_, err := u.Signup(context.Background(), SignupInput{})
 	var fields *ValidationError
 	if !errors.As(err, &fields) || len(fields.Fields) != 3 {
@@ -113,8 +114,10 @@ func TestSignupFailures(t *testing.T) {
 				}
 				return models.User{ID: "user"}, nil
 			}}
-			sessions := sessionsStub{create: func(context.Context, models.Session) error { return failure }}
-			_, err := newUsecase(users, sessions, hasher).Signup(context.Background(), SignupInput{Email: "user@example.com", DisplayName: "User", Password: "password1"})
+			sessions := sessionsStub{create: func(context.Context, models.UserID, int64) (models.Session, error) {
+				return models.Session{}, failure
+			}}
+			_, err := NewAuthUsecase(users, sessions, hasher).Signup(context.Background(), SignupInput{Email: "user@example.com", DisplayName: "User", Password: "password1"})
 			want := failure
 			if stage == "user" {
 				want = models.ErrEmailTaken
@@ -139,6 +142,7 @@ func TestLoginOutcomes(t *testing.T) {
 		{name: "user storage", userErr: failure, want: failure},
 		{name: "hasher", errorVerify: failure, want: failure},
 		{name: "session storage", matched: true, errorSession: failure, want: failure},
+		{name: "password changed", matched: true, errorSession: ErrInvalidCredentials, want: ErrInvalidCredentials},
 		{name: "success", matched: true},
 	} {
 		t.Run(tc.name, func(t *testing.T) {
@@ -146,7 +150,7 @@ func TestLoginOutcomes(t *testing.T) {
 				if email != "user@example.com" {
 					t.Fatal(email)
 				}
-				return models.User{ID: "user", PasswordHash: "hash"}, tc.userErr
+				return models.User{ID: "user", PasswordHash: "hash", CredentialVersion: 4}, tc.userErr
 			}}
 			hasher := hasherStub{verify: func(password, hash string) (bool, error) {
 				if password != "pass" || hash != "hash" {
@@ -154,13 +158,13 @@ func TestLoginOutcomes(t *testing.T) {
 				}
 				return tc.matched, tc.errorVerify
 			}}
-			sessions := sessionsStub{create: func(_ context.Context, s models.Session) error {
-				if s.UserID != "user" {
-					t.Fatal(s)
+			sessions := sessionsStub{create: func(_ context.Context, userID models.UserID, version int64) (models.Session, error) {
+				if userID != "user" || version != 4 {
+					t.Fatalf("unexpected session request: user=%q version=%d", userID, version)
 				}
-				return tc.errorSession
+				return models.Session{ID: "session", UserID: userID}, tc.errorSession
 			}}
-			result, err := newUsecase(users, sessions, hasher).Login(context.Background(), LoginInput{Email: " USER@example.com ", Password: " pass "})
+			result, err := NewAuthUsecase(users, sessions, hasher).Login(context.Background(), LoginInput{Email: " USER@example.com ", Password: " pass "})
 			if !errors.Is(err, tc.want) {
 				t.Fatalf("got %v want %v", err, tc.want)
 			}
@@ -181,7 +185,6 @@ func TestMeOutcomes(t *testing.T) {
 	}{
 		{"unknown", models.ErrSessionNotFound, nil, time.Unix(2000, 0), ErrUnauthorized},
 		{"expired repository", models.ErrSessionExpired, nil, time.Unix(2000, 0), ErrUnauthorized},
-		{"expired domain", nil, nil, time.Unix(1000, 0), ErrUnauthorized},
 		{"orphan", nil, models.ErrUserNotFound, time.Unix(2000, 0), ErrUnauthorized},
 		{"session storage", failure, nil, time.Unix(2000, 0), failure},
 		{"user storage", nil, failure, time.Unix(2000, 0), failure},
@@ -197,7 +200,7 @@ func TestMeOutcomes(t *testing.T) {
 				}
 				return models.User{ID: id}, tc.userErr
 			}}
-			result, err := newUsecase(users, sessions, nil).Me(context.Background(), "session")
+			result, err := NewAuthUsecase(users, sessions, nil).Me(context.Background(), "session")
 			if !errors.Is(err, tc.want) {
 				t.Fatalf("got %v want %v", err, tc.want)
 			}
@@ -206,13 +209,19 @@ func TestMeOutcomes(t *testing.T) {
 			}
 		})
 	}
-	if _, err := newUsecase(nil, nil, nil).Me(context.Background(), ""); !errors.Is(err, ErrUnauthorized) {
+	missingSession := sessionsStub{get: func(_ context.Context, id models.SessionID) (models.Session, error) {
+		if id != "" {
+			t.Fatalf("unexpected session ID: %q", id)
+		}
+		return models.Session{}, models.ErrSessionNotFound
+	}}
+	if _, err := NewAuthUsecase(nil, missingSession, nil).Me(context.Background(), ""); !errors.Is(err, ErrUnauthorized) {
 		t.Fatal(err)
 	}
 }
 
 func TestLogout(t *testing.T) {
-	if err := newUsecase(nil, nil, nil).Logout(context.Background(), ""); err != nil {
+	if err := NewAuthUsecase(nil, nil, nil).Logout(context.Background(), ""); err != nil {
 		t.Fatal(err)
 	}
 	for _, want := range []error{nil, errors.New("storage down")} {
@@ -222,7 +231,7 @@ func TestLogout(t *testing.T) {
 			}
 			return want
 		}}
-		if err := newUsecase(nil, sessions, nil).Logout(context.Background(), "session"); !errors.Is(err, want) {
+		if err := NewAuthUsecase(nil, sessions, nil).Logout(context.Background(), "session"); !errors.Is(err, want) {
 			t.Fatalf("got %v want %v", err, want)
 		}
 	}

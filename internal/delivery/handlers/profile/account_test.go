@@ -15,6 +15,13 @@ import (
 
 const ownerID = "77777777-0000-4000-8000-000000000001"
 
+func checkAccountOwner(_ context.Context, _ models.SessionID, id models.UserID) error {
+	if id != ownerID {
+		return models.ErrForbidden
+	}
+	return nil
+}
+
 type accountUsecaseStub struct {
 	calls int
 	err   error
@@ -52,7 +59,7 @@ func TestAccountHTTP(t *testing.T) {
 	} {
 		t.Run(tc.name, func(t *testing.T) {
 			stub := &accountUsecaseStub{err: tc.err}
-			h := NewAccountHandler(stub, &config.Config{CookieSecure: true})
+			h := NewAccountHandler(stub, &config.Config{CookieSecure: true}, checkAccountOwner)
 			mux := http.NewServeMux()
 			mux.HandleFunc("PUT /users/{id}/email", h.ChangeEmail)
 			mux.HandleFunc("PUT /users/{id}/password", h.ChangePassword)
@@ -82,7 +89,7 @@ func TestAccountHTTP(t *testing.T) {
 func TestAccountChangesRequireCSRF(t *testing.T) {
 	for _, method := range []string{http.MethodPut, http.MethodDelete} {
 		stub := &accountUsecaseStub{}
-		h := NewAccountHandler(stub, &config.Config{})
+		h := NewAccountHandler(stub, &config.Config{}, checkAccountOwner)
 		mux := http.NewServeMux()
 		mux.HandleFunc("PUT /users/{id}/email", h.ChangeEmail)
 		mux.HandleFunc("DELETE /users/{id}", h.Delete)

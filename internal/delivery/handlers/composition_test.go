@@ -4,9 +4,7 @@ import (
 	"context"
 	"io"
 	"os"
-	"time"
 
-	"2026_2_Na_Vse_200/internal/auth"
 	"2026_2_Na_Vse_200/internal/config"
 	"2026_2_Na_Vse_200/internal/delivery/handlers/media"
 	"2026_2_Na_Vse_200/internal/models"
@@ -19,7 +17,7 @@ import (
 
 type repositoryTestDeps struct {
 	Users    ports.UserRepository
-	Sessions ports.SessionRepository
+	Sessions authusecase.Sessions
 	Catalog  ports.CatalogRepository
 	Artists  ports.ArtistRepository
 	Media    ports.MediaRepository
@@ -98,11 +96,22 @@ func newRepositoryTestAPI(cfg *config.Config, deps *repositoryTestDeps) *API {
 		profiles = value
 	}
 
+	checkAccess := func(ctx context.Context, id models.SessionID, target models.UserID) error {
+		session, err := deps.Sessions.GetSession(ctx, id)
+		if err != nil {
+			return err
+		}
+		if session.UserID != target {
+			return models.ErrForbidden
+		}
+		return nil
+	}
 	return New(cfg, &Deps{
-		Auth:    authusecase.NewAuthUsecase(deps.Users, deps.Sessions, deps.Hasher, auth.NewSessionID, time.Now, cfg.SessionTTL),
-		Catalog: catalogusecase.New(deps.Catalog),
-		Profile: profileusecase.NewProfileUsecase(deps.Users, profiles, blobs),
-		Artist:  artistusecase.NewArtistUsecase(artists),
-		Media:   media.NewMediaHandler(mediaRepo, blobs),
+		Auth:               authusecase.NewAuthUsecase(deps.Users, deps.Sessions, deps.Hasher),
+		CheckProfileAccess: checkAccess,
+		Catalog:            catalogusecase.New(deps.Catalog),
+		Profile:            profileusecase.NewProfileUsecase(deps.Users, profiles, blobs),
+		Artist:             artistusecase.NewArtistUsecase(artists),
+		Media:              media.NewMediaHandler(mediaRepo, blobs),
 	})
 }

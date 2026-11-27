@@ -30,7 +30,7 @@ func TestQueryTracerCorrelatesEventsWithoutSQLOrArguments(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			var output bytes.Buffer
 			log := zerolog.New(&output).Level(zerolog.DebugLevel).With().Str("request_id", "request-42").Logger()
-			ctx := withDBOperation(log.WithContext(context.Background()), "users.get_by_email")
+			ctx := WithDBOperation(log.WithContext(context.Background()), "users.get_by_email")
 			tracer := QueryTracer{}
 			traceCtx := tracer.TraceQueryStart(ctx, nil, pgx.TraceQueryStartData{
 				SQL:  " SELECT private_column FROM account WHERE email = $1",

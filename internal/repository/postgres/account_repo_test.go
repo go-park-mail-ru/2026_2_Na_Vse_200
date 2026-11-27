@@ -6,6 +6,8 @@ import (
 	"testing"
 	"time"
 
+	"2026_2_Na_Vse_200/auth-microservice/repository"
+	"2026_2_Na_Vse_200/auth-microservice/sessions"
 	"2026_2_Na_Vse_200/internal/models"
 	"2026_2_Na_Vse_200/internal/repository/postgres"
 )
@@ -14,7 +16,7 @@ func TestAccountRepository(t *testing.T) {
 	pool, _ := sessionTestDatabase(t)
 	ctx := context.Background()
 	repo := postgres.NewUserRepo(pool)
-	sessions := postgres.NewSessionRepo(pool)
+	sessionRepo := repository.NewSessionRepo(pool)
 	owner := sessionTestUser(t, pool)
 	other := sessionTestUser(t, pool)
 	catalogOwner := sessionTestUser(t, pool)
@@ -39,21 +41,35 @@ func TestAccountRepository(t *testing.T) {
 	if err != nil || updated.Email != "new@example.test" || updated.DisplayName != owner.DisplayName {
 		t.Fatalf("email update: %+v %v", updated, err)
 	}
-	for i := 0; i < 2; i++ {
-		if err := sessions.Create(ctx, sessionTestValue(owner.ID, time.Now().Add(time.Hour))); err != nil {
+	var oldSessions []sessions.Session
+	for range 2 {
+		session := sessionTestValue(owner.ID, time.Now().Add(time.Hour))
+		if err := sessionRepo.Create(ctx, session); err != nil {
 			t.Fatal(err)
 		}
+		oldSessions = append(oldSessions, session)
+	}
+	if err := repo.ChangePassword(ctx, owner.ID, "stale-hash", "next-hash"); !errors.Is(err, models.ErrCurrentPassword) {
+		t.Fatalf("stale change password: %v", err)
+	}
+	if _, err := sessionRepo.GetByID(ctx, oldSessions[0].ID); err != nil {
+		t.Fatalf("failed password change revoked session: %v", err)
 	}
 	if err := repo.ChangePassword(ctx, owner.ID, oldHash, "next-hash"); err != nil {
 		t.Fatal(err)
 	}
 	var count int
-	if err := pool.QueryRow(ctx, `SELECT count(*) FROM auth_session WHERE account_id=$1`, string(owner.ID)).Scan(&count); err != nil || count != 0 {
+	if err := pool.QueryRow(ctx, `SELECT count(*) FROM auth_session WHERE account_id=$1`, string(owner.ID)).Scan(&count); err != nil || count != 2 {
 		t.Fatalf("sessions count=%d err=%v", count, err)
 	}
+	for _, session := range oldSessions {
+		if _, err := sessionRepo.GetByID(ctx, session.ID); !errors.Is(err, sessions.ErrSessionRevoked) {
+			t.Fatalf("old session: %v, want ErrSessionRevoked", err)
+		}
+	}
 	got, err := repo.GetByID(ctx, owner.ID)
-	if err != nil || got.PasswordHash != "next-hash" {
-		t.Fatalf("hash not changed: %v", err)
+	if err != nil || got.PasswordHash != "next-hash" || got.CredentialVersion != owner.CredentialVersion+1 {
+		t.Fatalf("password update: version=%d err=%v", got.CredentialVersion, err)
 	}
 	if err := repo.DeleteAccount(ctx, owner.ID, oldHash); !errors.Is(err, models.ErrCurrentPassword) {
 		t.Fatalf("stale delete: %v", err)
@@ -75,8 +91,19 @@ func TestAccountRepository(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
-	if err := sessions.Create(ctx, sessionTestValue(owner.ID, time.Now().Add(time.Hour))); err != nil {
+	current := sessionTestValue(owner.ID, time.Now().Add(time.Hour))
+	current.CredentialVersion = got.CredentialVersion
+	if err := sessionRepo.Create(ctx, current); err != nil {
 		t.Fatal(err)
+	}
+	if err := sessionRepo.DeleteInactive(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := sessionRepo.GetByID(ctx, oldSessions[0].ID); !errors.Is(err, sessions.ErrSessionNotFound) {
+		t.Fatalf("revoked session after cleanup: %v", err)
+	}
+	if _, err := sessionRepo.GetByID(ctx, current.ID); err != nil {
+		t.Fatalf("current session after cleanup: %v", err)
 	}
 	if err := repo.DeleteAccount(ctx, owner.ID, "next-hash"); err != nil {
 		t.Fatal(err)

@@ -12,8 +12,8 @@ import (
 
 	"2026_2_Na_Vse_200/internal/app"
 	"2026_2_Na_Vse_200/internal/config"
-	applog "2026_2_Na_Vse_200/internal/logger"
 	"2026_2_Na_Vse_200/internal/migration"
+	applog "2026_2_Na_Vse_200/pkg/logger"
 )
 
 const usage = "usage: app server | migrate <up|version|down steps>"

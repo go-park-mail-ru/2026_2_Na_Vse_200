@@ -7,6 +7,7 @@ import (
 
 	"2026_2_Na_Vse_200/internal/models"
 	"2026_2_Na_Vse_200/internal/usecase/ports"
+	"2026_2_Na_Vse_200/pkg/postgres"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 )
@@ -18,7 +19,7 @@ var _ ports.MediaRepository = (*MediaRepo)(nil)
 func NewMediaRepo(pool *pgxpool.Pool) *MediaRepo { return &MediaRepo{pool: pool} }
 
 func (r *MediaRepo) Create(ctx context.Context, file models.MediaFile) (models.MediaFile, error) {
-	ctx = withDBOperation(ctx, "media.create")
+	ctx = postgres.WithDBOperation(ctx, "media.create")
 	var saved models.MediaFile
 	err := pgx.BeginFunc(ctx, r.pool, func(tx pgx.Tx) error {
 		var err error
@@ -46,7 +47,7 @@ func createMedia(ctx context.Context, db rowQuerier, file models.MediaFile) (mod
 }
 
 func (r *MediaRepo) GetByID(ctx context.Context, id models.MediaFileID) (models.MediaFile, error) {
-	ctx = withDBOperation(ctx, "media.get_by_id")
+	ctx = postgres.WithDBOperation(ctx, "media.get_by_id")
 	const query = `
  SELECT id::text, storage_key, mime_type, byte_size, duration_ms, created_at, updated_at
  FROM media_file WHERE id = $1::uuid`

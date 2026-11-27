@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"uuid"
 
-	"2026_2_Na_Vse_200/internal/logger"
+	"2026_2_Na_Vse_200/pkg/logger"
 )
 
 const (

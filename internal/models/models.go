@@ -13,13 +13,14 @@ type ChartID string
 type ListeningEventID string
 
 type User struct {
-	ID           UserID
-	Email        string // Email хранится в нижнем регистре.
-	PasswordHash string // Хеш не включается в ответ API.
-	DisplayName  string
-	AvatarURL    string // Пустая строка означает отсутствие изображения.
-	AvatarFileID *MediaFileID
-	CreatedAt    time.Time
+	ID                UserID
+	Email             string // Email хранится в нижнем регистре.
+	PasswordHash      string // Хеш не включается в ответ API.
+	CredentialVersion int64  `json:"-"`
+	DisplayName       string
+	AvatarURL         string // Пустая строка означает отсутствие изображения.
+	AvatarFileID      *MediaFileID
+	CreatedAt         time.Time
 }
 
 type Session struct {

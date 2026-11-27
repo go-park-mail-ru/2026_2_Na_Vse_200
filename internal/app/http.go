@@ -1,11 +1,7 @@
 package app
 
 import (
-	"context"
-	"errors"
-	"fmt"
 	"net/http"
-	"time"
 
 	"2026_2_Na_Vse_200/internal/auth"
 	"2026_2_Na_Vse_200/internal/config"
@@ -25,7 +21,13 @@ import (
 	"github.com/rs/zerolog"
 )
 
-func newHandler(cfg config.Config, pool *pgxpool.Pool, sessions *postgres.SessionRepo, logger zerolog.Logger, metrics *middleware.HTTPMetrics) (http.Handler, error) {
+func newHandler(
+	cfg config.Config,
+	pool *pgxpool.Pool,
+	sessions *authClient,
+	logger zerolog.Logger,
+	metrics *middleware.HTTPMetrics,
+) (http.Handler, error) {
 	blobs, err := storage.NewLocal(cfg.MediaRoot)
 	if err != nil {
 		return nil, err
@@ -36,70 +38,24 @@ func newHandler(cfg config.Config, pool *pgxpool.Pool, sessions *postgres.Sessio
 	catalog := postgres.NewCatalogRepo(pool)
 	tracks := postgres.NewTrackRepo(pool)
 	api := handlers.New(&cfg, &handlers.Deps{
-		Favorites: tracks,
-		Music:     catalog,
-		Playlists: playlist.New(postgres.NewPlaylistRepo(pool, blobs), blobs),
-		Account:   accountusecase.NewAccountUsecase(users, users, auth.NewBcryptHasher()),
-		Auth: authusecase.NewAuthUsecase(
-			users, sessions, auth.NewBcryptHasher(), auth.NewSessionID, time.Now, cfg.SessionTTL,
-		),
-		Catalog: catalogusecase.New(catalog),
-		Profile: profileusecase.NewProfileUsecase(users, users, blobs),
-		Artist:  artistusecase.NewArtistUsecase(postgres.NewArtistRepo(pool)),
-		Media:   media.NewMediaHandler(mediaRepo, blobs, tracks),
+		Favorites:          tracks,
+		Music:              catalog,
+		Playlists:          playlist.New(postgres.NewPlaylistRepo(pool, blobs), blobs),
+		Account:            accountusecase.NewAccountUsecase(users, users, auth.NewBcryptHasher()),
+		Auth:               authusecase.NewAuthUsecase(users, sessions, auth.NewBcryptHasher()),
+		CheckProfileAccess: sessions.CheckProfileAccess,
+		Catalog:            catalogusecase.New(catalog),
+		Profile:            profileusecase.NewProfileUsecase(users, users, blobs),
+		Artist:             artistusecase.NewArtistUsecase(postgres.NewArtistRepo(pool)),
+		Media:              media.NewMediaHandler(mediaRepo, blobs, tracks),
 	})
 	return metrics.Wrap(
 		api.Routes(),
 		middleware.WithRequestID,
-		middleware.WithLogging(logger, "monolith/middleware"),
+		middleware.WithLogging(logger, "http/middleware"),
 		middleware.WithRecover(),
 		middleware.WithCORS(cfg.AllowedOrigin, cfg.AllowedMethods, cfg.AllowedHeaders),
 		middleware.WithCSRF,
 		middleware.WithJSONErrors,
 	), nil
-}
-
-func newServer(addr string, handler http.Handler) *http.Server {
-	return &http.Server{
-		Addr:              addr,
-		Handler:           handler,
-		ReadHeaderTimeout: 3 * time.Second,
-		ReadTimeout:       15 * time.Second,
-		WriteTimeout:      0,
-		IdleTimeout:       60 * time.Second,
-	}
-}
-
-func serve(ctx context.Context, server *http.Server, timeout time.Duration, logger zerolog.Logger) error {
-	serverErrors := make(chan error, 1)
-	go func() {
-		logger.Info().Str("addr", server.Addr).Str("handled_by", "monolith/server").Msg("запуск сервера")
-		err := server.ListenAndServe()
-		if errors.Is(err, http.ErrServerClosed) {
-			err = nil
-		}
-		serverErrors <- err
-	}()
-
-	select {
-	case err := <-serverErrors:
-		if err != nil {
-			return fmt.Errorf("сервер остановлен с ошибкой: %w", err)
-		}
-		return nil
-	case <-ctx.Done():
-		logger.Info().Msg("получен сигнал остановки, завершаем текущие запросы")
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), timeout)
-		defer cancel()
-		if err := server.Shutdown(shutdownCtx); err != nil {
-			closeErr := server.Close()
-			<-serverErrors
-			return fmt.Errorf("остановка сервера: %w", errors.Join(err, closeErr))
-		}
-		if err := <-serverErrors; err != nil {
-			return fmt.Errorf("сервер остановлен с ошибкой: %w", err)
-		}
-		logger.Info().Msg("сервер остановлен")
-		return nil
-	}
 }

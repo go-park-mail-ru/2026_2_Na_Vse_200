@@ -14,6 +14,10 @@ func New(
 	level string,
 	format string,
 ) (zerolog.Logger, error) {
+	return NewForService(out, level, format, "music-api")
+}
+
+func NewForService(out io.Writer, level, format, service string) (zerolog.Logger, error) {
 	level = strings.ToLower(strings.TrimSpace(level))
 	format = strings.ToLower(strings.TrimSpace(format))
 
@@ -52,7 +56,7 @@ func New(
 		Level(parsedLevel).
 		With().
 		Timestamp().
-		Str("service", "music-api").
+		Str("service", service).
 		Logger()
 
 	return logger, nil
