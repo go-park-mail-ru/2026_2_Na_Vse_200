@@ -10,7 +10,10 @@ import (
 
 // Config содержит настройки приложения.
 type Config struct {
+	LogLevel        string
+	LogFormat       string
 	Addr            string
+	MetricsAddr     string
 	AllowedOrigin   string // Пустое значение означает отсутствие отдельного origin для фронтенда.
 	AllowedMethods  string
 	AllowedHeaders  string
@@ -24,7 +27,10 @@ type Config struct {
 // Load читает настройки из окружения и возвращает ошибку при неверном формате значения.
 func Load() (cfg Config, err error) {
 	cfg = Config{
+		LogLevel:       getEnv("LOG_LEVEL", "info"),
+		LogFormat:      getEnv("LOG_FORMAT", "json"),
 		Addr:           getEnv("APP_ADDR", ":8080"),
+		MetricsAddr:    getEnv("APP_METRICS_ADDR", ""),
 		AllowedOrigin:  getEnv("APP_ALLOWED_ORIGIN", ""),
 		AllowedMethods: getEnv("APP_ALLOWED_METHODS", "GET, POST, PUT, DELETE, OPTIONS"),
 		AllowedHeaders: getEnv("APP_ALLOWED_HEADERS", "Content-Type, X-CSRF-Token"),

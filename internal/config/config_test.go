@@ -14,6 +14,8 @@ func TestLoadDefaults(t *testing.T) {
 	t.Setenv("APP_SHUTDOWN_TIMEOUT", "")
 	t.Setenv("POSTGRES_DSN", "")
 	t.Setenv("MEDIA_ROOT", "")
+	t.Setenv("LOG_LEVEL", "")
+	t.Setenv("LOG_FORMAT", " ")
 
 	cfg, err := Load()
 	if err != nil {
@@ -22,6 +24,9 @@ func TestLoadDefaults(t *testing.T) {
 
 	if cfg.Addr != ":8080" {
 		t.Errorf("Addr = %q, ожидался %q", cfg.Addr, ":8080")
+	}
+	if cfg.LogLevel != "info" || cfg.LogFormat != "json" {
+		t.Errorf("настройки логирования = %q/%q, ожидалось info/json", cfg.LogLevel, cfg.LogFormat)
 	}
 
 	if cfg.MediaRoot != "data/media" {
@@ -46,6 +51,8 @@ func TestLoadDefaults(t *testing.T) {
 }
 
 func TestLoadFromEnv(t *testing.T) {
+	t.Setenv("LOG_LEVEL", " debug ")
+	t.Setenv("LOG_FORMAT", "console")
 	t.Setenv("APP_ADDR", ":9000")
 	t.Setenv("APP_ALLOWED_ORIGIN", "http://localhost:3000")
 	t.Setenv("APP_COOKIE_SECURE", "true")
@@ -60,6 +67,9 @@ func TestLoadFromEnv(t *testing.T) {
 
 	if cfg.Addr != ":9000" {
 		t.Errorf("Addr = %q, ожидался %q", cfg.Addr, ":9000")
+	}
+	if cfg.LogLevel != "debug" || cfg.LogFormat != "console" {
+		t.Errorf("настройки логирования = %q/%q, ожидалось debug/console", cfg.LogLevel, cfg.LogFormat)
 	}
 
 	if !cfg.CookieSecure {

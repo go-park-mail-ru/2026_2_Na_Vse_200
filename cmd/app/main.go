@@ -4,21 +4,24 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log"
 	"os"
 	"os/signal"
 	"syscall"
 
+	"github.com/rs/zerolog"
+
 	"2026_2_Na_Vse_200/internal/app"
 	"2026_2_Na_Vse_200/internal/config"
+	applog "2026_2_Na_Vse_200/internal/logger"
 	"2026_2_Na_Vse_200/internal/migration"
 )
 
 const usage = "usage: app server | migrate <up|version|down steps>"
 
 func main() {
+	startupLogger := zerolog.New(os.Stderr).With().Timestamp().Str("service", "music-api").Logger()
 	if err := execute(os.Args[1:]); err != nil {
-		log.Print(err)
+		startupLogger.Error().Err(err).Msg("команда завершилась с ошибкой")
 		os.Exit(1)
 	}
 }
@@ -44,11 +47,22 @@ func run(ctx context.Context, args []string) error {
 		if len(args) != 1 {
 			return errors.New("server does not accept arguments")
 		}
+
 		cfg, err := config.Load()
 		if err != nil {
 			return fmt.Errorf("конфигурация: %w", err)
 		}
-		return app.Run(ctx, cfg)
+
+		logger, err := applog.New(
+			os.Stdout,
+			cfg.LogLevel,
+			cfg.LogFormat,
+		)
+		if err != nil {
+			return fmt.Errorf("настройка логирования: %w", err)
+		}
+
+		return app.Run(ctx, cfg, logger)
 	case "migrate":
 		return migration.Run(ctx, args[1:])
 	default:

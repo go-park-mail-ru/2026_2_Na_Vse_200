@@ -10,6 +10,8 @@ type ProfileRepository interface {
 	// UpdateProfile меняет имя; email должен совпадать с текущим и не изменяется.
 	UpdateProfile(ctx context.Context, id models.UserID, email, displayName string) (models.User, error)
 	SetAvatar(ctx context.Context, id models.UserID, fileID models.MediaFileID) (models.User, error)
+	// SaveAvatar атомарно создаёт метаданные и привязывает файл к профилю.
+	SaveAvatar(ctx context.Context, id models.UserID, file models.MediaFile) (models.User, error)
 }
 
 // MediaRepository сохраняет метаданные файлов без их содержимого.

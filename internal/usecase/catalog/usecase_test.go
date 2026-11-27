@@ -1,12 +1,16 @@
 package catalog
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"errors"
 	"reflect"
+	"strings"
 	"testing"
 
 	"2026_2_Na_Vse_200/internal/models"
+	"github.com/rs/zerolog"
 )
 
 type catalogStub struct {
@@ -15,6 +19,25 @@ type catalogStub struct {
 	err   error
 	ctx   context.Context
 	t     *testing.T
+}
+
+func TestHomeLogsUsecaseCallerAtInfo(t *testing.T) {
+	var output bytes.Buffer
+	log := zerolog.New(&output).Level(zerolog.InfoLevel).With().Str("request_id", "catalog-test").Caller().Logger()
+	ctx := log.WithContext(context.Background())
+	repo := &catalogStub{ctx: ctx, t: t}
+	if _, err := New(repo).Home(ctx); err != nil {
+		t.Fatal(err)
+	}
+	var event map[string]any
+	if err := json.NewDecoder(&output).Decode(&event); err != nil {
+		t.Fatal(err)
+	}
+	caller, _ := event["caller"].(string)
+	if event["request_id"] != "catalog-test" || event["level"] != "info" ||
+		event["operation"] != "catalog.home" || !strings.Contains(caller, "catalog/usecase.go:") {
+		t.Fatalf("wrong usecase log: %v", event)
+	}
 }
 
 func (s *catalogStub) call(ctx context.Context, name string, limit int) error {
@@ -51,7 +74,7 @@ func TestHome(t *testing.T) {
 			ctx := context.WithValue(context.Background(), struct{}{}, "request")
 			failure := errors.New("storage down")
 			repo := &catalogStub{fail: tc.fail, err: failure, ctx: ctx, t: t}
-			result, err := New(repo, nil).Home(ctx)
+			result, err := New(repo).Home(ctx)
 			if !reflect.DeepEqual(repo.calls, tc.calls) {
 				t.Fatalf("calls: %v", repo.calls)
 			}

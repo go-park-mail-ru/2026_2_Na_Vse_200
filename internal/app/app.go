@@ -4,32 +4,40 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
-	"os"
 	"time"
 
 	"2026_2_Na_Vse_200/internal/config"
+	"2026_2_Na_Vse_200/internal/delivery/middleware"
 	"2026_2_Na_Vse_200/internal/repository/postgres"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/rs/zerolog"
 )
 
-func Run(ctx context.Context, cfg config.Config) error {
+func Run(ctx context.Context, cfg config.Config, logger zerolog.Logger) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{Level: slog.LevelInfo}))
-	pool, err := connectPostgres(ctx, cfg.PostgreSQLDSN, logger)
+	ctx = logger.WithContext(ctx)
+	pool, err := connectPostgres(ctx, cfg.PostgreSQLDSN)
 	if err != nil {
 		return err
 	}
 	defer pool.Close()
 
 	sessions := postgres.NewSessionRepo(pool)
-	handler, err := newHandler(cfg, pool, sessions, logger)
+	metrics := middleware.NewHTTPMetrics("monolith")
+	handler, err := newHandler(cfg, pool, sessions, logger, metrics)
 	if err != nil {
 		return err
 	}
 	server := newServer(cfg.Addr, handler)
+	if cfg.MetricsAddr != "" {
+		stopMetrics, err := startMetrics(cfg.MetricsAddr, metrics.Handler(), logger)
+		if err != nil {
+			return err
+		}
+		defer stopMetrics()
+	}
 	cleanupCtx, cancelCleanup := context.WithCancel(ctx)
 	cleanupDone := make(chan struct{})
 	go func() {
@@ -44,16 +52,16 @@ func Run(ctx context.Context, cfg config.Config) error {
 	return serve(ctx, server, cfg.ShutdownTimeout, logger)
 }
 
-func connectPostgres(ctx context.Context, dsn string, logger *slog.Logger) (*pgxpool.Pool, error) {
+func connectPostgres(ctx context.Context, dsn string) (*pgxpool.Pool, error) {
 	if dsn == "" {
 		return nil, errors.New("конфигурация: POSTGRES_DSN не задан")
 	}
-	poolConfig, err := pgxpool.ParseConfig(dsn)
+	cfg, err := pgxpool.ParseConfig(dsn)
 	if err != nil {
 		return nil, fmt.Errorf("postgresql: %w", err)
 	}
-	poolConfig.ConnConfig.Tracer = &postgres.QueryTracer{Log: logger}
-	pool, err := pgxpool.NewWithConfig(ctx, poolConfig)
+	cfg.ConnConfig.Tracer = postgres.QueryTracer{}
+	pool, err := pgxpool.NewWithConfig(ctx, cfg)
 	if err != nil {
 		return nil, fmt.Errorf("postgresql: %w", err)
 	}

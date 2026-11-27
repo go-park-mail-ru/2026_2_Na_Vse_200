@@ -1,16 +1,17 @@
 package handlers
 
 import (
-	"2026_2_Na_Vse_200/internal/delivery/handlers/favorites"
-	"log/slog"
 	"net/http"
 
 	"2026_2_Na_Vse_200/internal/config"
 	"2026_2_Na_Vse_200/internal/delivery/handlers/artist"
 	"2026_2_Na_Vse_200/internal/delivery/handlers/auth"
+	"2026_2_Na_Vse_200/internal/delivery/handlers/favorites"
 	"2026_2_Na_Vse_200/internal/delivery/handlers/health"
 	"2026_2_Na_Vse_200/internal/delivery/handlers/home"
 	"2026_2_Na_Vse_200/internal/delivery/handlers/media"
+	"2026_2_Na_Vse_200/internal/delivery/handlers/music"
+	"2026_2_Na_Vse_200/internal/delivery/handlers/playlist"
 	"2026_2_Na_Vse_200/internal/delivery/handlers/profile"
 	"2026_2_Na_Vse_200/internal/delivery/middleware"
 )
@@ -18,7 +19,8 @@ import (
 const sessionCookieName = "session_id"
 
 type Deps struct {
-	Logger    *slog.Logger
+	Music     music.Repository
+	Playlists *playlist.Handler
 	Favorites favorites.Repository
 	Auth      auth.Usecase
 	Catalog   home.CatalogUsecase
@@ -30,6 +32,8 @@ type Deps struct {
 
 type API struct {
 	favorites      *favorites.Handler
+	music          *music.Handler
+	playlists      *playlist.Handler
 	auth           auth.Usecase
 	authH          *auth.Handler
 	home           *home.Handler
@@ -43,13 +47,17 @@ type API struct {
 func New(cfg *config.Config, deps *Deps) *API {
 	api := &API{
 		auth:           deps.Auth,
-		authH:          auth.New(cfg, deps.Auth, deps.Logger),
+		authH:          auth.New(cfg, deps.Auth),
 		home:           home.New(deps.Catalog),
 		profile:        profile.NewProfileHandler(deps.Profile),
 		account:        profile.NewAccountHandler(deps.Account, cfg),
 		accountEnabled: deps.Account != nil,
 		artist:         artist.NewArtistHandler(deps.Artist),
 		media:          deps.Media,
+		playlists:      deps.Playlists,
+	}
+	if deps.Music != nil {
+		api.music = music.New(deps.Music)
 	}
 	if deps.Favorites != nil {
 		api.favorites = favorites.NewFavoritesHandler(deps.Favorites)
@@ -57,7 +65,7 @@ func New(cfg *config.Config, deps *Deps) *API {
 	return api
 }
 
-func (a *API) Routes() http.Handler {
+func (a *API) Routes() *http.ServeMux {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /health", health.Health)
 	mux.HandleFunc("GET /api/v1/auth/csrf", a.authH.CSRF)
@@ -77,6 +85,13 @@ func (a *API) Routes() http.Handler {
 		mux.Handle("GET /api/v1/users/{id}", authUser(http.HandlerFunc(a.profile.Get)))
 		mux.Handle("PUT /api/v1/users/{id}", authUser(http.HandlerFunc(a.profile.Update)))
 		mux.Handle("POST /api/v1/users/{id}/avatar", authUser(http.HandlerFunc(a.profile.UploadAvatar)))
+	}
+	if a.music != nil {
+		mux.HandleFunc("GET /api/v1/search", a.music.Search)
+		mux.HandleFunc("GET /api/v1/albums/{id}", a.music.Album)
+	}
+	if a.auth != nil && a.playlists != nil {
+		a.playlists.Register(mux, middleware.WithAuth(sessionCookieName, a.auth.SessionByID))
 	}
 	if a.auth != nil && a.favorites != nil {
 		authUser := middleware.WithAuth(sessionCookieName, a.auth.SessionByID)

@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"context"
 	"net/http"
 
 	"2026_2_Na_Vse_200/internal/delivery/response"
@@ -10,24 +11,27 @@ import (
 // WithJSONErrors заменяет текстовые ответы 404 и 405 на JSON.
 func WithJSONErrors(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		next.ServeHTTP(&errorInterceptor{ResponseWriter: w}, r)
+		next.ServeHTTP(&errorInterceptor{ResponseWriter: w, ctx: r.Context()}, r)
 	})
 }
 
 // errorInterceptor заменяет тело ответа, сохраняя заголовки ServeMux.
 type errorInterceptor struct {
 	http.ResponseWriter
+	ctx      context.Context
 	replaced bool
 }
+
+func (w *errorInterceptor) Unwrap() http.ResponseWriter { return w.ResponseWriter }
 
 func (w *errorInterceptor) WriteHeader(code int) {
 	switch code {
 	case http.StatusNotFound:
 		w.replaced = true
-		response.WriteError(w.ResponseWriter, code, models.CodeNotFound, models.MsgNotFound)
+		response.WriteError(w.ctx, w.ResponseWriter, code, models.CodeNotFound, models.MsgNotFound)
 	case http.StatusMethodNotAllowed:
 		w.replaced = true
-		response.WriteError(w.ResponseWriter, code, models.CodeMethodNotAllowed, models.MsgMethodNotAllowed)
+		response.WriteError(w.ctx, w.ResponseWriter, code, models.CodeMethodNotAllowed, models.MsgMethodNotAllowed)
 	default:
 		w.ResponseWriter.WriteHeader(code)
 	}

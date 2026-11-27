@@ -3,23 +3,23 @@ package app
 import (
 	"context"
 	"errors"
-	"io"
-	"log/slog"
 	"net"
 	"net/http"
 	"testing"
 	"time"
 
 	"2026_2_Na_Vse_200/internal/config"
+
+	"github.com/rs/zerolog"
 )
 
 func TestRunWithoutDatabase(t *testing.T) {
-	if err := Run(context.Background(), config.Config{}); err == nil {
+	if err := Run(context.Background(), config.Config{}, zerolog.Nop()); err == nil {
 		t.Fatal("missing DSN accepted")
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
-	if err := Run(ctx, config.Config{}); !errors.Is(err, context.Canceled) {
+	if err := Run(ctx, config.Config{}, zerolog.Nop()); !errors.Is(err, context.Canceled) {
 		t.Fatal(err)
 	}
 }
@@ -43,7 +43,9 @@ func TestServeWaitsForActiveRequest(t *testing.T) {
 	defer cancel()
 	defer server.Close()
 	done := make(chan error, 1)
-	go func() { done <- serve(ctx, server, 2*time.Second, slog.New(slog.NewTextHandler(io.Discard, nil))) }()
+	go func() {
+		done <- serve(ctx, server, 2*time.Second, zerolog.Nop())
+	}()
 	var addr string
 	select {
 	case addr = <-address:
@@ -101,7 +103,7 @@ func TestServeWaitsForActiveRequest(t *testing.T) {
 
 func TestServeInvalidAddress(t *testing.T) {
 	server := newServer("invalid::address", http.NotFoundHandler())
-	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+	logger := zerolog.Nop()
 	if err := serve(context.Background(), server, time.Second, logger); err == nil {
 		t.Fatal("invalid address accepted")
 	}
