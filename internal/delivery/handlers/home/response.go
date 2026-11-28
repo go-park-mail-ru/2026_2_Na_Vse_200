@@ -1,9 +1,13 @@
 package home
 
+import "2026_2_Na_Vse_200/internal/onlineconf"
+
 type homeResponse struct {
-	Tracks  []TrackResponse  `json:"tracks"`
-	Artists []ArtistResponse `json:"artists"`
-	Albums  []AlbumResponse  `json:"albums"`
+	Tracks        []TrackResponse          `json:"tracks"`
+	Artists       []ArtistResponse         `json:"artists"`
+	Albums        []AlbumResponse          `json:"albums"`
+	PopularTracks []TrackResponse          `json:"popular_tracks"`
+	OnlineConf    onlineconf.PopularTracks `json:"online_conf"`
 }
 
 // TrackResponse represents a catalog track in the API.

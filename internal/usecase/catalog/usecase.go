@@ -18,6 +18,14 @@ type Home struct {
 	Albums  []models.Album
 }
 
+// PopularTracks ограничивает витрину отдельно от очереди воспроизведения.
+func (h Home) PopularTracks(limit int, enabled bool) []models.Track {
+	if !enabled || limit <= 0 {
+		return nil
+	}
+	return h.Tracks[:min(limit, len(h.Tracks))]
+}
+
 type Usecase struct {
 	catalog ports.CatalogRepository
 }

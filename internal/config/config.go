@@ -10,34 +10,40 @@ import (
 
 // Config содержит настройки приложения.
 type Config struct {
-	LogLevel        string
-	LogFormat       string
-	Addr            string
-	AllowedOrigin   string // Пустое значение означает отсутствие отдельного origin для фронтенда.
-	AllowedMethods  string
-	AllowedHeaders  string
-	CookieSecure    bool
-	SessionTTL      time.Duration
-	ShutdownTimeout time.Duration
-	PostgreSQLDSN   string
-	MediaRoot       string
-	AuthTarget      string
-	MetricsAddr     string
+	LogLevel            string
+	LogFormat           string
+	Addr                string
+	AllowedOrigin       string // Пустое значение означает отсутствие отдельного origin для фронтенда.
+	AllowedMethods      string
+	AllowedHeaders      string
+	CookieSecure        bool
+	SessionTTL          time.Duration
+	ShutdownTimeout     time.Duration
+	PostgreSQLDSN       string
+	MediaRoot           string
+	AuthTarget          string
+	MetricsAddr         string
+	OnlineConfURL       string
+	OnlineConfAdminIDs  string
+	OnlineConfAdminDist string
 }
 
 // Load читает настройки из окружения и возвращает ошибку при неверном формате значения.
 func Load() (cfg Config, err error) {
 	cfg = Config{
-		LogLevel:       env.String("LOG_LEVEL", "info"),
-		LogFormat:      env.String("LOG_FORMAT", "json"),
-		Addr:           env.String("APP_ADDR", ":8080"),
-		AllowedOrigin:  env.String("APP_ALLOWED_ORIGIN", ""),
-		AllowedMethods: env.String("APP_ALLOWED_METHODS", "GET, POST, PUT, DELETE, OPTIONS"),
-		AllowedHeaders: env.String("APP_ALLOWED_HEADERS", "Content-Type, X-CSRF-Token"),
-		PostgreSQLDSN:  env.String("POSTGRES_DSN", ""),
-		MediaRoot:      env.String("MEDIA_ROOT", "data/media"),
-		AuthTarget:     env.String("AUTH_GRPC_TARGET", "127.0.0.1:50051"),
-		MetricsAddr:    env.String("APP_METRICS_ADDR", ""),
+		LogLevel:            env.String("LOG_LEVEL", "info"),
+		LogFormat:           env.String("LOG_FORMAT", "json"),
+		Addr:                env.String("APP_ADDR", ":8080"),
+		AllowedOrigin:       env.String("APP_ALLOWED_ORIGIN", ""),
+		AllowedMethods:      env.String("APP_ALLOWED_METHODS", "GET, POST, PUT, DELETE, OPTIONS"),
+		AllowedHeaders:      env.String("APP_ALLOWED_HEADERS", "Content-Type, X-CSRF-Token"),
+		PostgreSQLDSN:       env.String("POSTGRES_DSN", ""),
+		MediaRoot:           env.String("MEDIA_ROOT", "data/media"),
+		AuthTarget:          env.String("AUTH_GRPC_TARGET", "127.0.0.1:50051"),
+		MetricsAddr:         env.String("APP_METRICS_ADDR", ""),
+		OnlineConfURL:       env.String("ONLINECONF_URL", ""),
+		OnlineConfAdminIDs:  env.String("ONLINECONF_ADMIN_IDS", ""),
+		OnlineConfAdminDist: env.String("ONLINECONF_ADMIN_DIST", ""),
 	}
 
 	cfg.CookieSecure, err = getBool("APP_COOKIE_SECURE", false)
