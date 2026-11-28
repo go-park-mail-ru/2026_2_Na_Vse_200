@@ -8,6 +8,7 @@ import (
 	authv1 "2026_2_Na_Vse_200/auth-microservice/api/auth/v1"
 	"2026_2_Na_Vse_200/internal/config"
 	"2026_2_Na_Vse_200/internal/delivery/middleware"
+	"2026_2_Na_Vse_200/internal/onlineconf"
 	"2026_2_Na_Vse_200/pkg/httpserver"
 	"2026_2_Na_Vse_200/pkg/postgres"
 	"2026_2_Na_Vse_200/pkg/rpcmetrics"
@@ -36,8 +37,16 @@ func Run(ctx context.Context, cfg config.Config, logger zerolog.Logger) error {
 	}
 	defer conn.Close()
 
+	var confClient *onlineconf.Client
+	if cfg.OnlineConfURL != "" {
+		confClient, err = onlineconf.NewClient(cfg.OnlineConfURL)
+		if err != nil {
+			return err
+		}
+	}
+	confCache := &onlineconf.Cache{}
 	httpMetrics := middleware.NewHTTPMetrics("monolith")
-	handler, err := newHandler(cfg, pool, newAuthClient(conn), logger, httpMetrics)
+	handler, err := newHandler(cfg, pool, newAuthClient(conn), logger, httpMetrics, confClient, confCache)
 	if err != nil {
 		return err
 	}
@@ -48,6 +57,11 @@ func Run(ctx context.Context, cfg config.Config, logger zerolog.Logger) error {
 			return err
 		}
 		defer stopMetrics()
+	}
+	if confClient != nil {
+		pollCtx, stopPolling := context.WithCancel(ctx)
+		defer stopPolling()
+		go confCache.Run(pollCtx, confClient, logger)
 	}
 	return httpserver.Serve(ctx, server, cfg.ShutdownTimeout, logger)
 }

@@ -2,13 +2,16 @@ package app
 
 import (
 	"net/http"
+	"strings"
 
 	"2026_2_Na_Vse_200/internal/auth"
 	"2026_2_Na_Vse_200/internal/config"
 	"2026_2_Na_Vse_200/internal/delivery/handlers"
 	"2026_2_Na_Vse_200/internal/delivery/handlers/media"
+	"2026_2_Na_Vse_200/internal/delivery/handlers/onlineconfadmin"
 	"2026_2_Na_Vse_200/internal/delivery/handlers/playlist"
 	"2026_2_Na_Vse_200/internal/delivery/middleware"
+	"2026_2_Na_Vse_200/internal/onlineconf"
 	"2026_2_Na_Vse_200/internal/repository/postgres"
 	"2026_2_Na_Vse_200/internal/storage"
 	accountusecase "2026_2_Na_Vse_200/internal/usecase/account"
@@ -27,8 +30,14 @@ func newHandler(
 	sessions *authClient,
 	logger zerolog.Logger,
 	metrics *middleware.HTTPMetrics,
+	confClient *onlineconf.Client,
+	confCache *onlineconf.Cache,
 ) (http.Handler, error) {
 	blobs, err := storage.NewLocal(cfg.MediaRoot)
+	if err != nil {
+		return nil, err
+	}
+	admin, err := onlineconfadmin.New(confClient, cfg.OnlineConfAdminDist, cfg.OnlineConfAdminIDs)
 	if err != nil {
 		return nil, err
 	}
@@ -48,6 +57,8 @@ func newHandler(
 		Profile:            profileusecase.NewProfileUsecase(users, users, blobs),
 		Artist:             artistusecase.NewArtistUsecase(postgres.NewArtistRepo(pool)),
 		Media:              media.NewMediaHandler(mediaRepo, blobs, tracks),
+		OnlineConf:         confCache,
+		OnlineConfAdmin:    admin,
 	})
 	return metrics.Wrap(
 		api.Routes(),
@@ -55,7 +66,19 @@ func newHandler(
 		middleware.WithLogging(logger, "http/middleware"),
 		middleware.WithRecover(),
 		middleware.WithCORS(cfg.AllowedOrigin, cfg.AllowedMethods, cfg.AllowedHeaders),
-		middleware.WithCSRF,
+		withProductCSRF,
 		middleware.WithJSONErrors,
 	), nil
+}
+
+func withProductCSRF(next http.Handler) http.Handler {
+	csrf := middleware.WithCSRF(next)
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Административная запись проверяет CSRF после проверки сессии и прав.
+		if strings.HasPrefix(r.URL.Path, onlineconfadmin.APIPrefix) {
+			next.ServeHTTP(w, r)
+			return
+		}
+		csrf.ServeHTTP(w, r)
+	})
 }
